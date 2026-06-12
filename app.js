@@ -7,6 +7,7 @@
 const CANTEENS = {
   "unimensa": {
     "name": "Mensa Zülpicher Straße",
+    "type": "mensa",
     "strasse": "Zülpicher Straße 70",
     "plz": "50937",
     "ort": "Köln",
@@ -25,6 +26,7 @@ const CANTEENS = {
   },
   "iwz-deutz": {
     "name": "Mensa Deutz",
+    "type": "mensa",
     "strasse": "Betzdorfer Straße 2",
     "plz": "50679",
     "ort": "Köln",
@@ -40,6 +42,7 @@ const CANTEENS = {
   },
   "suedstadt": {
     "name": "Mensa Südstadt",
+    "type": "mensa",
     "strasse": "Mainzer Straße 5",
     "plz": "50678",
     "ort": "Köln",
@@ -55,6 +58,7 @@ const CANTEENS = {
   },
   "spoho": {
     "name": "Mensa am Sportpark Müngersdorf",
+    "type": "mensa",
     "strasse": "Am Sportpark Müngersdorf 2",
     "plz": "50933",
     "ort": "Köln",
@@ -72,6 +76,7 @@ const CANTEENS = {
   },
   "eraum": {
     "name": "Bistro Uni E-Raum",
+    "type": "bistro",
     "strasse": "Albertus-Magnus-Platz",
     "plz": "50931",
     "ort": "Köln",
@@ -86,6 +91,7 @@ const CANTEENS = {
   },
   "cafe-himmelsblick": {
     "name": "Café Himmelsblick (Claudiusstraße)",
+    "type": "bistro",
     "strasse": "Claudiusstraße 1",
     "plz": "50678",
     "ort": "Köln",
@@ -100,6 +106,7 @@ const CANTEENS = {
   },
   "gummersbach": {
     "name": "Mensa Gummersbach",
+    "type": "mensa",
     "strasse": "Steinmüllerallee 1",
     "plz": "51643",
     "ort": "Gummersbach",
@@ -115,6 +122,7 @@ const CANTEENS = {
   },
   "kunsthochschule-medien": {
     "name": "Mensa Kunsthochschule Medien",
+    "type": "mensa",
     "strasse": "Filzengraben 2-4",
     "plz": "50676",
     "ort": "Köln",
@@ -129,6 +137,7 @@ const CANTEENS = {
   },
   "lindenthal": {
     "name": "Bistro Lindenthal",
+    "type": "bistro",
     "strasse": "Gronewaldstraße 2",
     "plz": "50931",
     "ort": "Köln",
@@ -143,6 +152,7 @@ const CANTEENS = {
   },
   "muho": {
     "name": "Mensa Musikhochschule",
+    "type": "mensa",
     "strasse": "Dagobertstraße 38",
     "plz": "50668",
     "ort": "Köln",
@@ -157,6 +167,7 @@ const CANTEENS = {
   },
   "robertkoch": {
     "name": "Mensa Lindenthal Robert-Koch-Straße",
+    "type": "mensa",
     "strasse": "Robert-Koch-Straße 10",
     "plz": "50931",
     "ort": "Köln",
@@ -174,6 +185,7 @@ const CANTEENS = {
   },
   "leverkusen": {
     "name": "Mensa TH Köln (Leverkusen)",
+    "type": "mensa",
     "strasse": "Campusplatz 1",
     "plz": "51379",
     "ort": "Leverkusen",
@@ -188,6 +200,7 @@ const CANTEENS = {
   },
   "zollstock": {
     "name": "Mensa Zollstock",
+    "type": "mensa",
     "strasse": "Sibille-Hartmann-Straße 2-8",
     "plz": "50969",
     "ort": "Köln",
@@ -202,6 +215,7 @@ const CANTEENS = {
   },
   "philcafe": {
     "name": "Bistro PhilCafé",
+    "type": "bistro",
     "strasse": "Universitätsstraße 38",
     "plz": "50931",
     "ort": "Köln",
@@ -361,15 +375,21 @@ function initOnboardingUI() {
     <button id="lang-en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "en" ? "bg-white/90 border-white/90 text-text-heading font-bold" : "bg-white/20 border-white/20 text-text-main opacity-90"}" onclick="changeLanguage('en')">English</button>
   `;
 
-  // Render Canteen Checkbox List
+  // Render Canteen Checkbox List (Clustered into Canteens and Bistros)
   const canteenListContainer = document.getElementById("canteen-checkbox-list");
   canteenListContainer.innerHTML = "";
+  
+  const canteensHTML = [];
+  const bistrosHTML = [];
+
   Object.keys(CANTEENS).forEach(key => {
     const canteen = CANTEENS[key];
     const isChecked = state.selectedCanteens.includes(key) ? "checked" : "";
-    canteenListContainer.innerHTML += `
-      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-white/50 rounded-lg transition-colors group">
-        <div class="relative flex items-center justify-center w-5 h-5">
+    const isBistro = canteen.type === "bistro";
+    
+    const itemHTML = `
+      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-white/40 dark:hover:bg-white/5 rounded-lg transition-colors group">
+        <div class="relative flex items-center justify-center w-5 h-5 flex-shrink-0">
           <input type="checkbox" value="${key}" ${isChecked} class="canteen-checkbox checkbox-custom opacity-0 absolute w-full h-full cursor-pointer z-10"/>
           <div class="w-4 h-4 rounded-sm border-2 border-outline-variant bg-surface-container-lowest flex items-center justify-center transition-colors">
             <svg class="hidden w-3 h-3 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -380,7 +400,44 @@ function initOnboardingUI() {
         <span class="font-body-md text-body-md text-text-main group-hover:text-text-heading">${canteen.name}</span>
       </label>
     `;
+
+    if (isBistro) {
+      bistrosHTML.push(itemHTML);
+    } else {
+      canteensHTML.push(itemHTML);
+    }
   });
+
+  const canteenLabel = state.language === "de" ? "Mensen" : "Canteens";
+  const bistroLabel = "Bistros & Cafés";
+
+  canteenListContainer.innerHTML = `
+    <details class="group border-b border-black/5 dark:border-white/5 pb-2" open>
+      <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading cursor-pointer list-none py-1.5 select-none">
+        <span class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[18px]">restaurant</span>
+          ${canteenLabel}
+        </span>
+        <span class="material-symbols-outlined text-[20px] transition-transform duration-200 group-open:rotate-180">expand_more</span>
+      </summary>
+      <div class="flex flex-col gap-0.5 mt-1 pl-1">
+        ${canteensHTML.join("")}
+      </div>
+    </details>
+
+    <details class="group pt-2">
+      <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading cursor-pointer list-none py-1.5 select-none">
+        <span class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[18px]">local_cafe</span>
+          ${bistroLabel}
+        </span>
+        <span class="material-symbols-outlined text-[20px] transition-transform duration-200 group-open:rotate-180">expand_more</span>
+      </summary>
+      <div class="flex flex-col gap-0.5 mt-1 pl-1">
+        ${bistrosHTML.join("")}
+      </div>
+    </details>
+  `;
 
   // Setup Custom Checkbox Visual States
   document.querySelectorAll(".canteen-checkbox").forEach(chk => {
