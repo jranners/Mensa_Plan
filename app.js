@@ -919,6 +919,9 @@ function renderDateSelector(forceScroll = false) {
     return;
   }
 
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
   daysWithDishes.forEach(day => {
     const date = new Date(day.date);
     const dayNames = {
@@ -928,7 +931,12 @@ function renderDateSelector(forceScroll = false) {
     
     const dayStr = dayNames[state.language][date.getDay()];
     const dateNum = date.getDate();
-    const formatted = `${dayStr} ${dateNum}`;
+    
+    const isToday = day.date === todayStr;
+    const formatted = isToday 
+      ? (state.language === "de" ? "Heute" : "Today") 
+      : `${dayStr} ${dateNum}`;
+      
     const isActive = day.date === state.activeDate;
     
     const btnClass = isActive 
@@ -1165,15 +1173,29 @@ function getBrandAndSubTag(dish) {
   return { brandBadgeHTML, subTagHTML };
 }
 
+function getDateHeaderHTML() {
+  if (!state.activeDate) return "";
+  const dateObj = new Date(state.activeDate);
+  const options = { weekday: 'long', day: 'numeric', month: 'long' };
+  const formattedDate = dateObj.toLocaleDateString(state.language === "de" ? "de-DE" : "en-US", options);
+  return `
+    <div class="flex items-center gap-2 text-text-heading/60 px-1 mb-1 mt-0.5 animate-fade-in">
+      <span class="material-symbols-outlined text-[18px] opacity-75">calendar_today</span>
+      <span class="text-sm font-semibold tracking-wide">${formattedDate}</span>
+    </div>
+  `;
+}
+
 function renderCanteenMenu() {
   const feedContainer = document.getElementById("main-feed");
   feedContainer.innerHTML = "";
   
   const t = TRANSLATIONS[state.language];
+  const dateHeader = getDateHeaderHTML();
 
   const activeDayData = state.menuData.find(d => d.date === state.activeDate);
   if (!activeDayData || !activeDayData.dishes || activeDayData.dishes.length === 0) {
-    feedContainer.innerHTML = `
+    feedContainer.innerHTML = dateHeader + `
       <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2">
         <span class="material-symbols-outlined text-[48px] opacity-40">calendar_today</span>
         <p class="font-body-lg text-body-lg opacity-60">${t.noDishes}</p>
@@ -1181,6 +1203,8 @@ function renderCanteenMenu() {
     `;
     return;
   }
+
+  feedContainer.innerHTML = dateHeader;
 
   const visibleCanteens = state.selectedCanteens;
   let renderedCanteensCount = 0;
@@ -1478,7 +1502,7 @@ function renderCanteenMenu() {
   });
 
   if (renderedCanteensCount === 0) {
-    feedContainer.innerHTML = `
+    feedContainer.innerHTML = dateHeader + `
       <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2">
         <span class="material-symbols-outlined text-[48px] opacity-40">notifications_off</span>
         <p class="font-body-lg text-body-lg opacity-60 text-center px-4 leading-relaxed">
