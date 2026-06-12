@@ -2,8 +2,7 @@
 
 > [!TIP]
 > **Du suchst die Live-App?** Du findest den Mensaplan direkt unter:
-> 👉 **[https://mensa.rannersberger.com](https://mensa.rannersberger.com)**
-> *(Alternativer GitHub Pages-Link: [jranners.github.io/Mensa_Plan](https://jranners.github.io/Mensa_Plan/))*
+> 👉 **[https://jranners.github.io/Mensa_Plan/](https://jranners.github.io/Mensa_Plan/)**
 
 ---
 
