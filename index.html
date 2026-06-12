@@ -235,6 +235,40 @@
                             <!-- Diet selector buttons loaded dynamically -->
                         </div>
                     </section>
+
+                    <!-- Install App Card -->
+                    <section id="install-promo-card" class="bg-white/40 backdrop-blur-xl rounded-2xl border border-white/60 p-inset-card shadow-[0_8px_32px_rgba(0,0,0,0.05)] hidden">
+                        <h2 id="install-title" class="font-headline text-[15px] font-bold text-text-heading mb-2 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-primary-container text-[18px]">cell_tower</span>
+                            Mensaplan als App installieren?
+                        </h2>
+                        <p id="install-desc" class="font-body-md text-body-md text-on-surface-variant leading-relaxed mb-4">
+                            Möchtest du schneller auf deinen Mensaplan zugreifen und ihn auch offline nutzen? Füge ein Icon zu deinem Homescreen hinzu!
+                        </p>
+                        
+                        <!-- Privacy & Specs Badges -->
+                        <div class="grid grid-cols-2 gap-2 mb-4 text-[11px] text-on-surface-variant font-body-sm">
+                            <div class="flex items-center gap-1.5 bg-white/50 p-1.5 rounded border border-white/40">
+                                <span class="material-symbols-outlined text-[15px] text-green-700 font-bold">shield</span>
+                                <span id="badge-privacy">100% DSGVO-konform</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 bg-white/50 p-1.5 rounded border border-white/40">
+                                <span class="material-symbols-outlined text-[15px] text-blue-700 font-bold">sd_card</span>
+                                <span id="badge-size">Sehr klein (&lt; 50 KB)</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 bg-white/50 p-1.5 rounded border border-white/40">
+                                <span class="material-symbols-outlined text-[15px] text-orange-700 font-bold">no_accounts</span>
+                                <span id="badge-perms">Keine Berechtigungen</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 bg-white/50 p-1.5 rounded border border-white/40">
+                                <span class="material-symbols-outlined text-[15px] text-purple-700 font-bold">offline_pin</span>
+                                <span id="badge-offline">Offline-fähig</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div id="install-actions"></div>
+                    </section>
                 </div>
 
                 <!-- Onboarding Sticky Footer CTA -->

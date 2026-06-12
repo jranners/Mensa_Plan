@@ -254,7 +254,15 @@ const TRANSLATIONS = {
     loading: "Lade Speiseplan...",
     errorLoading: "Fehler beim Laden des Speiseplans.",
     language: "Sprache",
-    resetBtn: "Voreinstellungen zurücksetzen"
+    resetBtn: "Voreinstellungen zurücksetzen",
+    installTitle: "Mensaplan als App installieren?",
+    installDesc: "Möchtest du schneller auf deinen Mensaplan zugreifen und ihn auch offline nutzen? Füge ein Icon zu deinem Homescreen hinzu!",
+    installBtn: "Jetzt installieren",
+    privacyBadge: "100% DSGVO-konform",
+    sizeBadge: "Sehr klein (< 50 KB)",
+    permissionsBadge: "Keine Berechtigungen",
+    offlineBadge: "Offline-fähig",
+    iosInstall: 'Tippe unten in Safari auf das Teilen-Symbol <span class="inline-flex items-center"><span class="material-symbols-outlined text-[16px] align-middle px-0.5">ios_share</span></span> und wähle <span class="font-bold">"Zum Home-Bildschirm"</span>.'
   },
   en: {
     title: "Mensaplan",
@@ -278,7 +286,15 @@ const TRANSLATIONS = {
     loading: "Loading menu...",
     errorLoading: "Error loading canteen plan.",
     language: "Language",
-    resetBtn: "Reset Preferences"
+    resetBtn: "Reset Preferences",
+    installTitle: "Install Canteen Plan as App?",
+    installDesc: "Do you want to access the canteen plan faster and use it offline? Add an icon to your home screen!",
+    installBtn: "Install Now",
+    privacyBadge: "100% GDPR-compliant",
+    sizeBadge: "Very small (< 50 KB)",
+    permissionsBadge: "No permissions needed",
+    offlineBadge: "Offline capable",
+    iosInstall: 'Tap the Share icon <span class="inline-flex items-center"><span class="material-symbols-outlined text-[16px] align-middle px-0.5">ios_share</span></span> in Safari below and select <span class="font-bold">"Add to Home Screen"</span>.'
   }
 };
 
@@ -304,6 +320,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   loadPreferences();
   applyLanguage();
   initOnboardingUI();
+  initInstallPrompt();
 
   if (hasPreferences()) {
     hideOnboarding();
@@ -496,6 +513,7 @@ window.changeLanguage = function(lang) {
   state.language = lang;
   applyLanguage();
   initOnboardingUI();
+  initInstallPrompt();
 };
 
 window.changeDietPreference = function(diet) {
@@ -506,6 +524,7 @@ window.changeDietPreference = function(diet) {
 function showOnboarding(isSettingsMenu = false) {
   const onboarding = document.getElementById("onboarding");
   onboarding.classList.remove("hidden");
+  initInstallPrompt();
   
   const resetContainer = document.getElementById("reset-container") || document.createElement("div");
   resetContainer.id = "reset-container";
@@ -532,6 +551,88 @@ window.resetApp = function() {
   localStorage.clear();
   location.reload();
 };
+
+// PWA Onboarding Installation Helper
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  initInstallPrompt();
+});
+
+function isAppStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function initInstallPrompt() {
+  const isStandalone = isAppStandalone();
+  const installCard = document.getElementById("install-promo-card");
+  if (!installCard) return;
+
+  if (isStandalone) {
+    installCard.classList.add("hidden");
+    return;
+  }
+
+  const t = TRANSLATIONS[state.language];
+
+  // Update text values
+  document.getElementById("install-title").innerHTML = `
+    <span class="material-symbols-outlined text-primary-container text-[18px]">cell_tower</span>
+    ${t.installTitle}
+  `;
+  document.getElementById("install-desc").textContent = t.installDesc;
+  document.getElementById("badge-privacy").textContent = t.privacyBadge;
+  document.getElementById("badge-size").textContent = t.sizeBadge;
+  document.getElementById("badge-perms").textContent = t.permissionsBadge;
+  document.getElementById("badge-offline").textContent = t.offlineBadge;
+
+  const actionsContainer = document.getElementById("install-actions");
+  if (!actionsContainer) return;
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  if (isIOS) {
+    actionsContainer.innerHTML = `
+      <div class="bg-primary/5 border border-primary/20 rounded-xl p-3 text-sm text-text-heading leading-relaxed flex items-start gap-2">
+        <span class="material-symbols-outlined text-[20px] text-primary-fixed-dim mt-0.5">info</span>
+        <div>
+          ${t.iosInstall}
+        </div>
+      </div>
+    `;
+    installCard.classList.remove("hidden");
+  } else {
+    actionsContainer.innerHTML = `
+      <button id="native-install-btn" class="w-full py-2 bg-primary text-white font-bold rounded-xl shadow-md hover:bg-primary/95 transition-colors flex items-center justify-center gap-1.5 active:scale-98 transition-transform">
+        <span class="material-symbols-outlined text-[18px]">download</span>
+        ${t.installBtn}
+      </button>
+    `;
+
+    installCard.classList.remove("hidden");
+    
+    const btn = document.getElementById("native-install-btn");
+    if (btn) {
+      btn.onclick = () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              installCard.classList.add("hidden");
+            }
+            deferredPrompt = null;
+          });
+        } else {
+          alert(state.language === "de" 
+            ? "Nutze das Browsermenü (Dreipunkt-Menü oben rechts -> 'App installieren' oder 'Zum Startbildschirm hinzufügen'), um den Mensaplan hinzuzufügen." 
+            : "Use your browser's menu (three dots in top right -> 'Install app' or 'Add to Home screen') to install the app.");
+        }
+      };
+    }
+  }
+}
 
 // 8. API Fetching & Recovery (Supreme CORS-Proxy Fallback)
 async function fetchAndRender() {
