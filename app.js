@@ -659,7 +659,7 @@ async function fetchAndRender() {
       state.activeDate = new Date().toISOString().split("T")[0];
     }
     
-    renderApp();
+    renderApp(true);
   } catch (err) {
     console.error("Error fetching menu plan:", err);
     console.log("Attempting API key recovery...");
@@ -677,7 +677,7 @@ async function fetchAndRender() {
         } else {
           state.activeDate = new Date().toISOString().split("T")[0];
         }
-        renderApp();
+        renderApp(true);
         return;
       } catch (innerErr) {
         console.error("Failed even after recovering keys:", innerErr);
@@ -777,13 +777,13 @@ function renderError() {
   `;
 }
 
-function renderApp() {
-  renderDateSelector();
+function renderApp(initialLoad = false) {
+  renderDateSelector(initialLoad);
   renderDietToggle();
   renderCanteenMenu();
 }
 
-function renderDateSelector() {
+function renderDateSelector(forceScroll = false) {
   const selectorContainer = document.getElementById("date-selector-container");
   selectorContainer.innerHTML = "";
   
@@ -816,15 +816,19 @@ function renderDateSelector() {
     `;
   });
   
-  const activeBtn = selectorContainer.querySelector(".bg-price-badge");
-  if (activeBtn) {
-    activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  if (forceScroll) {
+    setTimeout(() => {
+      const activeBtn = selectorContainer.querySelector(".bg-price-badge");
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: "auto", block: "nearest", inline: "start" });
+      }
+    }, 50);
   }
 }
 
 window.setActiveDate = function(dateStr) {
   state.activeDate = dateStr;
-  renderDateSelector();
+  renderDateSelector(false);
   renderCanteenMenu();
 };
 
