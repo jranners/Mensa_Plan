@@ -1,5 +1,12 @@
 # KStW Mensaplan PWA
 
+> [!TIP]
+> **Du suchst die Live-App?** Du findest den Mensaplan direkt unter:
+> 👉 **[https://mensa.rannersberger.com](https://mensa.rannersberger.com)**
+> *(Alternativer GitHub Pages-Link: [jranners.github.io/Mensa_Plan](https://jranners.github.io/Mensa_Plan/))*
+
+---
+
 Eine schlichte, mobile-first Progressive Web App (PWA) für den Speiseplan des Kölner Studierendenwerks (KStW). Die App läuft vollständig clientseitig im Browser (serverless) und bietet Offline-Support für die Nutzung in Mensa-Kellerräumen.
 
 ## Features
