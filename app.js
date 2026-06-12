@@ -1132,58 +1132,54 @@ function renderCanteenMenu() {
       const mealName = state.language === "en" && dish.name_en ? dish.name_en : dish.name_de;
       const mealDesc = state.language === "en" && dish.description_en ? dish.description_en : dish.description_de;
 
-      // Layout adaptation based on image existence
-      let imageHTML = "";
-      let priceBadgeHTML = "";
-
+      // Small thumbnail image on the right if available
+      let thumbnailHTML = "";
       if (dish.image_url) {
-        imageHTML = `
-          <div class="relative w-full h-44 overflow-hidden">
+        thumbnailHTML = `
+          <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 border border-black/5 shadow-sm">
             <img src="${dish.image_url}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${mealName}" onerror="this.parentNode.style.display='none'"/>
-            <div class="absolute top-3 right-3 bg-price-badge/95 backdrop-blur-md shadow-md rounded-full px-3 py-1 border border-white/30 z-10">
-              <span class="font-label-lg text-label-lg text-text-heading font-extrabold tracking-wide">${studentPrice}</span>
-            </div>
-          </div>
-        `;
-      } else {
-        priceBadgeHTML = `
-          <div class="bg-price-badge/95 backdrop-blur-md shadow-sm rounded-full px-3 py-1 border border-white/20 flex-shrink-0">
-            <span class="font-label-lg text-label-lg text-text-heading font-extrabold tracking-wide">${studentPrice}</span>
           </div>
         `;
       }
 
+      const priceBadgeHTML = `
+        <div class="bg-price-badge/95 backdrop-blur-md shadow-sm rounded-full px-2.5 py-0.5 border border-white/20 flex-shrink-0 ml-auto">
+          <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${studentPrice}</span>
+        </div>
+      `;
+
       canteenSection += `
-        <article class="glass rounded-2xl overflow-hidden flex flex-col gap-0.5 relative hover:shadow-md transition-shadow duration-200 border border-white/40">
-          ${imageHTML}
-          
-          <!-- Card Content -->
-          <div class="px-inset-card pb-inset-card ${dish.image_url ? 'pt-3' : 'pt-4'} flex flex-col gap-2.5">
-            <!-- Header Row: Brand and Price (if no image) -->
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-1.5 flex-wrap">
+        <article class="glass rounded-2xl p-inset-card flex flex-col gap-2 relative hover:shadow-md transition-shadow duration-200 border border-white/40">
+          <!-- Main layout: Content left, optional thumbnail right -->
+          <div class="flex justify-between items-start gap-3">
+            <div class="flex-1 flex flex-col gap-2.5 min-w-0">
+              <!-- Header Row: Brand, Sub-Tag, Price -->
+              <div class="flex items-center gap-1.5 flex-wrap w-full">
                 ${brandBadgeHTML}
                 ${subTagHTML}
+                ${priceBadgeHTML}
               </div>
-              ${priceBadgeHTML}
-            </div>
 
-            <!-- Title & Description -->
-            <div>
-              <h3 class="font-headline-sm text-headline-sm text-text-heading font-bold leading-snug mb-1">${mealName}</h3>
-              ${mealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">${mealDesc}</p>` : ""}
-            </div>
-
-            <!-- Serving Meta -->
-            ${servingMetaHTML}
-
-            <!-- Card Footer -->
-            <div class="flex items-center justify-between mt-1 pt-2 border-t border-black/5 dark:border-white/5">
-              <div class="flex gap-1.5 flex-wrap">
-                ${dietBadge}
+              <!-- Title & Description -->
+              <div class="min-w-0">
+                <h3 class="font-headline-sm text-headline-sm text-text-heading font-bold leading-snug mb-1 line-clamp-2">${mealName}</h3>
+                ${mealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2">${mealDesc}</p>` : ""}
               </div>
-              ${allergenIcons}
+
+              <!-- Serving Meta -->
+              ${servingMetaHTML}
             </div>
+
+            <!-- Thumbnail image -->
+            ${thumbnailHTML}
+          </div>
+
+          <!-- Card Footer -->
+          <div class="flex items-center justify-between mt-1 pt-2 border-t border-black/5 dark:border-white/5">
+            <div class="flex gap-1.5 flex-wrap">
+              ${dietBadge}
+            </div>
+            ${allergenIcons}
           </div>
         </article>
       `;
