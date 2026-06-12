@@ -1,0 +1,7 @@
+services:
+  mensaplan:
+    build: .
+    container_name: mensa_plan
+    ports:
+      - "8080:80"
+    restart: unless-stopped
