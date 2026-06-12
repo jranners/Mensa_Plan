@@ -635,6 +635,92 @@ function initInstallPrompt() {
 }
 
 // 8. API Fetching & Recovery (Supreme CORS-Proxy Fallback)
+function hasAvailableDishesForDate(dateStr) {
+  const dayData = state.menuData.find(d => d.date === dateStr);
+  if (!dayData || !dayData.dishes || dayData.dishes.length === 0) return false;
+
+  const todayIso = new Date().toISOString().split("T")[0];
+  if (dateStr < todayIso) return false; // Past days are not available
+  if (dateStr > todayIso) return true;  // Future days are assumed open
+
+  // For today, check if there's at least one valid dish that has not expired yet
+  const now = new Date();
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  
+  let validDishesCount = 0;
+
+  state.selectedCanteens.forEach(canteenKey => {
+    const canteen = CANTEENS[canteenKey];
+    if (!canteen) return;
+
+    let dishes = dayData.dishes.filter(dish => getCanteenKeyFromDish(dish, canteenKey, canteen));
+    
+    // Filter by diet
+    if (state.diet === "vegan") {
+      dishes = dishes.filter(d => getDishDietType(d) === "vegan");
+    } else if (state.diet === "vegetarian") {
+      dishes = dishes.filter(d => getDishDietType(d) === "vegan" || getDishDietType(d) === "vegetarian");
+    }
+
+    dishes.forEach(dish => {
+      const customFields = {};
+      (dish.custom_fields || []).forEach(f => {
+        if (f) customFields[f.field_id] = f.value;
+      });
+
+      let servingTime = "";
+      const dishInfo = customFields["dish_info"] || "";
+      if (dishInfo) {
+        const timeMatch = dishInfo.match(/(\d{2}[.:]\d{2}\s*-\s*\d{2}[.:]\d{2})/);
+        if (timeMatch) {
+          servingTime = timeMatch[1].replace(".", ":");
+        }
+      }
+
+      let expired = false;
+      if (servingTime) {
+        const endStr = servingTime.split("-")[1].trim();
+        const endHourMatch = endStr.match(/(\d{2})[.:](\d{2})/);
+        if (endHourMatch) {
+          const dishEndHour = parseInt(endHourMatch[1]) + parseInt(endHourMatch[2])/60;
+          if (currentHour > dishEndHour) {
+            expired = true;
+          }
+        }
+      } else {
+        // Fallback to canteen general closing time
+        let generalEndHour = 14.5;
+        const openingInfo = canteen.infokurz;
+        if (openingInfo) {
+          const currentDayOfWeek = now.getDay();
+          const lines = openingInfo.split("\n");
+          const dayNamesMap = {
+            1: ["Mo", "Mon"], 2: ["Di", "Tue"], 3: ["Mi", "Wed"], 4: ["Do", "Thu"], 5: ["Fr", "Fri"], 6: ["Sa", "Sat"], 0: ["So", "Sun"]
+          };
+          const searchTerms = dayNamesMap[currentDayOfWeek] || [];
+          for (const line of lines) {
+            if (searchTerms.some(term => line.includes(term)) || (currentDayOfWeek >= 1 && currentDayOfWeek <= 5 && line.includes("Mo - Fr"))) {
+              const hourMatch = line.match(/-\s*(\d{2})[.:](\d{2})/);
+              if (hourMatch) {
+                generalEndHour = parseInt(hourMatch[1]) + parseInt(hourMatch[2])/60;
+              }
+            }
+          }
+        }
+        if (currentHour > generalEndHour) {
+          expired = true;
+        }
+      }
+
+      if (!expired) {
+        validDishesCount++;
+      }
+    });
+  });
+
+  return validDishesCount > 0;
+}
+
 async function fetchAndRender() {
   renderLoading();
   
@@ -653,8 +739,20 @@ async function fetchAndRender() {
     const daysWithDishes = rawData.filter(d => (d.dishes || []).length > 0);
     if (daysWithDishes.length > 0) {
       const todayIso = new Date().toISOString().split("T")[0];
-      const hasToday = daysWithDishes.some(d => d.date === todayIso);
-      state.activeDate = hasToday ? todayIso : daysWithDishes[0].date;
+      const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
+      
+      if (hasTodayWithMeals) {
+        state.activeDate = todayIso;
+      } else {
+        const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
+        const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
+        if (nextAvailableDay) {
+          state.activeDate = nextAvailableDay.date;
+        } else {
+          const futureDays = sortedDays.filter(d => d.date >= todayIso);
+          state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
+        }
+      }
     } else {
       state.activeDate = new Date().toISOString().split("T")[0];
     }
@@ -672,8 +770,20 @@ async function fetchAndRender() {
         const daysWithDishes = rawData.filter(d => (d.dishes || []).length > 0);
         if (daysWithDishes.length > 0) {
           const todayIso = new Date().toISOString().split("T")[0];
-          const hasToday = daysWithDishes.some(d => d.date === todayIso);
-          state.activeDate = hasToday ? todayIso : daysWithDishes[0].date;
+          const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
+          
+          if (hasTodayWithMeals) {
+            state.activeDate = todayIso;
+          } else {
+            const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
+            const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
+            if (nextAvailableDay) {
+              state.activeDate = nextAvailableDay.date;
+            } else {
+              const futureDays = sortedDays.filter(d => d.date >= todayIso);
+              state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
+            }
+          }
         } else {
           state.activeDate = new Date().toISOString().split("T")[0];
         }
