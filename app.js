@@ -219,7 +219,7 @@ const CANTEENS = {
 // 2. Translations (Bilingual DE/EN)
 const TRANSLATIONS = {
   de: {
-    title: "KStW Mensaplan",
+    title: "Mensaplan",
     welcome: "Willkommen bei der KStW Mensa",
     selectCanteens: "Mensa-Auswahl",
     selectDiet: "Deine Ernährung",
@@ -243,7 +243,7 @@ const TRANSLATIONS = {
     resetBtn: "Voreinstellungen zurücksetzen"
   },
   en: {
-    title: "KStW Canteen Plan",
+    title: "Mensaplan",
     welcome: "Welcome to KStW Mensa",
     selectCanteens: "Canteen Selection",
     selectDiet: "Dietary Preference",
