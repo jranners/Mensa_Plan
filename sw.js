@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v3';
+const CACHE_NAME = 'kstw-mensa-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -16,7 +16,7 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME).then(cache => {
       console.log('Service Worker: Caching App Shell...');
       return cache.addAll(STATIC_ASSETS);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
@@ -81,5 +81,12 @@ self.addEventListener('fetch', event => {
         });
       })
     );
+  }
+});
+
+// Message listener to trigger skipWaiting manually when requested by the client app
+self.addEventListener('message', event => {
+  if (event.data && event.data.action === 'skipWaiting') {
+    self.skipWaiting();
   }
 });

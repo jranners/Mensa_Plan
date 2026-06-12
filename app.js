@@ -262,7 +262,13 @@ const TRANSLATIONS = {
     sizeBadge: "Sehr klein (< 50 KB)",
     permissionsBadge: "Keine Berechtigungen",
     offlineBadge: "Offline-fähig",
-    iosInstall: 'Tippe unten in Safari auf das Teilen-Symbol <span class="inline-flex items-center"><span class="material-symbols-outlined text-[16px] align-middle px-0.5">ios_share</span></span> und wähle <span class="font-bold">"Zum Home-Bildschirm"</span>.'
+    iosInstall: 'Tippe unten in Safari auf das Teilen-Symbol <span class="inline-flex items-center"><span class="material-symbols-outlined text-[16px] align-middle px-0.5">ios_share</span></span> und wähle <span class="font-bold">"Zum Home-Bildschirm"</span>.',
+    updateAvailableTitle: "Update verfügbar!",
+    updateAvailableDesc: "Neue Version ist bereit.",
+    updatePrompt: "Ein neues Update für den Mensaplan ist verfügbar. Möchtest du die App neu starten, um die neuesten Gerichte und Funktionen zu laden?",
+    updateRestart: "Neu starten",
+    updateLater: "Später",
+    updateSuccessToast: "Mensaplan erfolgreich aktualisiert!"
   },
   en: {
     title: "Mensaplan",
@@ -294,7 +300,13 @@ const TRANSLATIONS = {
     sizeBadge: "Very small (< 50 KB)",
     permissionsBadge: "No permissions needed",
     offlineBadge: "Offline capable",
-    iosInstall: 'Tap the Share icon <span class="inline-flex items-center"><span class="material-symbols-outlined text-[16px] align-middle px-0.5">ios_share</span></span> in Safari below and select <span class="font-bold">"Add to Home Screen"</span>.'
+    iosInstall: 'Tap the Share icon <span class="inline-flex items-center"><span class="material-symbols-outlined text-[16px] align-middle px-0.5">ios_share</span></span> in Safari below and select <span class="font-bold">"Add to Home Screen"</span>.',
+    updateAvailableTitle: "Update available!",
+    updateAvailableDesc: "New version is ready.",
+    updatePrompt: "A new update for the canteen plan is available. Do you want to restart the app to load the latest dishes and features?",
+    updateRestart: "Restart",
+    updateLater: "Later",
+    updateSuccessToast: "Canteen plan updated successfully!"
   }
 };
 
@@ -321,6 +333,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   applyLanguage();
   initOnboardingUI();
   initInstallPrompt();
+
+  // Register PWA Service Worker & check for updates
+  registerSW();
+  checkUpdatedToast();
 
   if (hasPreferences()) {
     hideOnboarding();
@@ -1473,4 +1489,158 @@ function renderCanteenMenu() {
       </div>
     `;
   }
+}
+
+// 12. PWA Update & Service Worker Lifecycle Management
+function registerSW() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => {
+          console.log('Service Worker registered successfully!', reg.scope);
+
+          // If a new service worker is already waiting (e.g. user dismissed prompt earlier and re-opened)
+          if (reg.waiting) {
+            showUpdateDialog(reg.waiting);
+          }
+
+          // Listen for new service worker updates being installed
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed') {
+                  // Only prompt if there is an active controller (meaning this is a dynamic update, not first install)
+                  if (navigator.serviceWorker.controller) {
+                    showUpdateDialog(newWorker);
+                  }
+                }
+              });
+            }
+          });
+        })
+        .catch(err => {
+          console.error('Service Worker registration failed:', err);
+        });
+    });
+
+    // Handle controller change (reloading the page once skipWaiting has activated the new service worker)
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        localStorage.setItem("kstw_updated_successfully", "true");
+        window.location.reload();
+      }
+    });
+  }
+}
+
+function showUpdateDialog(worker) {
+  if (document.getElementById('update-modal')) return;
+
+  const t = TRANSLATIONS[state.language] || TRANSLATIONS.de;
+  const modal = document.createElement('div');
+  modal.id = 'update-modal';
+  // Use z-[100] to sit above everything (safe area, header, etc.)
+  modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in';
+  
+  modal.innerHTML = `
+    <div class="w-full max-w-sm glass rounded-2xl p-6 shadow-xl flex flex-col gap-4 animate-zoom-in">
+      <div class="flex items-center gap-3">
+        <div class="h-12 w-12 rounded-xl bg-[#143d59]/10 flex items-center justify-center text-[#143d59] dark:bg-white/10 dark:text-white flex-shrink-0">
+          <span class="material-symbols-outlined text-[28px]">update</span>
+        </div>
+        <div>
+          <h3 class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.updateAvailableTitle}</h3>
+          <p class="text-[12px] text-on-surface-variant dark:text-gray-400">${t.updateAvailableDesc}</p>
+        </div>
+      </div>
+      <p class="text-sm text-text-main dark:text-gray-200 leading-relaxed">
+        ${t.updatePrompt}
+      </p>
+      <div class="flex gap-3 mt-2">
+        <button id="update-later-btn" class="flex-1 h-11 border border-outline/20 hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-transform font-label-md text-label-md rounded-xl text-on-surface-variant dark:text-gray-300 font-semibold">
+          ${t.updateLater}
+        </button>
+        <button id="update-now-btn" class="flex-1 h-11 bg-price-badge text-primary hover:opacity-90 active:scale-95 transition-transform font-label-md text-label-md rounded-xl font-bold shadow-sm">
+          ${t.updateRestart}
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Append to app-container to stay within borders on desktop
+  const appContainer = document.getElementById('app-container');
+  if (appContainer) {
+    appContainer.appendChild(modal);
+  } else {
+    document.body.appendChild(modal);
+  }
+
+  // Dismiss listeners
+  document.getElementById('update-later-btn').addEventListener('click', () => {
+    modal.classList.remove('animate-fade-in');
+    modal.classList.add('animate-fade-out');
+    const innerDiv = modal.querySelector('div');
+    if (innerDiv) {
+      innerDiv.classList.remove('animate-zoom-in');
+      innerDiv.classList.add('animate-zoom-out');
+    }
+    setTimeout(() => modal.remove(), 200);
+  });
+
+  document.getElementById('update-now-btn').addEventListener('click', () => {
+    worker.postMessage({ action: 'skipWaiting' });
+  });
+}
+
+function checkUpdatedToast() {
+  if (localStorage.getItem("kstw_updated_successfully") === "true") {
+    localStorage.removeItem("kstw_updated_successfully");
+    // Wait for the app to finish rendering and load before showing the toast
+    setTimeout(() => {
+      showSuccessToast();
+    }, 1200);
+  }
+}
+
+function showSuccessToast() {
+  if (document.getElementById('update-toast')) return;
+
+  const t = TRANSLATIONS[state.language] || TRANSLATIONS.de;
+  const toast = document.createElement('div');
+  toast.id = 'update-toast';
+  // Slide in from bottom, aligned to app-container if possible, or centered
+  toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-32px)] max-w-sm bg-[#143d59] text-white rounded-xl px-4 py-3 shadow-lg flex items-center justify-between gap-3 animate-slide-in';
+  
+  toast.innerHTML = `
+    <div class="flex items-center gap-2.5">
+      <span class="material-symbols-outlined text-[20px] text-price-badge">check_circle</span>
+      <span class="text-sm font-semibold tracking-wide">${t.updateSuccessToast}</span>
+    </div>
+    <button id="close-toast-btn" class="material-symbols-outlined text-[18px] text-white/60 hover:text-white transition-colors">close</button>
+  `;
+
+  const appContainer = document.getElementById('app-container');
+  if (appContainer) {
+    appContainer.appendChild(toast);
+  } else {
+    document.body.appendChild(toast);
+  }
+
+  const dismiss = () => {
+    toast.classList.remove('animate-slide-in');
+    toast.classList.add('animate-slide-out');
+    setTimeout(() => toast.remove(), 300);
+  };
+
+  document.getElementById('close-toast-btn').addEventListener('click', dismiss);
+  
+  // Auto dismiss after 4 seconds
+  setTimeout(() => {
+    if (toast.parentNode) {
+      dismiss();
+    }
+  }, 4000);
 }
