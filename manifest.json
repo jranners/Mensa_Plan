@@ -1,0 +1,24 @@
+{
+  "name": "KStW Kölner Mensaplan",
+  "short_name": "KStW Mensa",
+  "description": "Schlichter und schneller Speiseplan für die Mensen des Kölner Studierendenwerks.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f7fb",
+  "theme_color": "#143d59",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

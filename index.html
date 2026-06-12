@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html class="light" lang="de">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+    <title>KStW Mensaplan</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#143d59"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+    <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+    <link rel="manifest" href="manifest.json"/>
+
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-bright": "#f6fafe",
+                        "on-secondary-fixed": "#221b00",
+                        "on-primary-fixed": "#001e31",
+                        "inverse-on-surface": "#edf1f5",
+                        "primary-fixed": "#cce5ff",
+                        "on-primary-fixed-variant": "#244a67",
+                        "on-secondary-fixed-variant": "#544600",
+                        "text-heading": "#143d59",
+                        "tertiary-fixed-dim": "#c8c6c6",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#c2c7ce",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-tint": "#3d6280",
+                        "secondary-container": "#fdd400",
+                        "on-surface-variant": "#42474d",
+                        "on-primary-container": "#83a8c9",
+                        "text-main": "#373737",
+                        "primary-container": "#143d59",
+                        "tertiary-fixed": "#e4e2e1",
+                        "tertiary-container": "#3a3a3a",
+                        "on-secondary": "#ffffff",
+                        "price-badge": "#ffd600",
+                        "inverse-primary": "#a6cbed",
+                        "surface-card": "#ffffff",
+                        "surface-container-highest": "#dfe3e7",
+                        "tertiary": "#242525",
+                        "surface": "#f6fafe",
+                        "on-error-container": "#93000a",
+                        "secondary": "#705d00",
+                        "primary": "#00273e",
+                        "on-tertiary-container": "#a5a4a3",
+                        "primary-fixed-dim": "#a6cbed",
+                        "surface-container-high": "#e4e9ed",
+                        "outline": "#72787e",
+                        "secondary-fixed-dim": "#e9c400",
+                        "on-surface": "#171c1f",
+                        "on-error": "#ffffff",
+                        "surface-variant": "#dfe3e7",
+                        "on-primary": "#ffffff",
+                        "on-background": "#171c1f",
+                        "surface-container-low": "#f0f4f8",
+                        "error-container": "#ffdad6",
+                        "on-tertiary": "#ffffff",
+                        "border-subtle": "#e5e7eb",
+                        "secondary-fixed": "#ffe170",
+                        "surface-dim": "#d6dade",
+                        "inverse-surface": "#2c3134",
+                        "background": "#f6fafe",
+                        "surface-container": "#eaeef2",
+                        "on-tertiary-fixed": "#1b1c1c",
+                        "on-secondary-container": "#6f5c00"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "margin-page": "16px",
+                        "inset-card": "16px",
+                        "control-height": "44px",
+                        "gutter-card": "12px",
+                        "stack-md": "16px",
+                        "stack-sm": "8px",
+                        "stack-lg": "24px"
+                    },
+                    fontFamily: {
+                        sans: ["Hanken Grotesk", "sans-serif"],
+                        label: ["Hanken Grotesk", "sans-serif"],
+                        body: ["Hanken Grotesk", "sans-serif"],
+                        headline: ["Hanken Grotesk", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Hanken Grotesk', sans-serif;
+            background-color: #f3f7fb;
+            min-height: 100vh;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Glassmorphism Styles */
+        .glass {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        
+        .glass-dark {
+            background: rgba(20, 61, 89, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .checkbox-custom:checked + div {
+            background-color: #143d59;
+            border-color: #143d59;
+        }
+
+        .checkbox-custom:checked + div svg {
+            display: block;
+        }
+        
+        /* Adjust for notch / safe areas on iOS */
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .pt-safe {
+            padding-top: env(safe-area-inset-top);
+        }
+    </style>
+</head>
+<body class="w-full flex justify-center text-text-main">
+
+    <!-- Main Mobile Viewport Container -->
+    <div id="app-container" class="w-full max-w-md min-h-screen bg-gradient-to-br from-[#e0eaf5] via-[#f0f4f8] to-[#d6dade] flex flex-col relative sm:border-x sm:border-white/30 shadow-2xl mx-auto pb-safe">
+        
+        <!-- Top App Bar -->
+        <header class="sticky top-0 w-full z-40 glass-dark text-on-primary flex items-center justify-between px-margin-page h-control-height shadow-sm pt-safe">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-price-badge text-[24px]">restaurant_menu</span>
+                <span id="app-title" class="font-headline text-[18px] font-bold text-on-primary tracking-wide">KStW Mensaplan</span>
+            </div>
+            <button id="settings-btn" class="material-symbols-outlined hover:bg-white/10 active:scale-95 transition-transform p-1.5 rounded-full flex items-center justify-center">settings</button>
+        </header>
+
+        <!-- Main Feed Container -->
+        <main class="flex-1 px-margin-page py-4 flex flex-col gap-4">
+            
+            <!-- Date Selector Segmented Control -->
+            <section class="w-full">
+                <div id="date-selector-container" class="flex glass-panel rounded-xl p-1 overflow-x-auto hide-scrollbar gap-1 shadow-sm">
+                    <!-- Dates loaded dynamically -->
+                </div>
+            </section>
+
+            <!-- Dietary Filters toggle -->
+            <section class="w-full">
+                <div id="diet-toggle-container" class="flex glass-panel rounded-xl p-1 shadow-sm">
+                    <!-- Diet options loaded dynamically -->
+                </div>
+            </section>
+
+            <!-- Active Canteens and Dishes -->
+            <div id="main-feed" class="flex flex-col gap-4">
+                <!-- Dishes loaded dynamically -->
+            </div>
+        </main>
+
+        <!-- Onboarding Overlay -->
+        <div id="onboarding" class="fixed inset-0 z-50 bg-[#f3f7fb] flex flex-col justify-between overflow-hidden hidden pt-safe pb-safe">
+            <div class="w-full max-w-md h-full bg-gradient-to-br from-surface-bright via-inverse-primary/20 to-primary-fixed/30 flex flex-col relative mx-auto">
+                
+                <!-- Onboarding Header -->
+                <header class="px-margin-page pt-8 pb-4 relative z-10">
+                    <h1 id="onboarding-title" class="font-headline text-[24px] font-bold text-text-heading text-center leading-tight">
+                        Willkommen bei der KStW Mensa
+                    </h1>
+                </header>
+
+                <!-- Onboarding Settings Body -->
+                <div id="onboarding-content-area" class="flex-1 px-margin-page overflow-y-auto pb-28 flex flex-col gap-6 relative z-10 hide-scrollbar">
+                    
+                    <!-- Language Selection -->
+                    <section id="lang-selector" class="flex justify-center gap-4">
+                        <!-- DE / EN buttons loaded dynamically -->
+                    </section>
+
+                    <!-- Canteen Selection -->
+                    <section class="bg-white/40 backdrop-blur-xl rounded-2xl border border-white/60 p-inset-card shadow-[0_8px_32px_rgba(0,0,0,0.05)]">
+                        <h2 id="onboarding-canteen-title" class="font-headline text-[16px] font-bold text-text-heading mb-stack-md">Mensa-Auswahl</h2>
+                        <div id="canteen-checkbox-list" class="flex flex-col gap-1.5 max-h-[280px] overflow-y-auto pr-1 hide-scrollbar">
+                            <!-- Checklist loaded dynamically -->
+                        </div>
+                    </section>
+
+                    <!-- Dietary Preference -->
+                    <section class="flex flex-col gap-stack-sm">
+                        <h2 id="onboarding-diet-title" class="font-headline text-[16px] font-bold text-text-heading px-1">Deine Ernährung</h2>
+                        <div id="diet-selector" class="flex bg-primary-container/90 backdrop-blur-md p-1 rounded-xl shadow-lg border border-white/20">
+                            <!-- Diet selector buttons loaded dynamically -->
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Onboarding Sticky Footer CTA -->
+                <div class="absolute bottom-0 w-full p-margin-page bg-white/50 backdrop-blur-lg border-t border-white/60 z-20">
+                    <button id="submit-onboarding-btn" class="w-full h-control-height bg-price-badge text-primary font-label-lg text-label-lg rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,214,0,0.3)] font-bold">
+                        Speiseplan anzeigen
+                        <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- App Script -->
+    <script src="app.js"></script>
+    
+    <!-- Register Service Worker for PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker registered successfully!', reg.scope))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
