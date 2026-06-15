@@ -269,7 +269,13 @@ const TRANSLATIONS = {
     updatePrompt: "Ein neues Update für den Mensaplan ist verfügbar. Möchtest du die App neu starten, um die neuesten Gerichte und Funktionen zu laden?",
     updateRestart: "Neu starten",
     updateLater: "Später",
-    updateSuccessToast: "Mensaplan erfolgreich aktualisiert!"
+    updateSuccessToast: "Mensaplan erfolgreich aktualisiert!",
+    offlineBannerText: "Offline-Modus: Letztes Update {time}.",
+    offlineBannerUpdateBtn: "Aktualisieren",
+    offlineBannerUpdating: "Aktualisiere...",
+    justNow: "gerade eben",
+    minutesAgo: "vor {n} Min.",
+    hoursAgo: "vor {n} Std."
   },
   en: {
     title: "Mensaplan",
@@ -308,7 +314,13 @@ const TRANSLATIONS = {
     updatePrompt: "A new update for the canteen plan is available. Do you want to restart the app to load the latest dishes and features?",
     updateRestart: "Restart",
     updateLater: "Later",
-    updateSuccessToast: "Canteen plan updated successfully!"
+    updateSuccessToast: "Canteen plan updated successfully!",
+    offlineBannerText: "Offline Mode: Last update {time}.",
+    offlineBannerUpdateBtn: "Update",
+    offlineBannerUpdating: "Updating...",
+    justNow: "just now",
+    minutesAgo: "{n} min ago",
+    hoursAgo: "{n} hr ago"
   }
 };
 
@@ -327,7 +339,10 @@ let state = {
   activeDate: "", // YYYY-MM-DD
   menuData: [], // parsed days list
   isLoaded: false,
-  isSettingsMenu: false
+  isSettingsMenu: false,
+  isOfflineMode: false,
+  isUpdatingBackground: false,
+  lastCacheTime: null
 };
 
 // 5. Initialize App
@@ -428,6 +443,47 @@ function savePreferences(language, canteens, diet) {
   localStorage.setItem("kstw_canteens", JSON.stringify(canteens));
   localStorage.setItem("kstw_diet", diet);
   localStorage.setItem("kstw_prefs_saved", "true");
+}
+
+function saveMenuCache(data) {
+  try {
+    const time = Date.now();
+    localStorage.setItem("kstw_menu_cache", JSON.stringify(data));
+    localStorage.setItem("kstw_menu_cache_time", time.toString());
+    state.lastCacheTime = time;
+  } catch (err) {
+    console.error("Failed to save menu cache:", err);
+  }
+}
+
+function loadMenuCache() {
+  try {
+    const cachedData = localStorage.getItem("kstw_menu_cache");
+    const cachedTime = localStorage.getItem("kstw_menu_cache_time");
+    if (cachedData && cachedTime) {
+      state.menuData = JSON.parse(cachedData);
+      state.lastCacheTime = parseInt(cachedTime);
+      return true;
+    }
+  } catch (err) {
+    console.error("Failed to load menu cache:", err);
+  }
+  return false;
+}
+
+function formatCacheTime(timestamp) {
+  if (!timestamp) return "";
+  const diffMs = Date.now() - timestamp;
+  const diffMins = Math.floor(diffMs / 60000);
+  const t = TRANSLATIONS[state.language];
+  if (diffMins < 1) {
+    return t.justNow;
+  } else if (diffMins < 60) {
+    return t.minutesAgo.replace("{n}", diffMins);
+  } else {
+    const diffHrs = Math.floor(diffMins / 60);
+    return t.hoursAgo.replace("{n}", diffHrs);
+  }
 }
 
 function applyLanguage() {
@@ -801,22 +857,12 @@ function hasAvailableDishesForDate(dateStr) {
   return validDishesCount > 0;
 }
 
-async function fetchAndRender() {
-  renderLoading();
+async function fetchAndRender(forceNetwork = false) {
+  const hasCache = loadMenuCache();
   
-  const today = new Date();
-  const day = today.getDay();
-  const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(today.setDate(diff));
-  
-  const start_date = monday;
-  const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
-
-  try {
-    const rawData = await fetchWeekMenuData(start_date, end_date);
-    state.menuData = rawData;
-    
-    const daysWithDishes = rawData.filter(d => (d.dishes || []).length > 0);
+  if (hasCache && state.menuData && state.menuData.length > 0) {
+    // We have cached data, let's determine the active date and render immediately!
+    const daysWithDishes = state.menuData.filter(d => (d.dishes || []).length > 0);
     if (daysWithDishes.length > 0) {
       const todayIso = new Date().toISOString().split("T")[0];
       const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
@@ -837,15 +883,47 @@ async function fetchAndRender() {
       state.activeDate = new Date().toISOString().split("T")[0];
     }
     
+    // Render from cache
     renderApp(true);
-  } catch (err) {
-    console.error("Error fetching menu plan:", err);
-    console.log("Attempting API key recovery...");
-    const recovered = await recoverSupabaseCredentials();
-    if (recovered) {
+    
+    // Check if the cache is older than 60 minutes or forced
+    const cacheAgeMs = Date.now() - state.lastCacheTime;
+    if (cacheAgeMs > 60 * 60000 || forceNetwork) {
+      updateMenuDataBackground();
+    } else {
+      state.isOfflineMode = false;
+      renderOfflineBanner();
+    }
+  } else {
+    // No cache, perform a blocking load
+    renderLoading();
+    
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diff));
+    
+    const start_date = monday;
+    const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
+
+    try {
+      let rawData;
       try {
-        const rawData = await fetchWeekMenuData(start_date, end_date);
+        rawData = await fetchWeekMenuData(start_date, end_date);
+      } catch (err) {
+        console.log("Blocking fetch failed, attempting API key recovery...");
+        const recovered = await recoverSupabaseCredentials();
+        if (recovered) {
+          rawData = await fetchWeekMenuData(start_date, end_date);
+        } else {
+          throw err;
+        }
+      }
+
+      if (rawData) {
         state.menuData = rawData;
+        saveMenuCache(rawData);
+        state.isOfflineMode = false;
         
         const daysWithDishes = rawData.filter(d => (d.dishes || []).length > 0);
         if (daysWithDishes.length > 0) {
@@ -867,15 +945,118 @@ async function fetchAndRender() {
         } else {
           state.activeDate = new Date().toISOString().split("T")[0];
         }
+        
         renderApp(true);
-        return;
-      } catch (innerErr) {
-        console.error("Failed even after recovering keys:", innerErr);
       }
+    } catch (err) {
+      console.error("Blocking fetch completely failed:", err);
+      state.isOfflineMode = true;
+      renderError();
     }
-    renderError();
   }
 }
+
+async function updateMenuDataBackground(isManual = false) {
+  if (state.isUpdatingBackground) return;
+  state.isUpdatingBackground = true;
+  if (isManual) {
+    renderOfflineBanner();
+  }
+
+  const today = new Date();
+  const day = today.getDay();
+  const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(today.setDate(diff));
+  
+  const start_date = monday;
+  const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
+
+  try {
+    let rawData;
+    try {
+      rawData = await fetchWeekMenuData(start_date, end_date);
+    } catch (err) {
+      console.log("Background fetch failed, attempting API key recovery...");
+      const recovered = await recoverSupabaseCredentials();
+      if (recovered) {
+        rawData = await fetchWeekMenuData(start_date, end_date);
+      } else {
+        throw err;
+      }
+    }
+
+    if (rawData) {
+      state.menuData = rawData;
+      saveMenuCache(rawData);
+      state.isOfflineMode = false;
+      
+      const daysWithDishes = rawData.filter(d => (d.dishes || []).length > 0);
+      if (daysWithDishes.length > 0) {
+        const todayIso = new Date().toISOString().split("T")[0];
+        const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
+        
+        if (hasTodayWithMeals) {
+          state.activeDate = todayIso;
+        } else {
+          const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
+          const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
+          if (nextAvailableDay) {
+            state.activeDate = nextAvailableDay.date;
+          } else {
+            const futureDays = sortedDays.filter(d => d.date >= todayIso);
+            state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
+          }
+        }
+      }
+      
+      renderApp(true);
+    }
+  } catch (err) {
+    console.error("Background fetch failed:", err);
+    state.isOfflineMode = true;
+  } finally {
+    state.isUpdatingBackground = false;
+    renderOfflineBanner();
+  }
+}
+
+function renderOfflineBanner() {
+  const container = document.getElementById("offline-banner-container");
+  if (!container) return;
+
+  if (!state.isOfflineMode) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const t = TRANSLATIONS[state.language];
+  const timeFormatted = formatCacheTime(state.lastCacheTime);
+  const bannerText = t.offlineBannerText.replace("{time}", timeFormatted);
+  const btnText = state.isUpdatingBackground ? t.offlineBannerUpdating : t.offlineBannerUpdateBtn;
+  const btnDisabled = state.isUpdatingBackground ? "disabled" : "";
+
+  container.innerHTML = `
+    <div class="w-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800 dark:text-amber-300 text-sm animate-fade-in shadow-sm mb-4">
+      <div class="flex items-center gap-2.5">
+        <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">cloud_off</span>
+        <span class="font-medium">${bannerText}</span>
+      </div>
+      <button id="offline-refresh-btn" ${btnDisabled} class="h-9 px-4 bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:pointer-events-none font-bold" onclick="triggerManualReload()">
+        ${state.isUpdatingBackground ? `
+          <svg class="animate-spin -ml-1 mr-1.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        ` : ""}
+        <span>${btnText}</span>
+      </button>
+    </div>
+  `;
+}
+
+window.triggerManualReload = async function() {
+  await fetchAndRender(true);
+};
 
 async function fetchWeekMenuData(startDate, endDate) {
   const payload = {
@@ -975,6 +1156,7 @@ function renderApp(initialLoad = false) {
   renderDateSelector(initialLoad);
   renderDietToggle();
   renderCanteenMenu();
+  renderOfflineBanner();
 }
 
 function renderDateSelector(forceScroll = false) {
