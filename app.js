@@ -1346,9 +1346,10 @@ function renderCanteenMenu() {
       : (opensLater ? t.opensLater : t.closed);
 
     let canteenSection = `
-      <div class="canteen-card w-full break-inside-avoid mb-6 bg-white/40 dark:bg-slate-900/30 backdrop-blur-md rounded-3xl p-5 border border-white/45 shadow-sm flex flex-col gap-4 hover:shadow-md hover:bg-white/50 dark:hover:bg-slate-900/40 transition-all duration-300">
-        <!-- Canteen Header -->
-        <header class="flex flex-col gap-2">
+      <div class="inline-block w-full break-inside-avoid-column mb-6">
+        <div class="canteen-card w-full bg-white/40 dark:bg-slate-900/30 backdrop-blur-md rounded-3xl p-5 border border-white/45 shadow-sm flex flex-col gap-4 hover:shadow-md hover:bg-white/50 dark:hover:bg-slate-900/40 transition-all duration-300">
+          <!-- Canteen Header -->
+          <header class="flex flex-col gap-2">
           <div class="flex justify-between items-start gap-2">
             <div class="min-w-0">
               <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${canteen.name}</h2>
@@ -1528,6 +1529,7 @@ function renderCanteenMenu() {
     });
 
     canteenSection += `
+          </div>
         </div>
       </div>
     `;
