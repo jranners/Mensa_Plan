@@ -1929,7 +1929,9 @@ function registerSW() {
       if (!refreshing) {
         refreshing = true;
         localStorage.setItem("kstw_updated_successfully", "true");
-        window.location.reload();
+        // Force the browser to bypass memory and HTTP cache by reloading with a cache-busting query param
+        const cleanUrl = window.location.origin + window.location.pathname + '?u=' + Date.now();
+        window.location.replace(cleanUrl);
       }
     });
   }

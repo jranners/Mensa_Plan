@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v13';
+const CACHE_NAME = 'kstw-mensa-v14';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -17,12 +17,29 @@ self.addEventListener('install', event => {
       
       const cachePromises = STATIC_ASSETS.map(async asset => {
         try {
-          const request = asset instanceof Request ? asset : new Request(asset);
-          const response = await fetch(request);
+          const cleanRequest = asset instanceof Request ? asset : new Request(asset);
+          
+          // Only apply cache busting to local assets (same origin)
+          let fetchRequest = cleanRequest;
+          const isLocal = cleanRequest.url.includes(self.location.origin);
+          
+          if (isLocal) {
+            const separator = cleanRequest.url.includes('?') ? '&' : '?';
+            const cacheBustUrl = cleanRequest.url + separator + '_cb=' + Date.now();
+            fetchRequest = new Request(cacheBustUrl, {
+              method: cleanRequest.method,
+              headers: cleanRequest.headers,
+              mode: cleanRequest.mode === 'navigate' ? 'cors' : cleanRequest.mode,
+              credentials: cleanRequest.credentials,
+              redirect: cleanRequest.redirect
+            });
+          }
+          
+          const response = await fetch(fetchRequest);
           if (response.ok || response.type === 'opaque') {
-            await cache.put(request, response);
+            await cache.put(cleanRequest, response);
           } else {
-            console.warn(`Service Worker: Failed to cache ${request.url} - status ${response.status}`);
+            console.warn(`Service Worker: Failed to cache ${cleanRequest.url} - status ${response.status}`);
           }
         } catch (err) {
           console.error(`Service Worker: Error caching asset:`, asset, err);
