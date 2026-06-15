@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v12';
+const CACHE_NAME = 'kstw-mensa-v13';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -6,7 +6,6 @@ const STATIC_ASSETS = [
   './manifest.json',
   './kstw-logo.png',
   'https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap',
-  'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap',
   new Request('https://cdn.tailwindcss.com/?plugins=forms,container-queries', { mode: 'no-cors' })
 ];
 

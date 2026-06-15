@@ -1,7 +1,45 @@
-/**
- * KStW Mensa PWA - Core Application Logic
- * Powered by CloudMensa API (Supabase)
- */
+const SVG_ICONS = {
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+  cell_tower: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="2"/><path d="M12 2v8M12 14v8M4.93 4.93a10 10 0 0 1 14.14 0M7.76 7.76a6 6 0 0 1 8.48 0"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  sd_card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M18 22H6a2 2 0 0 1-2-2V8l4-4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2zM14 6v4M10 6v4M7 8v2"/></svg>',
+  no_accounts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M17.8 17.8C16.8 15.6 14.6 14 12 14c-1 0-2 .2-2.9.7M8.5 8.5a4 4 0 0 1 6.5-1M3 3l18 18M12 2a10 10 0 1 0 10 10"/></svg>',
+  offline_pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>',
+  arrow_forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"/></svg>',
+  ios_share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="20 6 9 17 4 12"/></svg>',
+  restaurant: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v4M12 15v7M18 2s1 2.5 1 6c0 3-2.5 5-2.5 5h1.5v9h2v-9h1.5s-2.5-2-2.5-5c0-3.5 1-6 1-6"/></svg>',
+  expand_more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="6 9 12 15 18 9"/></svg>',
+  local_cafe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z M6 2v2M10 2v2M14 2v2"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  cloud_off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 0 11h13a5 5 0 0 0 1.25-.16M1 1l22 22"/></svg>',
+  sync: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>',
+  error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+  calendar_today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  schedule: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"/></svg>',
+  eco: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.5 1 9.8a7 7 0 0 1-9 8.2ZM9 22v-4"/></svg>',
+  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6a4 4 0 0 1 4 4c0 3-4 8-4 8s-4-5-4-8a4 4 0 0 1 4-4zM12 2v2"/></svg>',
+  location_on: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  alarm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14 15"></polyline><path d="M5 3 2 6M19 3l3 3M6.26 18.26l-1.92 1.92M17.74 18.26l1.92 1.92"/></svg>',
+  notifications_off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M13.73 21a2 2 0 0 1-3.46 0M18.8 13.8A8.4 8.4 0 0 0 17 6.4M5.1 5.1A8.4 8.4 0 0 0 4 12v5H2v2h18v-2h-1M1 1l22 22"/></svg>',
+  update: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67M12 8v4l3 3"/></svg>',
+  check_circle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>',
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  public: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg>',
+  yard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22V12M12 12a5 5 0 0 1 5-5h3M12 12a5 5 0 0 0-5-5H4M20 7a3 3 0 0 0-3-3h-3M4 7a3 3 0 0 1 3-3h3"/></svg>',
+  workspace_premium: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
+  fastfood: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 11h18M3 11a4 4 0 0 1 8 0M21 11a4 4 0 0 0-8 0M5 15h14M6 19h12a2 2 0 0 0 2-2v-2H4v2a2 2 0 0 0 2 2z"/></svg>',
+  volunteer_activism: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
+  grain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>',
+  icecream: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m12 2-7 12h14Z M12 22a5 5 0 0 0 5-5H7a5 5 0 0 0 5 5z"/></svg>'
+};
+
+function getIconHTML(name, classes = "") {
+  const iconSvg = SVG_ICONS[name] || "";
+  return `<span class="inline-flex items-center justify-center ${classes}" style="width: 1.2em; height: 1.2em; vertical-align: middle; line-height: 1;">${iconSvg}</span>`;
+}
 
 // 1. Canteen Registry & Metadata
 const CANTEENS = {
@@ -263,7 +301,7 @@ const TRANSLATIONS = {
     sizeBadge: "Sehr klein (< 50 KB)",
     permissionsBadge: "Keine Berechtigungen",
     offlineBadge: "Offline-fähig",
-    iosInstall: 'Tippe unten in Safari auf das Teilen-Symbol <span class="inline-flex items-center"><span class="material-symbols-outlined text-[16px] align-middle px-0.5">ios_share</span></span> und wähle <span class="font-bold">"Zum Home-Bildschirm"</span>.',
+    iosInstall: 'Tippe unten in Safari auf das Teilen-Symbol <span class="inline-flex items-center justify-center text-[16px] align-middle px-0.5" style="width: 1.2em; height: 1.2em; vertical-align: middle; line-height: 1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></span> und wähle <span class="font-bold">"Zum Home-Bildschirm"</span>.',
     updateAvailableTitle: "Update verfügbar!",
     updateAvailableDesc: "Neue Version ist bereit.",
     updatePrompt: "Ein neues Update für den Mensaplan ist verfügbar. Möchtest du die App neu starten, um die neuesten Gerichte und Funktionen zu laden?",
@@ -308,7 +346,7 @@ const TRANSLATIONS = {
     sizeBadge: "Very small (< 50 KB)",
     permissionsBadge: "No permissions needed",
     offlineBadge: "Offline capable",
-    iosInstall: 'Tap the Share icon <span class="inline-flex items-center"><span class="material-symbols-outlined text-[16px] align-middle px-0.5">ios_share</span></span> in Safari below and select <span class="font-bold">"Add to Home Screen"</span>.',
+    iosInstall: 'Tap the Share icon <span class="inline-flex items-center justify-center text-[16px] align-middle px-0.5" style="width: 1.2em; height: 1.2em; vertical-align: middle; line-height: 1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></span> in Safari below and select <span class="font-bold">"Add to Home Screen"</span>.',
     updateAvailableTitle: "Update available!",
     updateAvailableDesc: "New version is ready.",
     updatePrompt: "A new update for the canteen plan is available. Do you want to restart the app to load the latest dishes and features?",
@@ -495,10 +533,10 @@ function applyLanguage() {
   document.getElementById("app-title").textContent = t.title;
   if (state.isSettingsMenu) {
     document.getElementById("onboarding-title").textContent = t.settings;
-    document.getElementById("submit-onboarding-btn").innerHTML = `${t.saveSettings} <span class="material-symbols-outlined text-[20px]">check</span>`;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.saveSettings} ${getIconHTML('check', 'text-[20px]')}`;
   } else {
     document.getElementById("onboarding-title").textContent = t.welcome;
-    document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} <span class="material-symbols-outlined text-[20px]">arrow_forward</span>`;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} ${getIconHTML('arrow_forward', 'text-[20px]')}`;
   }
   document.getElementById("onboarding-canteen-title").textContent = t.selectCanteens;
   document.getElementById("onboarding-diet-title").textContent = t.selectDiet;
@@ -555,10 +593,10 @@ function initOnboardingUI() {
     <details class="group border-b border-black/5 dark:border-white/5 pb-2" open>
       <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading dark:text-white cursor-pointer list-none py-1.5 select-none">
         <span class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-[18px]">restaurant</span>
+          ${getIconHTML('restaurant', 'text-[18px]')}
           ${canteenLabel}
         </span>
-        <span class="material-symbols-outlined text-[20px] transition-transform duration-200 group-open:rotate-180">expand_more</span>
+        ${getIconHTML('expand_more', 'text-[20px] transition-transform duration-200 group-open:rotate-180')}
       </summary>
       <div class="flex flex-col gap-0.5 mt-1 pl-1">
         ${canteensHTML.join("")}
@@ -568,10 +606,10 @@ function initOnboardingUI() {
     <details class="group pt-2">
       <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading dark:text-white cursor-pointer list-none py-1.5 select-none">
         <span class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-[18px]">local_cafe</span>
+          ${getIconHTML('local_cafe', 'text-[18px]')}
           ${bistroLabel}
         </span>
-        <span class="material-symbols-outlined text-[20px] transition-transform duration-200 group-open:rotate-180">expand_more</span>
+        ${getIconHTML('expand_more', 'text-[20px] transition-transform duration-200 group-open:rotate-180')}
       </summary>
       <div class="flex flex-col gap-0.5 mt-1 pl-1">
         ${bistrosHTML.join("")}
@@ -656,7 +694,7 @@ function showOnboarding(isSettingsMenu = false) {
   if (isSettingsMenu) {
     if (closeBtn) closeBtn.classList.remove("hidden");
     document.getElementById("onboarding-title").textContent = t.settings;
-    document.getElementById("submit-onboarding-btn").innerHTML = `${t.saveSettings} <span class="material-symbols-outlined text-[20px]">check</span>`;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.saveSettings} ${getIconHTML('check', 'text-[20px]')}`;
     
     const resetContainer = document.getElementById("reset-container") || document.createElement("div");
     resetContainer.id = "reset-container";
@@ -670,7 +708,7 @@ function showOnboarding(isSettingsMenu = false) {
   } else {
     if (closeBtn) closeBtn.classList.add("hidden");
     document.getElementById("onboarding-title").textContent = t.welcome;
-    document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} <span class="material-symbols-outlined text-[20px]">arrow_forward</span>`;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} ${getIconHTML('arrow_forward', 'text-[20px]')}`;
     
     const resetContainer = document.getElementById("reset-container");
     if (resetContainer && resetContainer.parentNode) {
@@ -716,7 +754,7 @@ function initInstallPrompt() {
 
   // Update text values
   document.getElementById("install-title").innerHTML = `
-    <span class="material-symbols-outlined text-primary-container text-[18px]">cell_tower</span>
+    ${getIconHTML('cell_tower', 'text-primary-container text-[18px]')}
     ${t.installTitle}
   `;
   document.getElementById("install-desc").textContent = t.installDesc;
@@ -733,7 +771,7 @@ function initInstallPrompt() {
   if (isIOS) {
     actionsContainer.innerHTML = `
       <div class="bg-primary/5 border border-primary/20 rounded-xl p-3 text-sm text-text-heading leading-relaxed flex items-start gap-2">
-        <span class="material-symbols-outlined text-[20px] text-primary-fixed-dim mt-0.5">info</span>
+        ${getIconHTML('info', 'text-[20px] text-primary-fixed-dim mt-0.5')}
         <div>
           ${t.iosInstall}
         </div>
@@ -743,7 +781,7 @@ function initInstallPrompt() {
   } else {
     actionsContainer.innerHTML = `
       <button id="native-install-btn" class="w-full py-2 bg-primary text-white font-bold rounded-xl shadow-md hover:bg-primary/95 transition-colors flex items-center justify-center gap-1.5 active:scale-98 transition-transform">
-        <span class="material-symbols-outlined text-[18px]">download</span>
+        ${getIconHTML('download', 'text-[18px]')}
         ${t.installBtn}
       </button>
     `;
@@ -1041,7 +1079,7 @@ function renderOfflineBanner() {
   container.innerHTML = `
     <div class="w-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800 dark:text-amber-300 text-sm animate-fade-in shadow-sm mb-4">
       <div class="flex items-center gap-2.5">
-        <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">cloud_off</span>
+        ${getIconHTML('cloud_off', 'text-[20px] text-amber-600 dark:text-amber-400')}
         <span class="font-medium">${bannerText}</span>
       </div>
       <button id="offline-refresh-btn" ${btnDisabled} class="h-9 px-4 bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:pointer-events-none font-bold" onclick="triggerManualReload()">
@@ -1136,7 +1174,7 @@ function renderLoading() {
   if (dateContainer) dateContainer.innerHTML = "";
   document.getElementById("main-feed").innerHTML = `
     <div class="flex flex-col items-center justify-center py-20 text-text-main gap-4">
-      <span class="material-symbols-outlined text-[48px] animate-spin text-primary-container">sync</span>
+      ${getIconHTML('sync', 'text-[48px] animate-spin text-primary-container')}
       <p class="font-label-lg text-label-lg">${t.loading}</p>
     </div>
   `;
@@ -1148,7 +1186,7 @@ function renderError() {
   if (dateContainer) dateContainer.innerHTML = "";
   document.getElementById("main-feed").innerHTML = `
     <div class="flex flex-col items-center justify-center py-20 text-red-600 gap-4">
-      <span class="material-symbols-outlined text-[48px]">error</span>
+      ${getIconHTML('error', 'text-[48px]')}
       <p class="font-label-lg text-label-lg">${t.errorLoading}</p>
       <button class="mt-4 px-6 py-2 bg-primary-container text-white rounded-lg font-label-md" onclick="fetchAndRender()">${state.language === "de" ? "Erneut versuchen" : "Retry"}</button>
     </div>
@@ -1418,7 +1456,7 @@ function getBrandAndSubTag(dish) {
 
   const brandBadgeHTML = `
     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${brandColor} shadow-sm">
-      <span class="material-symbols-outlined text-[13px] font-normal">${brandIcon}</span>
+      ${getIconHTML(brandIcon, 'text-[13px] font-normal')}
       ${brandName}
     </span>
   `;
@@ -1435,7 +1473,7 @@ function getDateHeaderHTML() {
   return `
     <div class="flex items-center gap-3 text-text-heading px-1 py-3 mb-2 mt-2 border-b border-black/5 dark:border-white/5 animate-fade-in">
       <div class="w-9 h-9 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-white/60 dark:border-white/5 shadow-sm flex items-center justify-center">
-        <span class="material-symbols-outlined text-[20px] text-primary-container dark:text-[#a6cbed]">calendar_today</span>
+        ${getIconHTML('calendar_today', 'text-[20px] text-primary-container dark:text-[#a6cbed]')}
       </div>
       <div>
         <span class="text-[10px] font-bold text-on-surface-variant/60 dark:text-gray-400/60 uppercase tracking-widest block leading-none mb-1">${prefix}</span>
@@ -1461,7 +1499,7 @@ function renderCanteenMenu() {
   if (!activeDayData || !activeDayData.dishes || activeDayData.dishes.length === 0) {
     feedContainer.innerHTML = `
       <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2 w-full">
-        <span class="material-symbols-outlined text-[48px] opacity-40">calendar_today</span>
+        ${getIconHTML('calendar_today', 'text-[48px] opacity-40')}
         <p class="font-body-lg text-body-lg opacity-60">${t.noDishes}</p>
       </div>
     `;
@@ -1623,7 +1661,7 @@ function renderCanteenMenu() {
             </span>
           </div>
           <div class="flex items-center gap-1 text-on-surface-variant dark:text-gray-300 font-body-sm text-[12px] opacity-85">
-            <span class="material-symbols-outlined text-[16px]">schedule</span>
+            ${getIconHTML('schedule', 'text-[16px]')}
             <span>${serviceWindowText}</span>
           </div>
         </header>
@@ -1695,14 +1733,14 @@ function renderCanteenMenu() {
       if (dietType === "vegan") {
         dietBadge = `
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 border border-green-200 text-[#2e7d32] font-label-sm text-[11px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900">
-            <span class="material-symbols-outlined text-[14px]">eco</span>
+            ${getIconHTML('eco', 'text-[14px]')}
             ${t.vegan}
           </span>
         `;
       } else if (dietType === "vegetarian") {
         dietBadge = `
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-50 border border-yellow-200 text-[#f57f17] font-label-sm text-[11px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900">
-            <span class="material-symbols-outlined text-[14px]">nutrition</span>
+            ${getIconHTML('nutrition', 'text-[14px]')}
             ${t.vegetarian}
           </span>
         `;
@@ -1730,13 +1768,13 @@ function renderCanteenMenu() {
           <div class="flex flex-wrap items-center gap-2 text-[12px] font-label-sm text-primary-container/80 mt-1">
             ${locationBadge ? `
               <span class="inline-flex items-center gap-1 bg-white/50 border border-white/60 shadow-sm px-2 py-0.5 rounded text-[11px] dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
-                <span class="material-symbols-outlined text-[14px]">location_on</span>
+                ${getIconHTML('location_on', 'text-[14px]')}
                 ${locationBadge}
               </span>
             ` : ""}
             ${servingTime ? `
               <span class="inline-flex items-center gap-1 bg-white/50 border border-white/60 shadow-sm px-2 py-0.5 rounded text-[11px] dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
-                <span class="material-symbols-outlined text-[14px]">alarm</span>
+                ${getIconHTML('alarm', 'text-[14px]')}
                 ${servingTime}
               </span>
             ` : ""}
@@ -1841,7 +1879,7 @@ function renderCanteenMenu() {
   if (renderedCanteensCount === 0) {
     feedContainer.innerHTML = `
       <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2 w-full">
-        <span class="material-symbols-outlined text-[48px] opacity-40">notifications_off</span>
+        ${getIconHTML('notifications_off', 'text-[48px] opacity-40')}
         <p class="font-body-lg text-body-lg opacity-60 text-center px-4 leading-relaxed">
           ${state.language === "de" 
             ? "Alle ausgewählten Mensen haben für heute den Service beendet oder sind geschlossen." 
@@ -1910,7 +1948,7 @@ function showUpdateDialog(worker) {
     <div class="w-full max-w-sm glass rounded-2xl p-6 shadow-xl flex flex-col gap-4 animate-zoom-in">
       <div class="flex items-center gap-3">
         <div class="h-12 w-12 rounded-xl bg-[#143d59]/10 flex items-center justify-center text-[#143d59] dark:bg-white/10 dark:text-white flex-shrink-0">
-          <span class="material-symbols-outlined text-[28px]">update</span>
+          ${getIconHTML('update', 'text-[28px]')}
         </div>
         <div>
           <h3 class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.updateAvailableTitle}</h3>
@@ -1977,10 +2015,10 @@ function showSuccessToast() {
   
   toast.innerHTML = `
     <div class="flex items-center gap-2.5">
-      <span class="material-symbols-outlined text-[20px] text-price-badge">check_circle</span>
+      ${getIconHTML('check_circle', 'text-[20px] text-price-badge')}
       <span class="text-sm font-semibold tracking-wide">${t.updateSuccessToast}</span>
     </div>
-    <button id="close-toast-btn" class="material-symbols-outlined text-[18px] text-white/60 hover:text-white transition-colors">close</button>
+    <button id="close-toast-btn" class="text-white/60 hover:text-white transition-colors flex items-center justify-center">${getIconHTML('close', 'text-[18px]')}</button>
   `;
 
   const appContainer = document.getElementById('app-container');
