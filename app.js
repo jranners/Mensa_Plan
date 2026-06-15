@@ -326,7 +326,8 @@ let state = {
   diet: "all", // "vegan", "vegetarian", "all"
   activeDate: "", // YYYY-MM-DD
   menuData: [], // parsed days list
-  isLoaded: false
+  isLoaded: false,
+  isSettingsMenu: false
 };
 
 // 5. Initialize App
@@ -357,6 +358,22 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("settings-btn").addEventListener("click", () => {
     showOnboarding(true);
   });
+
+  const closeOnboardingBtn = document.getElementById("close-onboarding-btn");
+  if (closeOnboardingBtn) {
+    closeOnboardingBtn.addEventListener("click", () => {
+      hideOnboarding();
+    });
+  }
+
+  const allergensModal = document.getElementById("allergens-modal");
+  if (allergensModal) {
+    allergensModal.addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) {
+        closeAllergensModal();
+      }
+    });
+  }
 
   // Debounced Window Resize Layout Listener
   let resizeTimer;
@@ -419,10 +436,15 @@ function applyLanguage() {
   
   // Update static UI elements
   document.getElementById("app-title").textContent = t.title;
-  document.getElementById("onboarding-title").textContent = t.welcome;
+  if (state.isSettingsMenu) {
+    document.getElementById("onboarding-title").textContent = t.settings;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.saveSettings} <span class="material-symbols-outlined text-[20px]">check</span>`;
+  } else {
+    document.getElementById("onboarding-title").textContent = t.welcome;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} <span class="material-symbols-outlined text-[20px]">arrow_forward</span>`;
+  }
   document.getElementById("onboarding-canteen-title").textContent = t.selectCanteens;
   document.getElementById("onboarding-diet-title").textContent = t.selectDiet;
-  document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} <span class="material-symbols-outlined text-[20px]">arrow_forward</span>`;
 }
 
 // 7. Onboarding UI Rendering
@@ -432,8 +454,8 @@ function initOnboardingUI() {
   // Render Language Buttons
   const langContainer = document.getElementById("lang-selector");
   langContainer.innerHTML = `
-    <button id="lang-de" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "de" ? "bg-white/90 border-white/90 text-text-heading font-bold" : "bg-white/20 border-white/20 text-text-main opacity-90"}" onclick="changeLanguage('de')">Deutsch</button>
-    <button id="lang-en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "en" ? "bg-white/90 border-white/90 text-text-heading font-bold" : "bg-white/20 border-white/20 text-text-main opacity-90"}" onclick="changeLanguage('en')">English</button>
+    <button id="lang-de" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "de" ? "bg-[#143d59] text-white border-[#143d59] font-bold" : "bg-slate-50 dark:bg-slate-800 text-on-surface-variant dark:text-gray-300 border-black/[0.08] dark:border-white/[0.08]"}" onclick="changeLanguage('de')">Deutsch</button>
+    <button id="lang-en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "en" ? "bg-[#143d59] text-white border-[#143d59] font-bold" : "bg-slate-50 dark:bg-slate-800 text-on-surface-variant dark:text-gray-300 border-black/[0.08] dark:border-white/[0.08]"}" onclick="changeLanguage('en')">English</button>
   `;
 
   // Render Canteen Checkbox List (Clustered into Canteens and Bistros)
@@ -449,7 +471,7 @@ function initOnboardingUI() {
     const isBistro = canteen.type === "bistro";
     
     const itemHTML = `
-      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-white/40 dark:hover:bg-white/5 rounded-lg transition-colors group">
+      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg transition-colors group">
         <div class="relative flex items-center justify-center w-5 h-5 flex-shrink-0">
           <input type="checkbox" value="${key}" ${isChecked} class="canteen-checkbox checkbox-custom opacity-0 absolute w-full h-full cursor-pointer z-10"/>
           <div class="w-4 h-4 rounded-sm border-2 border-outline-variant bg-surface-container-lowest flex items-center justify-center transition-colors">
@@ -458,7 +480,7 @@ function initOnboardingUI() {
             </svg>
           </div>
         </div>
-        <span class="font-body-md text-body-md text-text-main group-hover:text-text-heading">${canteen.name}</span>
+        <span class="font-body-md text-body-md text-text-main dark:text-gray-300 group-hover:text-text-heading dark:group-hover:text-white">${canteen.name}</span>
       </label>
     `;
 
@@ -474,7 +496,7 @@ function initOnboardingUI() {
 
   canteenListContainer.innerHTML = `
     <details class="group border-b border-black/5 dark:border-white/5 pb-2" open>
-      <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading cursor-pointer list-none py-1.5 select-none">
+      <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading dark:text-white cursor-pointer list-none py-1.5 select-none">
         <span class="flex items-center gap-2">
           <span class="material-symbols-outlined text-[18px]">restaurant</span>
           ${canteenLabel}
@@ -487,7 +509,7 @@ function initOnboardingUI() {
     </details>
 
     <details class="group pt-2">
-      <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading cursor-pointer list-none py-1.5 select-none">
+      <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading dark:text-white cursor-pointer list-none py-1.5 select-none">
         <span class="flex items-center gap-2">
           <span class="material-symbols-outlined text-[18px]">local_cafe</span>
           ${bistroLabel}
@@ -531,7 +553,7 @@ function initOnboardingUI() {
   options.forEach(opt => {
     const isActive = state.diet === opt.value;
     dietContainer.innerHTML += `
-      <button class="diet-option-btn flex-1 py-2 font-label-md text-label-md text-center rounded transition-colors focus:outline-none ${isActive ? "bg-price-badge text-primary font-bold shadow-sm" : "text-on-primary opacity-70 hover:opacity-100"}" onclick="changeDietPreference('${opt.value}')">
+      <button class="diet-option-btn flex-1 py-2 font-label-md text-label-md text-center rounded transition-colors focus:outline-none ${isActive ? "bg-price-badge text-primary font-bold shadow-sm" : "text-on-surface-variant dark:text-gray-300 opacity-70 hover:opacity-100"}" onclick="changeDietPreference('${opt.value}')">
         ${opt.label}
       </button>
     `;
@@ -566,28 +588,42 @@ window.changeDietPreference = function(diet) {
 };
 
 function showOnboarding(isSettingsMenu = false) {
+  state.isSettingsMenu = isSettingsMenu;
   const onboarding = document.getElementById("onboarding");
   onboarding.classList.remove("hidden");
   initInstallPrompt();
   
-  const resetContainer = document.getElementById("reset-container") || document.createElement("div");
-  resetContainer.id = "reset-container";
-  resetContainer.className = "mt-4 flex justify-center";
+  const closeBtn = document.getElementById("close-onboarding-btn");
+  const t = TRANSLATIONS[state.language];
   
   if (isSettingsMenu) {
-    const t = TRANSLATIONS[state.language];
+    if (closeBtn) closeBtn.classList.remove("hidden");
+    document.getElementById("onboarding-title").textContent = t.settings;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.saveSettings} <span class="material-symbols-outlined text-[20px]">check</span>`;
+    
+    const resetContainer = document.getElementById("reset-container") || document.createElement("div");
+    resetContainer.id = "reset-container";
+    resetContainer.className = "mt-4 flex justify-center";
     resetContainer.innerHTML = `
       <button class="px-4 py-2 text-red-600 hover:text-red-800 transition-colors font-label-md text-label-md" onclick="resetApp()">
         ${t.resetBtn}
       </button>
     `;
     document.getElementById("onboarding-content-area").appendChild(resetContainer);
-  } else if (resetContainer.parentNode) {
-    resetContainer.parentNode.removeChild(resetContainer);
+  } else {
+    if (closeBtn) closeBtn.classList.add("hidden");
+    document.getElementById("onboarding-title").textContent = t.welcome;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} <span class="material-symbols-outlined text-[20px]">arrow_forward</span>`;
+    
+    const resetContainer = document.getElementById("reset-container");
+    if (resetContainer && resetContainer.parentNode) {
+      resetContainer.parentNode.removeChild(resetContainer);
+    }
   }
 }
 
 function hideOnboarding() {
+  state.isSettingsMenu = false;
   document.getElementById("onboarding").classList.add("hidden");
 }
 
@@ -1481,11 +1517,12 @@ function renderCanteenMenu() {
       if (allergensText) {
         const codes = (customFields["allergens_numbers"] || "").split(",").map(c => c.trim()).filter(Boolean);
         if (codes.length > 0) {
+          const label = state.language === "en" ? "Allergens:" : "Allergene:";
           allergenIcons = `
-            <div class="flex flex-wrap gap-1 mt-1 text-[11px] text-on-surface-variant font-body-sm opacity-75">
-              <span>Allergens:</span>
-              ${codes.slice(0, 5).map(c => `<span class="bg-gray-200/50 px-1 rounded text-[10px] border border-gray-300/30 dark:bg-gray-800 dark:border-gray-700">${c}</span>`).join("")}
-              ${codes.length > 5 ? `<span class="text-xs font-bold">+${codes.length - 5}</span>` : ""}
+            <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap gap-1 mt-1 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none">
+              <span class="font-semibold">${label}</span>
+              ${codes.slice(0, 6).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/60 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.08] dark:text-gray-300">${c}</span>`).join("")}
+              ${codes.length > 6 ? `<span class="text-xs font-bold text-[#143d59] dark:text-white">+${codes.length - 6}</span>` : ""}
             </div>
           `;
         }
@@ -1665,7 +1702,7 @@ function showUpdateDialog(worker) {
   const modal = document.createElement('div');
   modal.id = 'update-modal';
   // Use z-[100] to sit above everything (safe area, header, etc.)
-  modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in';
+  modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-fade-in';
   
   modal.innerHTML = `
     <div class="w-full max-w-sm glass rounded-2xl p-6 shadow-xl flex flex-col gap-4 animate-zoom-in">
@@ -1766,3 +1803,128 @@ function showSuccessToast() {
     }
   }, 4000);
 }
+
+// 12. Standard Allergens Fallback Map
+const STANDARD_ALLERGENS = {
+  "1": { de: "Mit Farbstoff", en: "Contains colorants" },
+  "2": { de: "Mit Konservierungsstoff", en: "Contains preservatives" },
+  "3": { de: "Mit Antioxidationsmittel", en: "Contains antioxidants" },
+  "4": { de: "Mit Geschmacksverstärker", en: "Contains flavor enhancers" },
+  "5": { de: "Geschwefelt", en: "Sulfurated" },
+  "6": { de: "Geschwärzt", en: "Blackened" },
+  "7": { de: "Gewachst", en: "Waxed" },
+  "8": { de: "Mit Phosphat", en: "Contains phosphate" },
+  "9": { de: "Mit Süßungsmittel", en: "Contains sweeteners" },
+  "10": { de: "Enthält eine Phenylalaninquelle", en: "Contains a source of phenylalanine" },
+  "11": { de: "Enthält Gluten", en: "Contains gluten" },
+  "11w": { de: "Enthält Weizen Gluten", en: "Contains wheat" },
+  "11r": { de: "Enthält Roggen Gluten", en: "Contains rye" },
+  "11b": { de: "Enthält Gerste Gluten", en: "Contains barley" },
+  "11h": { de: "Enthält Hafer Gluten", en: "Contains oats" },
+  "11d": { de: "Enthält Dinkel Gluten", en: "Contains spelt" },
+  "12": { de: "Enthält Krebstiere", en: "Contains crustaceans" },
+  "13": { de: "Enthält Eier", en: "Contains eggs" },
+  "14": { de: "Enthält Fisch", en: "Contains fish" },
+  "15": { de: "Enthält Erdnüsse", en: "Contains peanuts" },
+  "16": { de: "Enthält Soja", en: "Contains soy" },
+  "17": { de: "Enthält Milch", en: "Contains milk" },
+  "18": { de: "Enthält Laktose", en: "Contains lactose" },
+  "19": { de: "Enthält Schalenfrüchte", en: "Contains nuts" },
+  "20": { de: "Enthält Sellerie", en: "Contains celery" },
+  "21": { de: "Enthält Senf", en: "Contains mustard" },
+  "22": { de: "Enthält Sesamsamen", en: "Contains sesame seeds" },
+  "23": { de: "Enthält Schwefeldioxid/Sulfite", en: "Contains sulfur dioxide/sulfites" },
+  "24": { de: "Enthält Lupinen", en: "Contains lupins" },
+  "25": { de: "Enthält Weichtiere", en: "Contains molluscs" },
+  "26": { de: "Mit Rindfleisch", en: "Contains beef" },
+  "27": { de: "Mit Gelatine", en: "Contains gelatin" },
+  "28": { de: "Mit Schweinefleisch", en: "Contains pork" },
+  "29": { de: "Mit Geflügel", en: "Contains poultry" },
+  "30": { de: "Mit Lammfleisch", en: "Contains lamb" },
+  "31": { de: "Mit Knoblauch", en: "Contains garlic" },
+  "32": { de: "Mit Alkohol", en: "Contains alcohol" }
+};
+
+function findDishById(dishId) {
+  for (const day of state.menuData) {
+    const dish = (day.dishes || []).find(d => d.id === dishId);
+    if (dish) return dish;
+  }
+  return null;
+}
+
+window.showAllergens = function(dishId) {
+  const dish = findDishById(dishId);
+  if (!dish) return;
+
+  const customFields = {};
+  (dish.custom_fields || []).forEach(f => {
+    if (f) customFields[f.field_id] = f.value;
+  });
+
+  const allergensNamesText = customFields["allergens_names"] || "";
+  const allergensNumbersText = customFields["allergens_numbers"] || "";
+  
+  const codes = allergensNumbersText.split(",").map(c => c.trim()).filter(Boolean);
+  if (codes.length === 0) return;
+
+  const allergenMap = {};
+  if (allergensNamesText) {
+    const parts = allergensNamesText.split(",").map(p => p.trim()).filter(Boolean);
+    parts.forEach(part => {
+      const eqIdx = part.indexOf("=");
+      if (eqIdx !== -1) {
+        const code = part.substring(0, eqIdx).trim();
+        const val = part.substring(eqIdx + 1).trim();
+        
+        const pipeIdx = val.indexOf("|");
+        let nameDe = val;
+        let nameEn = val;
+        if (pipeIdx !== -1) {
+          nameDe = val.substring(0, pipeIdx).trim();
+          nameEn = val.substring(pipeIdx + 1).trim();
+        }
+        allergenMap[code] = { de: nameDe, en: nameEn };
+      }
+    });
+  }
+
+  const title = state.language === "en" ? "Allergens & Additives" : "Allergene & Zusatzstoffe";
+  document.getElementById("allergens-modal-title").textContent = title;
+  
+  const listContainer = document.getElementById("allergens-modal-list");
+  listContainer.innerHTML = "";
+  
+  codes.forEach(code => {
+    const info = allergenMap[code] || STANDARD_ALLERGENS[code] || { de: code, en: code };
+    const name = state.language === "en" ? info.en : info.de;
+    
+    listContainer.innerHTML += `
+      <div class="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-black/[0.04] dark:border-white/[0.04]">
+        <span class="inline-flex items-center justify-center bg-primary-container text-white text-[11px] font-bold px-2 py-0.5 rounded min-w-[28px] text-center dark:bg-slate-700">
+          ${code}
+        </span>
+        <span class="text-sm text-text-heading dark:text-gray-200 font-medium">
+          ${name}
+        </span>
+      </div>
+    `;
+  });
+
+  const modal = document.getElementById("allergens-modal");
+  modal.classList.remove("hidden");
+  
+  const modalBox = modal.querySelector(".animate-zoom-in") || modal.firstElementChild;
+  modalBox.classList.remove("animate-zoom-out");
+  modalBox.classList.add("animate-zoom-in");
+};
+
+window.closeAllergensModal = function() {
+  const modal = document.getElementById("allergens-modal");
+  const modalBox = modal.querySelector(".animate-zoom-in") || modal.firstElementChild;
+  modalBox.classList.remove("animate-zoom-in");
+  modalBox.classList.add("animate-zoom-out");
+  setTimeout(() => {
+    modal.classList.add("hidden");
+  }, 180);
+};

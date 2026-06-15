@@ -7,6 +7,7 @@
     
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#143d59"/>
+    <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
     <link rel="icon" type="image/png" href="kstw-logo.png"/>
@@ -18,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
     <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com/?plugins=forms,container-queries"></script>
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -254,15 +255,17 @@
             </div>
         </main>
 
-        <!-- Onboarding Overlay -->
-        <div id="onboarding" class="fixed inset-0 z-50 bg-black/45 backdrop-blur-md flex items-center justify-center hidden pt-safe pb-safe">
-            <div class="w-full max-w-md h-full md:h-[680px] md:max-h-[90vh] md:rounded-3xl md:shadow-2xl overflow-hidden bg-gradient-to-br from-surface-bright via-inverse-primary/20 to-primary-fixed/30 flex flex-col relative mx-auto">
+        <!-- Onboarding/Settings Overlay -->
+        <div id="onboarding" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden pt-safe pb-safe">
+            <div class="w-full max-w-md h-full md:h-[680px] md:max-h-[90vh] md:rounded-3xl md:shadow-2xl overflow-hidden bg-white dark:bg-slate-900 border border-black/[0.08] dark:border-white/[0.08] flex flex-col relative mx-auto">
                 
-                <!-- Onboarding Header -->
-                <header class="px-margin-page pt-8 pb-4 relative z-10">
-                    <h1 id="onboarding-title" class="font-headline text-[24px] font-bold text-text-heading text-center leading-tight">
+                <!-- Onboarding/Settings Header -->
+                <header class="px-margin-page pt-8 pb-4 relative z-10 flex items-center justify-between">
+                    <div class="w-8"></div> <!-- Spacer to center title when close button is visible -->
+                    <h1 id="onboarding-title" class="font-headline text-[22px] font-bold text-text-heading dark:text-white text-center leading-tight flex-1">
                         Willkommen bei der KStW Mensa
                     </h1>
+                    <button id="close-onboarding-btn" class="material-symbols-outlined hover:bg-black/5 dark:hover:bg-white/5 p-1.5 rounded-full text-on-surface-variant dark:text-gray-400 hidden">close</button>
                 </header>
 
                 <!-- Onboarding Settings Body -->
@@ -274,8 +277,8 @@
                     </section>
 
                     <!-- Canteen Selection -->
-                    <section class="bg-white/40 backdrop-blur-xl rounded-2xl border border-white/60 p-inset-card shadow-[0_8px_32px_rgba(0,0,0,0.05)]">
-                        <h2 id="onboarding-canteen-title" class="font-headline text-[16px] font-bold text-text-heading mb-stack-md">Mensa-Auswahl</h2>
+                    <section class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-black/[0.04] dark:border-white/[0.04] p-inset-card shadow-sm">
+                        <h2 id="onboarding-canteen-title" class="font-headline text-[16px] font-bold text-text-heading dark:text-white mb-stack-md">Mensa-Auswahl</h2>
                         <div id="canteen-checkbox-list" class="flex flex-col gap-1.5 pr-1">
                             <!-- Checklist loaded dynamically -->
                         </div>
@@ -283,38 +286,38 @@
 
                     <!-- Dietary Preference -->
                     <section class="flex flex-col gap-stack-sm">
-                        <h2 id="onboarding-diet-title" class="font-headline text-[16px] font-bold text-text-heading px-1">Deine Ernährung</h2>
-                        <div id="diet-selector" class="flex bg-primary-container/90 backdrop-blur-md p-1 rounded-xl shadow-lg border border-white/20">
+                        <h2 id="onboarding-diet-title" class="font-headline text-[16px] font-bold text-text-heading dark:text-white px-1">Deine Ernährung</h2>
+                        <div id="diet-selector" class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-black/[0.06] dark:border-white/[0.06]">
                             <!-- Diet selector buttons loaded dynamically -->
                         </div>
                     </section>
 
                     <!-- Install App Card -->
-                    <section id="install-promo-card" class="bg-white/40 backdrop-blur-xl rounded-2xl border border-white/60 p-inset-card shadow-[0_8px_32px_rgba(0,0,0,0.05)] hidden">
-                        <h2 id="install-title" class="font-headline text-[15px] font-bold text-text-heading mb-2 flex items-center gap-1.5">
+                    <section id="install-promo-card" class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-black/[0.04] dark:border-white/[0.04] p-inset-card shadow-sm hidden">
+                        <h2 id="install-title" class="font-headline text-[15px] font-bold text-text-heading dark:text-white mb-2 flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-primary-container text-[18px]">cell_tower</span>
                             Mensaplan als App installieren?
                         </h2>
-                        <p id="install-desc" class="font-body-md text-body-md text-on-surface-variant leading-relaxed mb-4">
+                        <p id="install-desc" class="font-body-md text-body-md text-on-surface-variant dark:text-gray-300 leading-relaxed mb-4">
                             Möchtest du schneller auf deinen Mensaplan zugreifen und ihn auch offline nutzen? Füge ein Icon zu deinem Homescreen hinzu!
                         </p>
                         
                         <!-- Privacy & Specs Badges -->
-                        <div class="grid grid-cols-2 gap-2 mb-4 text-[11px] text-on-surface-variant font-body-sm">
-                            <div class="flex items-center gap-1.5 bg-white/50 p-1.5 rounded border border-white/40">
-                                <span class="material-symbols-outlined text-[15px] text-green-700 font-bold">shield</span>
+                        <div class="grid grid-cols-2 gap-2 mb-4 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm">
+                            <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded border border-black/[0.04] dark:border-white/[0.04]">
+                                <span class="material-symbols-outlined text-[15px] text-green-700 dark:text-green-400 font-bold">shield</span>
                                 <span id="badge-privacy">100% DSGVO-konform</span>
                             </div>
-                            <div class="flex items-center gap-1.5 bg-white/50 p-1.5 rounded border border-white/40">
-                                <span class="material-symbols-outlined text-[15px] text-blue-700 font-bold">sd_card</span>
+                            <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded border border-black/[0.04] dark:border-white/[0.04]">
+                                <span class="material-symbols-outlined text-[15px] text-blue-700 dark:text-blue-400 font-bold">sd_card</span>
                                 <span id="badge-size">Sehr klein (&lt; 50 KB)</span>
                             </div>
-                            <div class="flex items-center gap-1.5 bg-white/50 p-1.5 rounded border border-white/40">
-                                <span class="material-symbols-outlined text-[15px] text-orange-700 font-bold">no_accounts</span>
+                            <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded border border-black/[0.04] dark:border-white/[0.04]">
+                                <span class="material-symbols-outlined text-[15px] text-orange-700 dark:text-orange-400 font-bold">no_accounts</span>
                                 <span id="badge-perms">Keine Berechtigungen</span>
                             </div>
-                            <div class="flex items-center gap-1.5 bg-white/50 p-1.5 rounded border border-white/40">
-                                <span class="material-symbols-outlined text-[15px] text-purple-700 font-bold">offline_pin</span>
+                            <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded border border-black/[0.04] dark:border-white/[0.04]">
+                                <span class="material-symbols-outlined text-[15px] text-purple-700 dark:text-purple-400 font-bold">offline_pin</span>
                                 <span id="badge-offline">Offline-fähig</span>
                             </div>
                         </div>
@@ -325,11 +328,26 @@
                 </div>
 
                 <!-- Onboarding Sticky Footer CTA -->
-                <div class="absolute bottom-0 w-full p-margin-page bg-white/50 backdrop-blur-lg border-t border-white/60 z-20">
+                <div class="absolute bottom-0 w-full p-margin-page bg-white dark:bg-slate-900 border-t border-black/[0.08] dark:border-white/[0.08] z-20">
                     <button id="submit-onboarding-btn" class="w-full h-control-height bg-price-badge text-primary font-label-lg text-label-lg rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,214,0,0.3)] font-bold">
                         Speiseplan anzeigen
                         <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Allergens Detail Modal -->
+        <div id="allergens-modal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden pt-safe pb-safe">
+            <div class="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-black/[0.08] dark:border-white/[0.08] shadow-2xl p-6 flex flex-col gap-4 mx-4 animate-zoom-in">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between">
+                    <h3 id="allergens-modal-title" class="font-headline text-[18px] font-bold text-text-heading dark:text-white">Allergene & Zusatzstoffe</h3>
+                    <button id="close-allergens-modal-btn" class="material-symbols-outlined hover:bg-black/5 dark:hover:bg-white/5 p-1 rounded-full text-on-surface-variant dark:text-gray-400" onclick="closeAllergensModal()">close</button>
+                </div>
+                <!-- Modal Content -->
+                <div id="allergens-modal-list" class="flex flex-col gap-2 max-h-[60vh] overflow-y-auto pr-1 hide-scrollbar">
+                    <!-- Allergen details will be loaded dynamically -->
                 </div>
             </div>
         </div>
