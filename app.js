@@ -331,6 +331,12 @@ let state = {
 
 // 5. Initialize App
 window.addEventListener("DOMContentLoaded", async () => {
+  if (window.location.search.includes("test=true")) {
+    localStorage.setItem("kstw_prefs_saved", "true");
+    localStorage.setItem("kstw_canteens", JSON.stringify(["unimensa", "iwz-deutz", "spoho"]));
+    localStorage.setItem("kstw_diet", "all");
+    localStorage.setItem("kstw_lang", "de");
+  }
   loadPreferences();
   applyLanguage();
   initOnboardingUI();
@@ -350,6 +356,26 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Setup Global Event Listeners
   document.getElementById("settings-btn").addEventListener("click", () => {
     showOnboarding(true);
+  });
+
+  // Debounced Window Resize Layout Listener
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      // Re-render only if the layout column count changes to avoid thrashing
+      const width = window.innerWidth;
+      const currentCols = document.getElementById("canteen-col-0")
+        ? (document.getElementById("canteen-col-2") ? 3 : 2)
+        : 1;
+      let targetCols = 1;
+      if (width >= 1024) targetCols = 3;
+      else if (width >= 768) targetCols = 2;
+
+      if (currentCols !== targetCols) {
+        renderCanteenMenu();
+      }
+    }, 150);
   });
 });
 
@@ -1224,6 +1250,26 @@ function renderCanteenMenu() {
   const visibleCanteens = state.selectedCanteens;
   let renderedCanteensCount = 0;
 
+  // Determine number of columns based on width
+  const width = window.innerWidth;
+  let numCols = 1;
+  if (width >= 1024) {
+    numCols = 3;
+  } else if (width >= 768) {
+    numCols = 2;
+  }
+
+  // Initialize columns and heights
+  const colHeights = Array(numCols).fill(0);
+  if (numCols > 1) {
+    feedContainer.className = "flex gap-6 w-full items-start";
+    for (let i = 0; i < numCols; i++) {
+      feedContainer.innerHTML += `<div id="canteen-col-${i}" class="flex-1 flex flex-col gap-6 min-w-0"></div>`;
+    }
+  } else {
+    feedContainer.className = "flex flex-col gap-6 w-full";
+  }
+
   visibleCanteens.forEach(canteenKey => {
     const canteen = CANTEENS[canteenKey];
     if (!canteen) return;
@@ -1296,7 +1342,6 @@ function renderCanteenMenu() {
     }
 
     // Determine effective serving window
-    // Food service is closed when the last dish is finished.
     const startHour = hasServingTimes ? Math.min(minStartHour, generalStartHour) : generalStartHour;
     const endHour = hasServingTimes ? Math.max(maxEndHour, generalEndHour) : generalEndHour;
 
@@ -1305,7 +1350,6 @@ function renderCanteenMenu() {
     const isViewingToday = state.activeDate === todayIso;
 
     if (isViewingToday && currentHour > endHour) {
-      // Skip rendering this canteen entirely since it has finished serving food for today
       return;
     }
 
@@ -1319,7 +1363,6 @@ function renderCanteenMenu() {
         opensLater = true;
       }
     } else {
-      // For future days, we assume it is open during its scheduled hours
       isCanteenOpen = true;
     }
 
@@ -1346,10 +1389,9 @@ function renderCanteenMenu() {
       : (opensLater ? t.opensLater : t.closed);
 
     let canteenSection = `
-      <div class="inline-block w-full break-inside-avoid-column mb-6">
-        <div class="canteen-card w-full bg-white/40 dark:bg-slate-900/30 backdrop-blur-md rounded-3xl p-5 border border-white/45 shadow-sm flex flex-col gap-4 hover:shadow-md hover:bg-white/50 dark:hover:bg-slate-900/40 transition-all duration-300">
-          <!-- Canteen Header -->
-          <header class="flex flex-col gap-2">
+      <div class="canteen-card w-full bg-white dark:bg-slate-900 rounded-3xl p-6 border border-black/[0.08] dark:border-white/[0.08] shadow-md flex flex-col gap-4 hover:shadow-lg transition-all duration-300">
+        <!-- Canteen Header -->
+        <header class="flex flex-col gap-2">
           <div class="flex justify-between items-start gap-2">
             <div class="min-w-0">
               <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${canteen.name}</h2>
@@ -1379,7 +1421,6 @@ function renderCanteenMenu() {
         ? `${dish.price.toFixed(2).replace(".", ",")} €` 
         : (customFields["price_1"] ? `${parseFloat(customFields["price_1"]).toFixed(2).replace(".", ",")} €` : "—");
 
-      // Extract badges using helper
       const { brandBadgeHTML, subTagHTML } = getBrandAndSubTag(dish);
 
       const dishCanteenScreens = (dish.screens || [])
@@ -1406,14 +1447,12 @@ function renderCanteenMenu() {
         locationBadge = dishCanteenScreens[0];
       }
 
-      // Hide dish if viewing today and its specific serving time has already passed
       if (isViewingToday && servingTime) {
         const endStr = servingTime.split("-")[1].trim();
         const endHourMatch = endStr.match(/(\d{2})[.:](\d{2})/);
         if (endHourMatch) {
           const dishEndHour = parseInt(endHourMatch[1]) + parseInt(endHourMatch[2])/60;
           if (currentHour > dishEndHour) {
-            // Skip this dish since it is no longer being served
             return;
           }
         }
@@ -1475,7 +1514,6 @@ function renderCanteenMenu() {
       const mealName = state.language === "en" && dish.name_en ? dish.name_en : dish.name_de;
       const mealDesc = state.language === "en" && dish.description_en ? dish.description_en : dish.description_de;
 
-      // Small thumbnail image on the right if available
       let thumbnailHTML = "";
       if (dish.image_url) {
         thumbnailHTML = `
@@ -1492,7 +1530,7 @@ function renderCanteenMenu() {
       `;
 
       canteenSection += `
-        <article class="glass rounded-2xl p-inset-card flex flex-col gap-2 relative hover:shadow-md transition-shadow duration-200 border border-white/40">
+        <article class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-slate-100/50 dark:hover:bg-slate-800/80 transition-colors duration-200 border border-black/[0.04] dark:border-white/[0.04] shadow-sm">
           <!-- Main layout: Content left, optional thumbnail right -->
           <div class="flex justify-between items-start gap-3">
             <div class="flex-1 flex flex-col gap-2.5 min-w-0">
@@ -1529,11 +1567,36 @@ function renderCanteenMenu() {
     });
 
     canteenSection += `
-          </div>
         </div>
       </div>
     `;
-    feedContainer.innerHTML += canteenSection;
+
+    // Distribute to columns
+    if (numCols > 1) {
+      // Estimate height: 150px base + 120px per dish + 80px extra if it has images
+      let estHeight = 150 + dishes.length * 120;
+      dishes.forEach(d => {
+        if (d.image_url) estHeight += 80;
+      });
+
+      // Find the column with the minimum height
+      let minColIdx = 0;
+      let minColHeight = colHeights[0];
+      for (let i = 1; i < numCols; i++) {
+        if (colHeights[i] < minColHeight) {
+          minColHeight = colHeights[i];
+          minColIdx = i;
+        }
+      }
+
+      const colContainer = document.getElementById(`canteen-col-${minColIdx}`);
+      if (colContainer) {
+        colContainer.innerHTML += canteenSection;
+        colHeights[minColIdx] += estHeight;
+      }
+    } else {
+      feedContainer.innerHTML += canteenSection;
+    }
   });
 
   if (renderedCanteensCount === 0) {
