@@ -1753,10 +1753,10 @@ function renderCanteenMenu() {
         if (codes.length > 0) {
           const label = state.language === "en" ? "Allergens:" : "Allergene:";
           allergenIcons = `
-            <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap gap-1 mt-1 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none">
+            <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
               <span class="font-semibold">${label}</span>
-              ${codes.slice(0, 6).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/60 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.08] dark:text-gray-300">${c}</span>`).join("")}
-              ${codes.length > 6 ? `<span class="text-xs font-bold text-[#143d59] dark:text-white">+${codes.length - 6}</span>` : ""}
+              ${codes.slice(0, 3).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/60 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.08] dark:text-gray-300">${c}</span>`).join("")}
+              ${codes.length > 3 ? `<span class="text-xs font-bold text-[#143d59] dark:text-white">+${codes.length - 3}</span>` : ""}
             </div>
           `;
         }
