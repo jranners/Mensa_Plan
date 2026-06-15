@@ -886,6 +886,8 @@ async function recoverSupabaseCredentials() {
 // 9. UI Rendering & Interaction
 function renderLoading() {
   const t = TRANSLATIONS[state.language];
+  const dateContainer = document.getElementById("active-date-container");
+  if (dateContainer) dateContainer.innerHTML = "";
   document.getElementById("main-feed").innerHTML = `
     <div class="flex flex-col items-center justify-center py-20 text-text-main gap-4">
       <span class="material-symbols-outlined text-[48px] animate-spin text-primary-container">sync</span>
@@ -896,6 +898,8 @@ function renderLoading() {
 
 function renderError() {
   const t = TRANSLATIONS[state.language];
+  const dateContainer = document.getElementById("active-date-container");
+  if (dateContainer) dateContainer.innerHTML = "";
   document.getElementById("main-feed").innerHTML = `
     <div class="flex flex-col items-center justify-center py-20 text-red-600 gap-4">
       <span class="material-symbols-outlined text-[48px]">error</span>
@@ -1180,10 +1184,16 @@ function getDateHeaderHTML() {
   const dateObj = new Date(state.activeDate);
   const options = { weekday: 'long', day: 'numeric', month: 'long' };
   const formattedDate = dateObj.toLocaleDateString(state.language === "de" ? "de-DE" : "en-US", options);
+  const prefix = state.language === "de" ? "Speiseplan für" : "Menu for";
   return `
-    <div class="flex items-center gap-2 text-text-heading/60 px-1 mb-1 mt-0.5 animate-fade-in">
-      <span class="material-symbols-outlined text-[18px] opacity-75">calendar_today</span>
-      <span class="text-sm font-semibold tracking-wide">${formattedDate}</span>
+    <div class="flex items-center gap-3 text-text-heading px-1 py-3 mb-2 mt-2 border-b border-black/5 dark:border-white/5 animate-fade-in">
+      <div class="w-9 h-9 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-white/60 dark:border-white/5 shadow-sm flex items-center justify-center">
+        <span class="material-symbols-outlined text-[20px] text-primary-container dark:text-[#a6cbed]">calendar_today</span>
+      </div>
+      <div>
+        <span class="text-[10px] font-bold text-on-surface-variant/60 dark:text-gray-400/60 uppercase tracking-widest block leading-none mb-1">${prefix}</span>
+        <h2 class="text-base md:text-lg font-headline font-extrabold text-text-heading dark:text-white leading-tight">${formattedDate}</h2>
+      </div>
     </div>
   `;
 }
@@ -1195,18 +1205,21 @@ function renderCanteenMenu() {
   const t = TRANSLATIONS[state.language];
   const dateHeader = getDateHeaderHTML();
 
+  const dateContainer = document.getElementById("active-date-container");
+  if (dateContainer) {
+    dateContainer.innerHTML = dateHeader;
+  }
+
   const activeDayData = state.menuData.find(d => d.date === state.activeDate);
   if (!activeDayData || !activeDayData.dishes || activeDayData.dishes.length === 0) {
-    feedContainer.innerHTML = dateHeader + `
-      <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2">
+    feedContainer.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2 w-full">
         <span class="material-symbols-outlined text-[48px] opacity-40">calendar_today</span>
         <p class="font-body-lg text-body-lg opacity-60">${t.noDishes}</p>
       </div>
     `;
     return;
   }
-
-  feedContainer.innerHTML = dateHeader;
 
   const visibleCanteens = state.selectedCanteens;
   let renderedCanteensCount = 0;
@@ -1333,7 +1346,7 @@ function renderCanteenMenu() {
       : (opensLater ? t.opensLater : t.closed);
 
     let canteenSection = `
-      <div class="canteen-card w-full bg-white/40 dark:bg-slate-900/30 backdrop-blur-md rounded-3xl p-5 border border-white/45 shadow-sm flex flex-col gap-4">
+      <div class="canteen-card w-full break-inside-avoid mb-6 bg-white/40 dark:bg-slate-900/30 backdrop-blur-md rounded-3xl p-5 border border-white/45 shadow-sm flex flex-col gap-4 hover:shadow-md hover:bg-white/50 dark:hover:bg-slate-900/40 transition-all duration-300">
         <!-- Canteen Header -->
         <header class="flex flex-col gap-2">
           <div class="flex justify-between items-start gap-2">
@@ -1522,8 +1535,8 @@ function renderCanteenMenu() {
   });
 
   if (renderedCanteensCount === 0) {
-    feedContainer.innerHTML = dateHeader + `
-      <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2">
+    feedContainer.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2 w-full">
         <span class="material-symbols-outlined text-[48px] opacity-40">notifications_off</span>
         <p class="font-body-lg text-body-lg opacity-60 text-center px-4 leading-relaxed">
           ${state.language === "de" 
