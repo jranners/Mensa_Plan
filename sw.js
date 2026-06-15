@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v8';
+const CACHE_NAME = 'kstw-mensa-v9';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -13,9 +13,25 @@ const STATIC_ASSETS = [
 // Install Service Worker and cache static shell assets
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
+    caches.open(CACHE_NAME).then(async cache => {
       console.log('Service Worker: Caching App Shell...');
-      return cache.addAll(STATIC_ASSETS);
+      
+      const cachePromises = STATIC_ASSETS.map(async asset => {
+        try {
+          const request = asset instanceof Request ? asset : new Request(asset);
+          const response = await fetch(request);
+          if (response.ok || response.type === 'opaque') {
+            await cache.put(request, response);
+          } else {
+            console.warn(`Service Worker: Failed to cache ${request.url} - status ${response.status}`);
+          }
+        } catch (err) {
+          console.error(`Service Worker: Error caching asset:`, asset, err);
+        }
+      });
+      
+      await Promise.all(cachePromises);
+      console.log('Service Worker: App Shell caching complete.');
     })
   );
 });
