@@ -342,6 +342,7 @@ let state = {
   isSettingsMenu: false,
   isOfflineMode: false,
   isUpdatingBackground: false,
+  isManualUpdating: false,
   lastCacheTime: null
 };
 
@@ -960,6 +961,7 @@ async function updateMenuDataBackground(isManual = false) {
   if (state.isUpdatingBackground) return;
   state.isUpdatingBackground = true;
   if (isManual) {
+    state.isManualUpdating = true;
     renderOfflineBanner();
   }
 
@@ -1016,6 +1018,7 @@ async function updateMenuDataBackground(isManual = false) {
     state.isOfflineMode = true;
   } finally {
     state.isUpdatingBackground = false;
+    state.isManualUpdating = false;
     renderOfflineBanner();
   }
 }
@@ -1032,8 +1035,8 @@ function renderOfflineBanner() {
   const t = TRANSLATIONS[state.language];
   const timeFormatted = formatCacheTime(state.lastCacheTime);
   const bannerText = t.offlineBannerText.replace("{time}", timeFormatted);
-  const btnText = state.isUpdatingBackground ? t.offlineBannerUpdating : t.offlineBannerUpdateBtn;
-  const btnDisabled = state.isUpdatingBackground ? "disabled" : "";
+  const btnText = state.isManualUpdating ? t.offlineBannerUpdating : t.offlineBannerUpdateBtn;
+  const btnDisabled = state.isManualUpdating ? "disabled" : "";
 
   container.innerHTML = `
     <div class="w-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800 dark:text-amber-300 text-sm animate-fade-in shadow-sm mb-4">
@@ -1042,7 +1045,7 @@ function renderOfflineBanner() {
         <span class="font-medium">${bannerText}</span>
       </div>
       <button id="offline-refresh-btn" ${btnDisabled} class="h-9 px-4 bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:pointer-events-none font-bold" onclick="triggerManualReload()">
-        ${state.isUpdatingBackground ? `
+        ${state.isManualUpdating ? `
           <svg class="animate-spin -ml-1 mr-1.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1055,7 +1058,7 @@ function renderOfflineBanner() {
 }
 
 window.triggerManualReload = async function() {
-  await fetchAndRender(true);
+  await updateMenuDataBackground(true);
 };
 
 async function fetchWeekMenuData(startDate, endDate) {
