@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v10';
+const CACHE_NAME = 'kstw-mensa-v12';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -54,50 +54,30 @@ self.addEventListener('activate', event => {
 
 // Fetch Interceptor
 self.addEventListener('fetch', event => {
-  const requestUrl = new URL(event.request.url);
+  // Only handle GET requests (static assets)
+  if (event.request.method !== 'GET') {
+    return;
+  }
 
-  // Dynamic Cache for Supabase API requests: Network-First, fallback to Cache
-  if (requestUrl.pathname.includes('/rpc/public_get_week_menu')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          // Clone the response and cache it
+  event.respondWith(
+    caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      
+      return fetch(event.request).then(response => {
+        // Cache new static assets dynamically (e.g. dynamic Google Fonts assets)
+        if (event.request.url.includes('gstatic.com') || 
+            event.request.url.includes('fonts.googleapis.com')) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, responseClone);
           });
-          return response;
-        })
-        .catch(() => {
-          // Network failed, serve from cache
-          console.log('Service Worker: Offline - Serving menu from cache...');
-          return caches.match(event.request);
-        })
-    );
-  } else {
-    // Cache-First strategy for static assets
-    event.respondWith(
-      caches.match(event.request).then(cachedResponse => {
-        if (cachedResponse) {
-          return cachedResponse;
         }
-        
-        return fetch(event.request).then(response => {
-          // Cache new static assets dynamically (e.g. dynamic Google Fonts assets)
-          if (event.request.method === 'GET' && (
-            event.request.url.includes('gstatic.com') || 
-            event.request.url.includes('fonts.googleapis.com')
-          )) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, responseClone);
-            });
-          }
-          return response;
-        });
-      })
-    );
-  }
+        return response;
+      });
+    })
+  );
 });
 
 // Message listener to trigger skipWaiting manually when requested by the client app
