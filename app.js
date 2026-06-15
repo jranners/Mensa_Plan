@@ -807,10 +807,10 @@ function hasAvailableDishesForDate(dateStr) {
 
       let servingTime = "";
       const dishInfo = customFields["dish_info"] || "";
-      if (dishInfo) {
-        const timeMatch = dishInfo.match(/(\d{2}[.:]\d{2}\s*-\s*\d{2}[.:]\d{2})/);
+      if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
+        const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
         if (timeMatch) {
-          servingTime = timeMatch[1].replace(".", ":");
+          servingTime = timeMatch[1].replace(/\./g, ":");
         }
       }
 
@@ -1516,8 +1516,8 @@ function renderCanteenMenu() {
         if (f) customFields[f.field_id] = f.value;
       });
       const dishInfo = customFields["dish_info"] || "";
-      if (dishInfo) {
-        const timeMatch = dishInfo.match(/(\d{2})[.:](\d{2})\s*-\s*(\d{2})[.:](\d{2})/);
+      if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
+        const timeMatch = dishInfo.match(/(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})/);
         if (timeMatch) {
           const start = parseInt(timeMatch[1]) + parseInt(timeMatch[2])/60;
           const end = parseInt(timeMatch[3]) + parseInt(timeMatch[4])/60;
@@ -1653,12 +1653,23 @@ function renderCanteenMenu() {
       let servingTime = "";
       let dishCounter = "";
       const dishInfo = customFields["dish_info"] || "";
-      if (dishInfo) {
-        const timeMatch = dishInfo.match(/(\d{2}[.:]\d{2}\s*-\s*\d{2}[.:]\d{2})/);
+      if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
+        // Extract time pattern like "11.30 - 14.15" or "11:30 - 14:30"
+        const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
         if (timeMatch) {
-          servingTime = timeMatch[1].replace(".", ":");
+          servingTime = timeMatch[1].replace(/\./g, ":");
         }
-        dishCounter = dishInfo.split(/\d{2}[.:]/)[0].trim();
+        // Extract counter/station name: everything before the time pattern
+        // Remove trailing "Uhr", "Ampelcounter", and clean up dashes
+        let counterPart = dishInfo;
+        if (timeMatch) {
+          counterPart = dishInfo.substring(0, dishInfo.indexOf(timeMatch[0]));
+        }
+        counterPart = counterPart.replace(/\s*-\s*$/, "").replace(/Uhr.*$/i, "").trim();
+        // Only use counter if it's not just a number or empty
+        if (counterPart && !/^\d+$/.test(counterPart) && counterPart.length > 1) {
+          dishCounter = counterPart;
+        }
       }
 
       let locationBadge = "";
@@ -1737,30 +1748,36 @@ function renderCanteenMenu() {
       const mealDesc = state.language === "en" && dish.description_en ? dish.description_en : dish.description_de;
 
       let thumbnailHTML = "";
+      let rightColumnHTML = "";
       if (dish.image_url) {
-        thumbnailHTML = `
-          <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 border border-black/5 shadow-sm">
-            <img src="${dish.image_url}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${mealName}" onerror="this.parentNode.style.display='none'"/>
+        rightColumnHTML = `
+          <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
+            <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-black/5 shadow-sm">
+              <img src="${dish.image_url}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${mealName}" onerror="this.closest('.dish-right-col').style.display='none'"/>
+            </div>
+            <div class="bg-price-badge/95 backdrop-blur-md shadow-sm rounded-full px-2.5 py-0.5 border border-white/20">
+              <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${studentPrice}</span>
+            </div>
           </div>
         `;
       }
 
-      const priceBadgeHTML = `
+      const priceBadgeInline = !dish.image_url ? `
         <div class="bg-price-badge/95 backdrop-blur-md shadow-sm rounded-full px-2.5 py-0.5 border border-white/20 flex-shrink-0 ml-auto">
           <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${studentPrice}</span>
         </div>
-      `;
+      ` : "";
 
       canteenSection += `
         <article class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-slate-100/50 dark:hover:bg-slate-800/80 transition-colors duration-200 border border-black/[0.04] dark:border-white/[0.04] shadow-sm">
-          <!-- Main layout: Content left, optional thumbnail right -->
+          <!-- Main layout: Content left, optional thumbnail+price right -->
           <div class="flex justify-between items-start gap-3">
             <div class="flex-1 flex flex-col gap-2.5 min-w-0">
-              <!-- Header Row: Brand, Sub-Tag, Price -->
+              <!-- Header Row: Brand, Sub-Tag, Price (only if no image) -->
               <div class="flex items-center gap-1.5 flex-wrap w-full">
                 ${brandBadgeHTML}
                 ${subTagHTML}
-                ${priceBadgeHTML}
+                ${priceBadgeInline}
               </div>
 
               <!-- Title & Description -->
@@ -1773,8 +1790,8 @@ function renderCanteenMenu() {
               ${servingMetaHTML}
             </div>
 
-            <!-- Thumbnail image -->
-            ${thumbnailHTML}
+            <!-- Thumbnail + Price column -->
+            ${rightColumnHTML ? `<div class="dish-right-col">${rightColumnHTML}</div>` : ""}
           </div>
 
           <!-- Card Footer -->
