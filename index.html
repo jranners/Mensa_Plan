@@ -212,7 +212,7 @@
 <body class="w-full flex justify-center text-text-main">
 
     <!-- Main Mobile Viewport Container -->
-    <div id="app-container" class="w-full max-w-md min-h-screen bg-gradient-to-br from-[#e0eaf5] via-[#f0f4f8] to-[#d6dade] flex flex-col relative sm:border-x sm:border-white/30 shadow-2xl mx-auto pb-safe">
+    <div id="app-container" class="w-full max-w-md md:max-w-6xl min-h-screen md:min-h-[calc(100vh-4rem)] md:my-8 md:rounded-3xl md:border md:border-white/40 md:shadow-2xl bg-gradient-to-br from-[#e0eaf5] via-[#f0f4f8] to-[#d6dade] flex flex-col relative sm:border-x sm:border-white/30 shadow-2xl mx-auto pb-safe overflow-hidden">
         
         <!-- Top App Bar -->
         <header class="sticky top-0 w-full z-40 glass-dark text-on-primary flex items-center justify-between px-margin-page h-control-height shadow-sm pt-safe">
@@ -226,29 +226,32 @@
         <!-- Main Feed Container -->
         <main class="flex-1 px-margin-page py-4 flex flex-col gap-4">
             
-            <!-- Date Selector Segmented Control -->
-            <section class="w-full">
-                <div id="date-selector-container" class="flex glass-panel rounded-xl p-1 overflow-x-auto hide-scrollbar gap-1 shadow-sm">
-                    <!-- Dates loaded dynamically -->
-                </div>
-            </section>
+            <!-- Filters Group Row -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                <!-- Date Selector Segmented Control -->
+                <section class="w-full md:flex-1 min-w-0">
+                    <div id="date-selector-container" class="flex glass-panel rounded-xl p-1 overflow-x-auto hide-scrollbar gap-1 shadow-sm">
+                        <!-- Dates loaded dynamically -->
+                    </div>
+                </section>
 
-            <!-- Dietary Filters toggle -->
-            <section class="w-full">
-                <div id="diet-toggle-container" class="flex glass-panel rounded-xl p-1 shadow-sm">
-                    <!-- Diet options loaded dynamically -->
-                </div>
-            </section>
+                <!-- Dietary Filters toggle -->
+                <section class="w-full md:w-72 md:flex-shrink-0">
+                    <div id="diet-toggle-container" class="flex glass-panel rounded-xl p-1 shadow-sm">
+                        <!-- Diet options loaded dynamically -->
+                    </div>
+                </section>
+            </div>
 
             <!-- Active Canteens and Dishes -->
-            <div id="main-feed" class="flex flex-col gap-4">
+            <div id="main-feed" class="flex flex-col md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                 <!-- Dishes loaded dynamically -->
             </div>
         </main>
 
         <!-- Onboarding Overlay -->
-        <div id="onboarding" class="fixed inset-0 z-50 bg-[#f3f7fb] flex flex-col justify-between overflow-hidden hidden pt-safe pb-safe">
-            <div class="w-full max-w-md h-full bg-gradient-to-br from-surface-bright via-inverse-primary/20 to-primary-fixed/30 flex flex-col relative mx-auto">
+        <div id="onboarding" class="fixed inset-0 z-50 bg-black/45 backdrop-blur-md flex items-center justify-center hidden pt-safe pb-safe">
+            <div class="w-full max-w-md h-full md:h-[680px] md:max-h-[90vh] md:rounded-3xl md:shadow-2xl overflow-hidden bg-gradient-to-br from-surface-bright via-inverse-primary/20 to-primary-fixed/30 flex flex-col relative mx-auto">
                 
                 <!-- Onboarding Header -->
                 <header class="px-margin-page pt-8 pb-4 relative z-10">

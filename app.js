@@ -1333,23 +1333,26 @@ function renderCanteenMenu() {
       : (opensLater ? t.opensLater : t.closed);
 
     let canteenSection = `
-      <section class="mt-4 mb-2">
-        <div class="flex justify-between items-start">
-          <div>
-            <h2 class="font-headline text-[18px] text-text-heading font-bold leading-tight">${canteen.name}</h2>
-            <p class="font-body-md text-body-md text-on-surface-variant">${canteen.strasse}, ${canteen.plz} ${canteen.ort}</p>
+      <div class="canteen-card w-full bg-white/40 dark:bg-slate-900/30 backdrop-blur-md rounded-3xl p-5 border border-white/45 shadow-sm flex flex-col gap-4">
+        <!-- Canteen Header -->
+        <header class="flex flex-col gap-2">
+          <div class="flex justify-between items-start gap-2">
+            <div class="min-w-0">
+              <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${canteen.name}</h2>
+              <p class="font-body-md text-body-md text-on-surface-variant dark:text-gray-300">${canteen.strasse}, ${canteen.plz} ${canteen.ort}</p>
+            </div>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass} flex-shrink-0">
+              ${statusText}
+            </span>
           </div>
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass}">
-            ${statusText}
-          </span>
-        </div>
-        <div class="mt-2 flex items-center gap-1 text-on-surface-variant font-body-sm text-[12px]">
-          <span class="material-symbols-outlined text-[16px]">schedule</span>
-          <span>${serviceWindowText}</span>
-        </div>
-      </section>
-      
-      <div class="flex flex-col gap-gutter-card mb-6">
+          <div class="flex items-center gap-1 text-on-surface-variant dark:text-gray-300 font-body-sm text-[12px] opacity-85">
+            <span class="material-symbols-outlined text-[16px]">schedule</span>
+            <span>${serviceWindowText}</span>
+          </div>
+        </header>
+
+        <!-- Dishes Container -->
+        <div class="flex flex-col gap-gutter-card">
     `;
 
     dishes.forEach(dish => {
@@ -1511,7 +1514,10 @@ function renderCanteenMenu() {
       `;
     });
 
-    canteenSection += `</div>`;
+    canteenSection += `
+        </div>
+      </div>
+    `;
     feedContainer.innerHTML += canteenSection;
   });
 
