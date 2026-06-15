@@ -245,6 +245,7 @@ const TRANSLATIONS = {
     studentPrice: "Studi-Preis",
     open: "Geöffnet",
     closed: "Geschlossen",
+    opensLater: "Öffnet später",
     noDishes: "Keine Gerichte für diesen Tag verfügbar.",
     mainCourse: "HAUPTGERICHT",
     sideDish: "BEILAGE",
@@ -283,6 +284,7 @@ const TRANSLATIONS = {
     studentPrice: "Student Price",
     open: "Open",
     closed: "Closed",
+    opensLater: "Opens later",
     noDishes: "No dishes available for this day.",
     mainCourse: "MAIN COURSE",
     sideDish: "SIDE DISH",
@@ -1285,9 +1287,26 @@ function renderCanteenMenu() {
     const startHour = hasServingTimes ? Math.min(minStartHour, generalStartHour) : generalStartHour;
     const endHour = hasServingTimes ? Math.max(maxEndHour, generalEndHour) : generalEndHour;
 
-    // Check if currently open for food service
+    // HIDE CLOSED CANTEENS ONLY IF THEY HAVE FINISHED FOR THE DAY (VIEWING TODAY)
+    const todayIso = new Date().toISOString().split("T")[0];
+    const isViewingToday = state.activeDate === todayIso;
+
+    if (isViewingToday && currentHour > endHour) {
+      // Skip rendering this canteen entirely since it has finished serving food for today
+      return;
+    }
+
+    // Check if currently open for food service or opens later
     let isCanteenOpen = false;
-    if (currentHour >= startHour && currentHour <= endHour) {
+    let opensLater = false;
+    if (isViewingToday) {
+      if (currentHour >= startHour && currentHour <= endHour) {
+        isCanteenOpen = true;
+      } else if (currentHour < startHour) {
+        opensLater = true;
+      }
+    } else {
+      // For future days, we assume it is open during its scheduled hours
       isCanteenOpen = true;
     }
 
@@ -1302,21 +1321,16 @@ function renderCanteenMenu() {
       serviceWindowText = `${servingLabel}: ${formatTime(startHour)} - ${formatTime(endHour)} Uhr`;
     }
 
-    // HIDE CLOSED CANTEENS ONLY IF VIEWING TODAY
-    const todayIso = new Date().toISOString().split("T")[0];
-    const isViewingToday = state.activeDate === todayIso;
-
-    if (isViewingToday && !isCanteenOpen) {
-      // Skip rendering this canteen entirely since it has finished serving food
-      return;
-    }
-
     renderedCanteensCount++;
 
     const statusBadgeClass = isCanteenOpen 
-      ? "bg-green-100 text-green-800 border-green-200" 
-      : "bg-red-100 text-red-800 border-red-200";
-    const statusText = isCanteenOpen ? t.open : t.closed;
+      ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" 
+      : (opensLater 
+        ? "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" 
+        : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800");
+    const statusText = isCanteenOpen 
+      ? t.open 
+      : (opensLater ? t.opensLater : t.closed);
 
     let canteenSection = `
       <section class="mt-4 mb-2">
