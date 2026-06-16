@@ -1882,7 +1882,7 @@ function renderCanteenMenu() {
               <!-- Title & Description -->
               <div class="min-w-0">
                 <h3 class="font-headline-sm text-headline-sm text-text-heading font-bold leading-snug mb-0.5 line-clamp-2">${mealName}</h3>
-                ${componentsText ? `<p class="font-body-sm text-[13px] text-on-surface-variant dark:text-gray-400 leading-snug line-clamp-2 mt-0.5">${componentsText}</p>` : ""}
+                ${componentsText ? `<p class="font-body-sm text-[13px] text-on-surface-variant dark:text-gray-400 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${componentsText}</p>` : ""}
                 ${mealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2 mt-1">${mealDesc}</p>` : ""}
               </div>
 
