@@ -1748,18 +1748,26 @@ function renderCanteenMenu() {
 
       const allergensText = customFields["allergens_names"] || "";
       let allergenIcons = "";
-      if (allergensText) {
-        const codes = (customFields["allergens_numbers"] || "").split(",").map(c => c.trim()).filter(Boolean);
-        if (codes.length > 0) {
-          const label = state.language === "en" ? "Allergens:" : "Allergene:";
-          allergenIcons = `
-            <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
-              <span class="font-semibold">${label}</span>
-              ${codes.slice(0, 3).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/60 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.08] dark:text-gray-300">${c}</span>`).join("")}
-              ${codes.length > 3 ? `<span class="text-xs font-bold text-[#143d59] dark:text-white">+${codes.length - 3}</span>` : ""}
-            </div>
-          `;
+      // Merge allergen codes: official list + codes from dish component texts
+      const officialCodes = (customFields["allergens_numbers"] || "").split(",").map(c => c.trim()).filter(Boolean);
+      const componentCodes = new Set(officialCodes);
+      for (let i = 1; i <= 5; i++) {
+        const partText = customFields[`dish_ger_${i}`] || "";
+        const matches = partText.matchAll(/\(([^)]+)\)/g);
+        for (const m of matches) {
+          m[1].split(",").forEach(c => { if (c.trim()) componentCodes.add(c.trim()); });
         }
+      }
+      const allCodes = [...componentCodes];
+      if (allCodes.length > 0) {
+        const label = state.language === "en" ? "Allergens:" : "Allergene:";
+        allergenIcons = `
+          <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
+            <span class="font-semibold">${label}</span>
+            ${allCodes.slice(0, 3).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/60 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.08] dark:text-gray-300">${c}</span>`).join("")}
+            ${allCodes.length > 3 ? `<span class="text-xs font-bold text-[#143d59] dark:text-white">+${allCodes.length - 3}</span>` : ""}
+          </div>
+        `;
       }
 
       let servingMetaHTML = "";
@@ -1782,7 +1790,60 @@ function renderCanteenMenu() {
         `;
       }
 
-      const mealName = state.language === "en" && dish.name_en ? dish.name_en : dish.name_de;
+      // --- Smart Dish Title: prefer CUSTOM_DPNAME when more descriptive ---
+      const stripAllergenCodes = (text) => text.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+      const dpNameSuffixes = /\s+(Abendessen|TK|Eigenproduktion|Eigenprodukt|Neu|trocken|Vegan|vegan)\s*$/gi;
+      const cleanDPName = (raw) => {
+        let cleaned = raw;
+        // Iteratively remove known suffixes
+        let prev = "";
+        while (cleaned !== prev) {
+          prev = cleaned;
+          cleaned = cleaned.replace(dpNameSuffixes, "").trim();
+        }
+        return cleaned;
+      };
+
+      const rawDPName = customFields["CUSTOM_DPNAME"] || "";
+      const cleanedDPName = cleanDPName(rawDPName);
+      const baseName = state.language === "en" && dish.name_en ? dish.name_en : dish.name_de;
+
+      // Use CUSTOM_DPNAME if it's meaningfully different and more descriptive than name_de
+      let mealName = baseName;
+      if (cleanedDPName && cleanedDPName.toLowerCase() !== (dish.name_de || "").toLowerCase()) {
+        const dpLower = cleanedDPName.toLowerCase();
+        const nameLower = (dish.name_de || "").toLowerCase();
+        // Only use DPNAME if name_de doesn't already contain its content
+        // e.g. "Flammkuchen mit Mediterranem Gemüse" already includes "Flammkuchen" → keep name_de
+        // but "Pommes frites" does NOT include "Veganes Gyros" → use DPNAME
+        if (!nameLower.includes(dpLower)) {
+          mealName = state.language === "en" && dish.name_en ? dish.name_en : cleanedDPName;
+        }
+      }
+
+      // --- Extract dish components (dish_ger_2 to dish_ger_5 / dish_2_eng to dish_5_eng) ---
+      let dishComponents = [];
+      for (let i = 1; i <= 5; i++) {
+        const fieldDe = customFields[`dish_ger_${i}`] || "";
+        const fieldEn = customFields[`dish_${i}_eng`] || "";
+        const raw = state.language === "en" && fieldEn ? fieldEn : fieldDe;
+        if (raw) {
+          dishComponents.push(stripAllergenCodes(raw));
+        }
+      }
+      // Remove the first component if it matches the title (avoid duplication)
+      if (dishComponents.length > 0) {
+        const firstClean = dishComponents[0].toLowerCase();
+        const titleClean = mealName.toLowerCase().replace(/\s*\([^)]*\)/g, "").trim();
+        if (firstClean === titleClean || titleClean.includes(firstClean) || firstClean.includes(titleClean)) {
+          dishComponents.shift();
+        }
+      }
+      // Filter out generic items optionally (keep them for now, they're useful info)
+      const componentsText = dishComponents.length > 0 
+        ? dishComponents.join(" · ") 
+        : "";
+
       const mealDesc = state.language === "en" && dish.description_en ? dish.description_en : dish.description_de;
 
       let thumbnailHTML = "";
@@ -1820,8 +1881,9 @@ function renderCanteenMenu() {
 
               <!-- Title & Description -->
               <div class="min-w-0">
-                <h3 class="font-headline-sm text-headline-sm text-text-heading font-bold leading-snug mb-1 line-clamp-2">${mealName}</h3>
-                ${mealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2">${mealDesc}</p>` : ""}
+                <h3 class="font-headline-sm text-headline-sm text-text-heading font-bold leading-snug mb-0.5 line-clamp-2">${mealName}</h3>
+                ${componentsText ? `<p class="font-body-sm text-[13px] text-on-surface-variant dark:text-gray-400 leading-snug line-clamp-2 mt-0.5">${componentsText}</p>` : ""}
+                ${mealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2 mt-1">${mealDesc}</p>` : ""}
               </div>
 
               <!-- Serving Meta -->
@@ -2107,7 +2169,17 @@ window.showAllergens = function(dishId) {
   const allergensNamesText = customFields["allergens_names"] || "";
   const allergensNumbersText = customFields["allergens_numbers"] || "";
   
-  const codes = allergensNumbersText.split(",").map(c => c.trim()).filter(Boolean);
+  // Merge: official allergen codes + codes extracted from dish component texts
+  const officialCodes = allergensNumbersText.split(",").map(c => c.trim()).filter(Boolean);
+  const mergedCodesSet = new Set(officialCodes);
+  for (let i = 1; i <= 5; i++) {
+    const partText = customFields[`dish_ger_${i}`] || "";
+    const matches = partText.matchAll(/\(([^)]+)\)/g);
+    for (const m of matches) {
+      m[1].split(",").forEach(c => { if (c.trim()) mergedCodesSet.add(c.trim()); });
+    }
+  }
+  const codes = [...mergedCodesSet];
   if (codes.length === 0) return;
 
   const allergenMap = {};
