@@ -2,7 +2,8 @@
 <html class="light" lang="de">
 <head>
     <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.supabase.co; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; manifest-src 'self';"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
     <title>KStW Mensaplan</title>
     
     <!-- PWA Meta Tags -->
@@ -15,203 +16,18 @@
     <link rel="manifest" href="manifest.json"/>
 
     <!-- Fonts & Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet"/>
+    <link href="fonts.css" rel="stylesheet"/>
 
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com/?plugins=forms,container-queries"></script>
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "surface-bright": "#f6fafe",
-                        "on-secondary-fixed": "#221b00",
-                        "on-primary-fixed": "#001e31",
-                        "inverse-on-surface": "#edf1f5",
-                        "primary-fixed": "#cce5ff",
-                        "on-primary-fixed-variant": "#244a67",
-                        "on-secondary-fixed-variant": "#544600",
-                        "text-heading": "#143d59",
-                        "tertiary-fixed-dim": "#c8c6c6",
-                        "error": "#ba1a1a",
-                        "outline-variant": "#c2c7ce",
-                        "surface-container-lowest": "#ffffff",
-                        "surface-tint": "#3d6280",
-                        "secondary-container": "#fdd400",
-                        "on-surface-variant": "#42474d",
-                        "on-primary-container": "#83a8c9",
-                        "text-main": "#373737",
-                        "primary-container": "#143d59",
-                        "tertiary-fixed": "#e4e2e1",
-                        "tertiary-container": "#3a3a3a",
-                        "on-secondary": "#ffffff",
-                        "price-badge": "#ffd600",
-                        "inverse-primary": "#a6cbed",
-                        "surface-card": "#ffffff",
-                        "surface-container-highest": "#dfe3e7",
-                        "tertiary": "#242525",
-                        "surface": "#f6fafe",
-                        "on-error-container": "#93000a",
-                        "secondary": "#705d00",
-                        "primary": "#00273e",
-                        "on-tertiary-container": "#a5a4a3",
-                        "primary-fixed-dim": "#a6cbed",
-                        "surface-container-high": "#e4e9ed",
-                        "outline": "#72787e",
-                        "secondary-fixed-dim": "#e9c400",
-                        "on-surface": "#171c1f",
-                        "on-error": "#ffffff",
-                        "surface-variant": "#dfe3e7",
-                        "on-primary": "#ffffff",
-                        "on-background": "#171c1f",
-                        "surface-container-low": "#f0f4f8",
-                        "error-container": "#ffdad6",
-                        "on-tertiary": "#ffffff",
-                        "border-subtle": "#e5e7eb",
-                        "secondary-fixed": "#ffe170",
-                        "surface-dim": "#d6dade",
-                        "inverse-surface": "#2c3134",
-                        "background": "#f6fafe",
-                        "surface-container": "#eaeef2",
-                        "on-tertiary-fixed": "#1b1c1c",
-                        "on-secondary-container": "#6f5c00"
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.125rem",
-                        "lg": "0.25rem",
-                        "xl": "0.5rem",
-                        "full": "0.75rem"
-                    },
-                    spacing: {
-                        "margin-page": "16px",
-                        "inset-card": "16px",
-                        "control-height": "44px",
-                        "gutter-card": "12px",
-                        "stack-md": "16px",
-                        "stack-sm": "8px",
-                        "stack-lg": "24px"
-                    },
-                    fontFamily: {
-                        sans: ["Hanken Grotesk", "sans-serif"],
-                        label: ["Hanken Grotesk", "sans-serif"],
-                        body: ["Hanken Grotesk", "sans-serif"],
-                        headline: ["Hanken Grotesk", "sans-serif"]
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            -webkit-tap-highlight-color: transparent;
-            font-family: 'Hanken Grotesk', sans-serif;
-            background-color: #f3f7fb;
-            min-height: 100vh;
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        
-        /* Solid Modern Styles (Replaces Glassmorphism) */
-        .glass {
-            background: #ffffff;
-            border: 1px solid rgba(0, 0, 0, 0.08);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        }
-        .dark .glass {
-            background: #1e293b;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        
-        .glass-dark {
-            background: #143d59;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        
-        .glass-panel {
-            background: rgba(0, 0, 0, 0.03);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-        }
-        .dark .glass-panel {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .checkbox-custom:checked + div {
-            background-color: #143d59;
-            border-color: #143d59;
-        }
-
-        .checkbox-custom:checked + div svg {
-            display: block;
-        }
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        
-        /* Adjust for notch / safe areas on iOS */
-        .pb-safe {
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-        .pt-safe {
-            padding-top: env(safe-area-inset-top);
-        }
-
-        /* Animations for PWA Update Modal and Toast */
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
-        @keyframes zoomIn {
-            from { transform: scale(0.95); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-        @keyframes zoomOut {
-            from { transform: scale(1); opacity: 1; }
-            to { transform: scale(0.95); opacity: 0; }
-        }
-        @keyframes slideInUp {
-            from { transform: translate(-50%, 20px); opacity: 0; }
-            to { transform: translate(-50%, 0); opacity: 1; }
-        }
-        @keyframes slideOutDown {
-            from { transform: translate(-50%, 0); opacity: 1; }
-            to { transform: translate(-50%, 20px); opacity: 0; }
-        }
-
-        .animate-fade-in {
-            animation: fadeIn 0.2s ease-out forwards;
-        }
-        .animate-fade-out {
-            animation: fadeOut 0.2s ease-out forwards;
-        }
-        .animate-zoom-in {
-            animation: zoomIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-        .animate-zoom-out {
-            animation: zoomOut 0.2s ease-in forwards;
-        }
-        .animate-slide-in {
-            animation: slideInUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-        .animate-slide-out {
-            animation: slideOutDown 0.3s ease-in forwards;
-        }
-    </style>
+    <link href="styles.css" rel="stylesheet"/>
 </head>
 <body class="w-full flex justify-center text-text-main">
+
+    <!-- Splash Screen -->
+    <div id="app-splash">
+        <img src="kstw-logo.png" class="splash-logo" alt="KStW Logo"/>
+        <h1 class="splash-title">Mensaplan</h1>
+        <div class="splash-spinner"></div>
+    </div>
 
     <!-- Main Mobile Viewport Container -->
     <div id="app-container" class="w-full max-w-md md:max-w-6xl min-h-screen md:min-h-[calc(100vh-4rem)] md:my-8 md:rounded-3xl md:border md:border-white/40 md:shadow-2xl bg-gradient-to-br from-[#e0eaf5] via-[#f0f4f8] to-[#d6dade] flex flex-col relative sm:border-x sm:border-white/30 shadow-2xl mx-auto pb-safe overflow-hidden">
@@ -363,6 +179,11 @@
     </div>
 
     <!-- App Script -->
+    <script src="data/icons.js"></script>
+    <script src="data/canteens.js"></script>
+    <script src="data/translations.js"></script>
+    <script src="data/allergens.js"></script>
+    <script src="data/config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

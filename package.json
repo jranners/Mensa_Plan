@@ -1,0 +1,15 @@
+{
+  "name": "mensa-plan",
+  "version": "1.0.0",
+  "description": "Optimizing KStW Mensaplan PWA load times",
+  "main": "app.js",
+  "scripts": {
+    "build:css": "tailwindcss -i input.css -o styles.css --minify",
+    "watch:css": "tailwindcss -i input.css -o styles.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/container-queries": "^0.1.1"
+  }
+}

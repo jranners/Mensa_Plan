@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+scripts
+Dockerfile
+docker-compose.yml
+package.json
+package-lock.json
+tailwind.config.js
+input.css
+README.md
+.DS_Store
+.agents
+.gemini

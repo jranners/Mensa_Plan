@@ -1,12 +1,19 @@
-const CACHE_NAME = 'kstw-mensa-v17';
+const CACHE_NAME = 'kstw-mensa-v20';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './app.js',
   './manifest.json',
   './kstw-logo.png',
-  'https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap',
-  new Request('https://cdn.tailwindcss.com/?plugins=forms,container-queries', { mode: 'no-cors' })
+  './fonts.css',
+  './fonts/hanken-grotesk-latin.woff2',
+  './fonts/hanken-grotesk-latin-ext.woff2',
+  './styles.css',
+  './data/icons.js',
+  './data/canteens.js',
+  './data/translations.js',
+  './data/allergens.js',
+  './data/config.js'
 ];
 
 // Install Service Worker and cache static shell assets

@@ -1,0 +1,36 @@
+name: Update Supabase API Key
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Läuft alle 6 Stunden
+  workflow_dispatch:      # Ermöglicht manuellen Start im GitHub-Interface
+
+permissions:
+  contents: write
+
+jobs:
+  update-key:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Key Scraper
+        run: node scripts/update-key.js
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --exit-code data/config.js; then
+            git add data/config.js
+            git commit -m "chore: auto-update Supabase credentials [skip ci]"
+            git push
+          else
+            echo "No changes in API key detected."
+          fi

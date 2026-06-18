@@ -1,40 +1,4 @@
-const SVG_ICONS = {
-  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
-  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
-  cell_tower: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="2"/><path d="M12 2v8M12 14v8M4.93 4.93a10 10 0 0 1 14.14 0M7.76 7.76a6 6 0 0 1 8.48 0"/></svg>',
-  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-  sd_card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M18 22H6a2 2 0 0 1-2-2V8l4-4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2zM14 6v4M10 6v4M7 8v2"/></svg>',
-  no_accounts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M17.8 17.8C16.8 15.6 14.6 14 12 14c-1 0-2 .2-2.9.7M8.5 8.5a4 4 0 0 1 6.5-1M3 3l18 18M12 2a10 10 0 1 0 10 10"/></svg>',
-  offline_pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>',
-  arrow_forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"/></svg>',
-  ios_share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>',
-  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="20 6 9 17 4 12"/></svg>',
-  restaurant: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v4M12 15v7M18 2s1 2.5 1 6c0 3-2.5 5-2.5 5h1.5v9h2v-9h1.5s-2.5-2-2.5-5c0-3.5 1-6 1-6"/></svg>',
-  expand_more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="6 9 12 15 18 9"/></svg>',
-  local_cafe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z M6 2v2M10 2v2M14 2v2"/></svg>',
-  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
-  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
-  cloud_off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 0 11h13a5 5 0 0 0 1.25-.16M1 1l22 22"/></svg>',
-  sync: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>',
-  error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
-  calendar_today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-  schedule: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"/></svg>',
-  eco: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.5 1 9.8a7 7 0 0 1-9 8.2ZM9 22v-4"/></svg>',
-  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6a4 4 0 0 1 4 4c0 3-4 8-4 8s-4-5-4-8a4 4 0 0 1 4-4zM12 2v2"/></svg>',
-  location_on: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
-  alarm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14 15"></polyline><path d="M5 3 2 6M19 3l3 3M6.26 18.26l-1.92 1.92M17.74 18.26l1.92 1.92"/></svg>',
-  notifications_off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M13.73 21a2 2 0 0 1-3.46 0M18.8 13.8A8.4 8.4 0 0 0 17 6.4M5.1 5.1A8.4 8.4 0 0 0 4 12v5H2v2h18v-2h-1M1 1l22 22"/></svg>',
-  update: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67M12 8v4l3 3"/></svg>',
-  check_circle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>',
-  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
-  public: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg>',
-  yard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22V12M12 12a5 5 0 0 1 5-5h3M12 12a5 5 0 0 0-5-5H4M20 7a3 3 0 0 0-3-3h-3M4 7a3 3 0 0 1 3-3h3"/></svg>',
-  workspace_premium: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
-  fastfood: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 11h18M3 11a4 4 0 0 1 8 0M21 11a4 4 0 0 0-8 0M5 15h14M6 19h12a2 2 0 0 0 2-2v-2H4v2a2 2 0 0 0 2 2z"/></svg>',
-  volunteer_activism: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
-  grain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>',
-  icecream: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m12 2-7 12h14Z M12 22a5 5 0 0 0 5-5H7a5 5 0 0 0 5 5z"/></svg>'
-};
+
 
 function getIconHTML(name, classes = "") {
   const iconSvg = SVG_ICONS[name] || "";
@@ -42,332 +6,13 @@ function getIconHTML(name, classes = "") {
 }
 
 // 1. Canteen Registry & Metadata
-const CANTEENS = {
-  "unimensa": {
-    "name": "Mensa Zülpicher Straße",
-    "type": "mensa",
-    "strasse": "Zülpicher Straße 70",
-    "plz": "50937",
-    "ort": "Köln",
-    "latitude": 50.927269,
-    "longitude": 6.933479,
-    "phone": "+49 221 944 053 426",
-    "infokurz": "Mo - Fr 11.30 - 21.00 Uhr\nSa 11.30 - 15.00 Uhr",
-    "ort_id": "201",
-    "screen_locations": [
-      "MZS - EG Nord 1", "MZS - EG Nord 2", "MZS - EG Süd 1", "MZS - EG Süd 2",
-      "MZS - Foyer EG 1", "MZS - Foyer EG 2", "MZS - MG Nord (Ausgabe 1)",
-      "MZS - MG Nord (Ausgabe 2)", "MZS - MG Nord 1, Foyer", "MZS - MG Nord 2, Foyer",
-      "MZS - MG Süd 1, Foyer", "MZS - MG Süd 2, Foyer", "MZS - Restaurant 3",
-      "Mensa Zülpicher Straße"
-    ]
-  },
-  "iwz-deutz": {
-    "name": "Mensa Deutz",
-    "type": "mensa",
-    "strasse": "Betzdorfer Straße 2",
-    "plz": "50679",
-    "ort": "Köln",
-    "latitude": 50.934014,
-    "longitude": 6.988374,
-    "phone": "+49 221 829 584 11",
-    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
-    "ort_id": "281",
-    "screen_locations": [
-      "Mensa Deutz", "Mensa Deutz - Foyer", "Mensa Deutz - Foyer Info-Display",
-      "Mensa Deutz - Theke 1", "Mensa Deutz - Theke 2", "Mensa Deutz - Theke 3", "Mensa Deutz - Theke 4"
-    ]
-  },
-  "suedstadt": {
-    "name": "Mensa Südstadt",
-    "type": "mensa",
-    "strasse": "Mainzer Straße 5",
-    "plz": "50678",
-    "ort": "Köln",
-    "latitude": 50.925942,
-    "longitude": 6.964058,
-    "phone": "+49 221 9320 328",
-    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
-    "ort_id": "241",
-    "screen_locations": [
-      "Mensa Südstadt", "Mensa Südstadt - Foyer EG",
-      "Mensa Südstadt - Theke 1 (links)", "Mensa Südstadt - Theke 2 (Caféteria)"
-    ]
-  },
-  "spoho": {
-    "name": "Mensa am Sportpark Müngersdorf",
-    "type": "mensa",
-    "strasse": "Am Sportpark Müngersdorf 2",
-    "plz": "50933",
-    "ort": "Köln",
-    "latitude": 50.935958,
-    "longitude": 6.870339,
-    "phone": "+49 221 9472 335",
-    "infokurz": "Mo - Do 11.15 - 14.30 Uhr\nFr 11.15 - 14.15 Uhr",
-    "ort_id": "271",
-    "screen_locations": [
-      "Mensa Am Sportpark Müngersdorf", "Mensa SpoHo - Abendmensa",
-      "Mensa SpoHo - Ausgabe 1", "Mensa SpoHo - Ausgabe 2", "Mensa SpoHo - Ausgabe 3",
-      "Mensa SpoHo - Ausgabe 4", "Mensa SpoHo - Ausgabe 5", "Mensa SpoHo - Ausgabe 6",
-      "Mensa SpoHo - Speisekarte"
-    ]
-  },
-  "eraum": {
-    "name": "Bistro Uni E-Raum",
-    "type": "bistro",
-    "strasse": "Albertus-Magnus-Platz",
-    "plz": "50931",
-    "ort": "Köln",
-    "latitude": 50.927952,
-    "longitude": 6.927956,
-    "phone": "+49 221 9415 573",
-    "infokurz": "Mo - Do 07.30 - 18.00 Uhr\nFr 07.30 - 15.00 Uhr",
-    "ort_id": null,
-    "screen_locations": [
-      "Bistro E-Raum", "Bistro Uni-E-Raum - Fenster"
-    ]
-  },
-  "cafe-himmelsblick": {
-    "name": "Café Himmelsblick (Claudiusstraße)",
-    "type": "bistro",
-    "strasse": "Claudiusstraße 1",
-    "plz": "50678",
-    "ort": "Köln",
-    "latitude": 50.92297,
-    "longitude": 6.967381,
-    "phone": "+49 221 9469 384",
-    "infokurz": "Mo - Do 11.30 - 18.00 Uhr\nFr 11.30 - 16.00 Uhr",
-    "ort_id": "242",
-    "screen_locations": [
-      "Mensa Claudiusstrasse", "Mensa Claudiusstraße - Café Himmelsblick"
-    ]
-  },
-  "gummersbach": {
-    "name": "Mensa Gummersbach",
-    "type": "mensa",
-    "strasse": "Steinmüllerallee 1",
-    "plz": "51643",
-    "ort": "Gummersbach",
-    "latitude": 51.028892,
-    "longitude": 7.562499,
-    "phone": "+49 2261 919 266",
-    "infokurz": "Mo - Do 11.30 - 15.00 Uhr\nFr 11.30 - 14.00 Uhr",
-    "ort_id": "291",
-    "screen_locations": [
-      "Mensa Gummersbach", "Mensa Gummersbach - Theke 1 (Mitte)",
-      "Mensa Gummersbach - Theke 1 (links)", "Mensa Gummersbach - Theke 1 (rechts)"
-    ]
-  },
-  "kunsthochschule-medien": {
-    "name": "Mensa Kunsthochschule Medien",
-    "type": "mensa",
-    "strasse": "Filzengraben 2-4",
-    "plz": "50676",
-    "ort": "Köln",
-    "latitude": 50.933591,
-    "longitude": 6.959581,
-    "phone": "+49 221 201 893 81",
-    "infokurz": "Mo - Fr 10.00 - 17.00 Uhr",
-    "ort_id": null,
-    "screen_locations": [
-      "Mensa Kunsthochschule"
-    ]
-  },
-  "lindenthal": {
-    "name": "Bistro Lindenthal",
-    "type": "bistro",
-    "strasse": "Gronewaldstraße 2",
-    "plz": "50931",
-    "ort": "Köln",
-    "latitude": 50.9341609,
-    "longitude": 6.9195527,
-    "phone": "+49 221 9129 486",
-    "infokurz": "Mo - Do 07.30 - 18.00 Uhr\nFr 07.30 - 16.00 Uhr",
-    "ort_id": null,
-    "screen_locations": [
-      "Bistro Lindenthal", "Bistro Lindenthal - Warmausgabe"
-    ]
-  },
-  "muho": {
-    "name": "Mensa Musikhochschule",
-    "type": "mensa",
-    "strasse": "Dagobertstraße 38",
-    "plz": "50668",
-    "ort": "Köln",
-    "latitude": 50.948299,
-    "longitude": 6.960454,
-    "phone": "+49 221 9129 486",
-    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
-    "ort_id": "261",
-    "screen_locations": [
-      "Mensa MuHo - Theke 1 (links)", "Mensa MuHo - Theke 2 (rechts)", "Mensa Musikhochschule"
-    ]
-  },
-  "robertkoch": {
-    "name": "Mensa Lindenthal Robert-Koch-Straße",
-    "type": "mensa",
-    "strasse": "Robert-Koch-Straße 10",
-    "plz": "50931",
-    "ort": "Köln",
-    "latitude": 50.929517,
-    "longitude": 6.923275,
-    "phone": "+49 221 941 57 09",
-    "infokurz": "Mo - Fr 11.00 - 15.00 Uhr",
-    "ort_id": "231",
-    "screen_locations": [
-      "Mensa Lindenthal", "Mensa Lindenthal - Ausgabe 1 (Suppe/Fleisch, links)",
-      "Mensa Lindenthal - Ausgabe 3 (Beilagenbuffet, Mitte-links)",
-      "Mensa Lindenthal - Ausgabe 4 (Vegan/Vegetarisch, Mitte-rechts)",
-      "Mensa Lindenthal - Ausgabe 5 (Pastatheke, rechts)", "Mensa Lindenthal - Foyer"
-    ]
-  },
-  "leverkusen": {
-    "name": "Mensa TH Köln (Leverkusen)",
-    "type": "mensa",
-    "strasse": "Campusplatz 1",
-    "plz": "51379",
-    "ort": "Leverkusen",
-    "latitude": 51.06218,
-    "longitude": 7.01291,
-    "phone": "+49 217 136 634 82",
-    "infokurz": "Mo - Fr 11.30 - 14.00 Uhr",
-    "ort_id": "235",
-    "screen_locations": [
-      "Mensa Leverkusen", "Mensa Leverkusen - Mensa"
-    ]
-  },
-  "zollstock": {
-    "name": "Mensa Zollstock",
-    "type": "mensa",
-    "strasse": "Sibille-Hartmann-Straße 2-8",
-    "plz": "50969",
-    "ort": "Köln",
-    "latitude": 50.91435,
-    "longitude": 6.94303,
-    "phone": "+49 221 470 765 72",
-    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
-    "ort_id": null,
-    "screen_locations": [
-      "Mensa Zollstock - Ausgabe 1 (links)", "Mensa Zollstock - Ausgabe 2 (rechts)"
-    ]
-  },
-  "philcafe": {
-    "name": "Bistro PhilCafé",
-    "type": "bistro",
-    "strasse": "Universitätsstraße 38",
-    "plz": "50931",
-    "ort": "Köln",
-    "latitude": 50.92811,
-    "longitude": 6.92776,
-    "phone": "+49 221 9415 570",
-    "infokurz": "Mo - Do 08.00 - 17.00 Uhr\nFr 08.00 - 15.00 Uhr",
-    "ort_id": null,
-    "screen_locations": [
-      "Bistro PhilCafé", "Bistro PhilCafé - Warmausgabe"
-    ]
-  }
-};
+
 
 // 2. Translations (Bilingual DE/EN)
-const TRANSLATIONS = {
-  de: {
-    title: "Mensaplan",
-    welcome: "Willkommen bei der KStW Mensa",
-    selectCanteens: "Mensa-Auswahl",
-    selectDiet: "Deine Ernährung",
-    showMenu: "Speiseplan anzeigen",
-    saveSettings: "Einstellungen speichern",
-    vegan: "Vegan",
-    vegetarian: "Vegetarisch",
-    all: "Alles",
-    studentPrice: "Studi-Preis",
-    open: "Geöffnet",
-    closed: "Geschlossen",
-    opensLater: "Noch geschlossen",
-    noDishes: "Keine Gerichte für diesen Tag verfügbar.",
-    mainCourse: "HAUPTGERICHT",
-    sideDish: "BEILAGE",
-    dessert: "NACHSPEISE",
-    other: "SPEISE",
-    settings: "Einstellungen",
-    loading: "Lade Speiseplan...",
-    errorLoading: "Fehler beim Laden des Speiseplans.",
-    language: "Sprache",
-    resetBtn: "Voreinstellungen zurücksetzen",
-    installTitle: "Mensaplan als App installieren?",
-    installDesc: "Möchtest du schneller auf deinen Mensaplan zugreifen und ihn auch offline nutzen? Füge ein Icon zu deinem Homescreen hinzu!",
-    installBtn: "Jetzt installieren",
-    privacyBadge: "100% DSGVO-konform",
-    sizeBadge: "Sehr klein (< 50 KB)",
-    permissionsBadge: "Keine Berechtigungen",
-    offlineBadge: "Offline-fähig",
-    iosInstall: 'Tippe unten in Safari auf das Teilen-Symbol <span class="inline-flex items-center justify-center text-[16px] align-middle px-0.5" style="width: 1.2em; height: 1.2em; vertical-align: middle; line-height: 1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></span> und wähle <span class="font-bold">"Zum Home-Bildschirm"</span>.',
-    updateAvailableTitle: "Update verfügbar!",
-    updateAvailableDesc: "Neue Version ist bereit.",
-    updatePrompt: "Ein neues Update für den Mensaplan ist verfügbar. Möchtest du die App neu starten, um die neuesten Gerichte und Funktionen zu laden?",
-    updateRestart: "Neu starten",
-    updateLater: "Später",
-    updateSuccessToast: "Mensaplan erfolgreich aktualisiert!",
-    offlineBannerText: "Offline-Modus: Letztes Update {time}.",
-    offlineBannerUpdateBtn: "Aktualisieren",
-    offlineBannerUpdating: "Aktualisiere...",
-    justNow: "gerade eben",
-    minutesAgo: "vor {n} Min.",
-    hoursAgo: "vor {n} Std."
-  },
-  en: {
-    title: "Mensaplan",
-    welcome: "Welcome to KStW Mensa",
-    selectCanteens: "Canteen Selection",
-    selectDiet: "Dietary Preference",
-    showMenu: "Show Canteen Plan",
-    saveSettings: "Save Settings",
-    vegan: "Vegan",
-    vegetarian: "Vegetarian",
-    all: "All Foods",
-    studentPrice: "Student Price",
-    open: "Open",
-    closed: "Closed",
-    opensLater: "Still closed",
-    noDishes: "No dishes available for this day.",
-    mainCourse: "MAIN COURSE",
-    sideDish: "SIDE DISH",
-    dessert: "DESSERT",
-    other: "DISH",
-    settings: "Settings",
-    loading: "Loading menu...",
-    errorLoading: "Error loading canteen plan.",
-    language: "Language",
-    resetBtn: "Reset Preferences",
-    installTitle: "Install Canteen Plan as App?",
-    installDesc: "Do you want to access the canteen plan faster and use it offline? Add an icon to your home screen!",
-    installBtn: "Install Now",
-    privacyBadge: "100% GDPR-compliant",
-    sizeBadge: "Very small (< 50 KB)",
-    permissionsBadge: "No permissions needed",
-    offlineBadge: "Offline capable",
-    iosInstall: 'Tap the Share icon <span class="inline-flex items-center justify-center text-[16px] align-middle px-0.5" style="width: 1.2em; height: 1.2em; vertical-align: middle; line-height: 1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></span> in Safari below and select <span class="font-bold">"Add to Home Screen"</span>.',
-    updateAvailableTitle: "Update available!",
-    updateAvailableDesc: "New version is ready.",
-    updatePrompt: "A new update for the canteen plan is available. Do you want to restart the app to load the latest dishes and features?",
-    updateRestart: "Restart",
-    updateLater: "Later",
-    updateSuccessToast: "Canteen plan updated successfully!",
-    offlineBannerText: "Offline Mode: Last update {time}.",
-    offlineBannerUpdateBtn: "Update",
-    offlineBannerUpdating: "Updating...",
-    justNow: "just now",
-    minutesAgo: "{n} min ago",
-    hoursAgo: "{n} hr ago"
-  }
-};
+
 
 // 3. Supabase Credentials (CloudMensa backend configuration)
-const SUPABASE_CONFIG = {
-  url: "https://axxiebkvmfjmiaanviob.supabase.co",
-  apiKey: "sb_publishable_G6p4Gfhzcx2AM5ToCWAChA_pY-PKF2a",
-  orgId: "4c89c35f-16ac-413f-af04-ec9ffe610f67"
-};
+// Loaded dynamically from data/config.js
 
 // 4. Global State
 let state = {
@@ -384,17 +29,24 @@ let state = {
   lastCacheTime: null
 };
 
+let onboardingInitialized = false;
+
+function removeSplash() {
+  const splash = document.getElementById("app-splash");
+  if (splash) {
+    splash.classList.add("fade-out");
+    setTimeout(() => {
+      if (splash.parentNode) {
+        splash.parentNode.removeChild(splash);
+      }
+    }, 500);
+  }
+}
+
 // 5. Initialize App
 window.addEventListener("DOMContentLoaded", async () => {
-  if (window.location.search.includes("test=true")) {
-    localStorage.setItem("kstw_prefs_saved", "true");
-    localStorage.setItem("kstw_canteens", JSON.stringify(["unimensa", "iwz-deutz", "spoho"]));
-    localStorage.setItem("kstw_diet", "all");
-    localStorage.setItem("kstw_lang", "de");
-  }
   loadPreferences();
   applyLanguage();
-  initOnboardingUI();
   initInstallPrompt();
 
   // Register PWA Service Worker & check for updates
@@ -461,16 +113,18 @@ function loadPreferences() {
   
   const savedCanteens = localStorage.getItem("kstw_canteens");
   if (savedCanteens) {
-    state.selectedCanteens = JSON.parse(savedCanteens);
+    try {
+      state.selectedCanteens = JSON.parse(savedCanteens);
+      if (!Array.isArray(state.selectedCanteens)) {
+        state.selectedCanteens = ["unimensa"];
+      }
+    } catch (e) {
+      console.error("Failed to parse saved canteens:", e);
+      state.selectedCanteens = ["unimensa"];
+    }
   } else {
     state.selectedCanteens = ["unimensa"];
   }
-
-  // Set Supabase URL/Key if previously recovered dynamically
-  const recoveredUrl = localStorage.getItem("kstw_supabase_url");
-  const recoveredKey = localStorage.getItem("kstw_supabase_key");
-  if (recoveredUrl) SUPABASE_CONFIG.url = recoveredUrl;
-  if (recoveredKey) SUPABASE_CONFIG.apiKey = recoveredKey;
 }
 
 function savePreferences(language, canteens, diet) {
@@ -508,6 +162,16 @@ function loadMenuCache() {
     console.error("Failed to load menu cache:", err);
   }
   return false;
+}
+
+function escapeHtml(str) {
+  if (typeof str !== "string") return str;
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function formatCacheTime(timestamp) {
@@ -686,6 +350,12 @@ function showOnboarding(isSettingsMenu = false) {
   state.isSettingsMenu = isSettingsMenu;
   const onboarding = document.getElementById("onboarding");
   onboarding.classList.remove("hidden");
+  
+  if (!onboardingInitialized) {
+    initOnboardingUI();
+    onboardingInitialized = true;
+  }
+  
   initInstallPrompt();
   
   const closeBtn = document.getElementById("close-onboarding-btn");
@@ -715,6 +385,7 @@ function showOnboarding(isSettingsMenu = false) {
       resetContainer.parentNode.removeChild(resetContainer);
     }
   }
+  removeSplash();
 }
 
 function hideOnboarding() {
@@ -946,18 +617,7 @@ async function fetchAndRender(forceNetwork = false) {
     const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
 
     try {
-      let rawData;
-      try {
-        rawData = await fetchWeekMenuData(start_date, end_date);
-      } catch (err) {
-        console.log("Blocking fetch failed, attempting API key recovery...");
-        const recovered = await recoverSupabaseCredentials();
-        if (recovered) {
-          rawData = await fetchWeekMenuData(start_date, end_date);
-        } else {
-          throw err;
-        }
-      }
+      const rawData = await fetchWeekMenuData(start_date, end_date);
 
       if (rawData) {
         state.menuData = rawData;
@@ -1012,18 +672,7 @@ async function updateMenuDataBackground(isManual = false) {
   const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
 
   try {
-    let rawData;
-    try {
-      rawData = await fetchWeekMenuData(start_date, end_date);
-    } catch (err) {
-      console.log("Background fetch failed, attempting API key recovery...");
-      const recovered = await recoverSupabaseCredentials();
-      if (recovered) {
-        rawData = await fetchWeekMenuData(start_date, end_date);
-      } else {
-        throw err;
-      }
-    }
+    const rawData = await fetchWeekMenuData(start_date, end_date);
 
     if (rawData) {
       state.menuData = rawData;
@@ -1100,71 +749,39 @@ window.triggerManualReload = async function() {
 };
 
 async function fetchWeekMenuData(startDate, endDate) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
   const payload = {
     "p_organization_id": SUPABASE_CONFIG.orgId,
     "p_start_date": startDate.toISOString().split("T")[0],
     "p_end_date": endDate.toISOString().split("T")[0]
   };
 
-  const response = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/rpc/public_get_week_menu`, {
-    method: "POST",
-    headers: {
-      "apikey": SUPABASE_CONFIG.apiKey,
-      "authorization": `Bearer ${SUPABASE_CONFIG.apiKey}`,
-      "content-type": "application/json",
-      "x-client-info": "supabase-js-web/2.88.0"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    throw new Error(`Supabase API responded with status ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-async function recoverSupabaseCredentials() {
-  const kstwCloudMensaUrl = "https://app.cloudmensa.io/menu/kstw";
-  const corsProxy = "https://corsproxy.io/?url=";
-
   try {
-    const htmlResponse = await fetch(`${corsProxy}${encodeURIComponent(kstwCloudMensaUrl)}`);
-    if (!htmlResponse.ok) return false;
-    const html = await htmlResponse.text();
+    const response = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/rpc/public_get_week_menu`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_CONFIG.apiKey,
+        "authorization": `Bearer ${SUPABASE_CONFIG.apiKey}`,
+        "content-type": "application/json",
+        "x-client-info": "supabase-js-web/2.88.0"
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
 
-    const scriptRegex = /<script[^>]+src=["']([^"']+)["']/g;
-    let match;
-    const scriptUrls = [];
-    while ((match = scriptRegex.exec(html)) !== null) {
-      scriptUrls.push(match[1]);
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Supabase API responded with status ${response.status}`);
     }
 
-    const pattern = /"(https:\/\/[a-zA-Z0-9-]+\.supabase\.co)",\w+="([a-zA-Z0-9\._-]+)"/;
-    
-    for (const src of scriptUrls) {
-      const fullUrl = src.startsWith("http") ? src : `https://app.cloudmensa.io${src}`;
-      const jsResponse = await fetch(`${corsProxy}${encodeURIComponent(fullUrl)}`);
-      if (!jsResponse.ok) continue;
-      const js = await jsResponse.text();
-      
-      const credentialsMatch = js.match(pattern);
-      if (credentialsMatch) {
-        const newUrl = credentialsMatch[1];
-        const newKey = credentialsMatch[2];
-        
-        SUPABASE_CONFIG.url = newUrl;
-        SUPABASE_CONFIG.apiKey = newKey;
-        
-        localStorage.setItem("kstw_supabase_url", newUrl);
-        localStorage.setItem("kstw_supabase_key", newKey);
-        return true;
-      }
-    }
-  } catch (e) {
-    console.error("Error recovering API keys:", e);
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
   }
-  return false;
 }
 
 // 9. UI Rendering & Interaction
@@ -1191,6 +808,7 @@ function renderError() {
       <button class="mt-4 px-6 py-2 bg-primary-container text-white rounded-lg font-label-md" onclick="fetchAndRender()">${state.language === "de" ? "Erneut versuchen" : "Retry"}</button>
     </div>
   `;
+  removeSplash();
 }
 
 function renderApp(initialLoad = false) {
@@ -1198,6 +816,7 @@ function renderApp(initialLoad = false) {
   renderDietToggle();
   renderCanteenMenu();
   renderOfflineBanner();
+  removeSplash();
 }
 
 function renderDateSelector(forceScroll = false) {
@@ -1449,7 +1068,7 @@ function getBrandAndSubTag(dish) {
     
     subTagHTML = `
       <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/60 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-        ${displaySub}
+        ${escapeHtml(displaySub)}
       </span>
     `;
   }
@@ -1457,7 +1076,7 @@ function getBrandAndSubTag(dish) {
   const brandBadgeHTML = `
     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${brandColor} shadow-sm">
       ${getIconHTML(brandIcon, 'text-[13px] font-normal')}
-      ${brandName}
+      ${escapeHtml(brandName)}
     </span>
   `;
 
@@ -1764,7 +1383,7 @@ function renderCanteenMenu() {
         allergenIcons = `
           <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
             <span class="font-semibold">${label}</span>
-            ${allCodes.slice(0, 3).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/60 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.08] dark:text-gray-300">${c}</span>`).join("")}
+            ${allCodes.slice(0, 3).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/60 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.08] dark:text-gray-300">${escapeHtml(c)}</span>`).join("")}
             ${allCodes.length > 3 ? `<span class="text-xs font-bold text-[#143d59] dark:text-white">+${allCodes.length - 3}</span>` : ""}
           </div>
         `;
@@ -1777,13 +1396,13 @@ function renderCanteenMenu() {
             ${locationBadge ? `
               <span class="inline-flex items-center gap-1 bg-white/50 border border-white/60 shadow-sm px-2 py-0.5 rounded text-[11px] dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
                 ${getIconHTML('location_on', 'text-[14px]')}
-                ${locationBadge}
+                ${escapeHtml(locationBadge)}
               </span>
             ` : ""}
             ${servingTime ? `
               <span class="inline-flex items-center gap-1 bg-white/50 border border-white/60 shadow-sm px-2 py-0.5 rounded text-[11px] dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
                 ${getIconHTML('alarm', 'text-[14px]')}
-                ${servingTime}
+                ${escapeHtml(servingTime)}
               </span>
             ` : ""}
           </div>
@@ -1846,16 +1465,22 @@ function renderCanteenMenu() {
 
       const mealDesc = state.language === "en" && dish.description_en ? dish.description_en : dish.description_de;
 
+      const escapedMealName = escapeHtml(mealName);
+      const escapedComponentsText = escapeHtml(componentsText);
+      const escapedMealDesc = escapeHtml(mealDesc);
+      const escapedStudentPrice = escapeHtml(studentPrice);
+
       let thumbnailHTML = "";
       let rightColumnHTML = "";
       if (dish.image_url) {
+        const escapedImageUrl = escapeHtml(dish.image_url);
         rightColumnHTML = `
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
             <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-black/5 shadow-sm">
-              <img src="${dish.image_url}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${mealName}" onerror="this.closest('.dish-right-col').style.display='none'"/>
+              <img src="${escapedImageUrl}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${escapedMealName}" onerror="this.closest('.dish-right-col').style.display='none'"/>
             </div>
             <div class="bg-price-badge/95 backdrop-blur-md shadow-sm rounded-full px-2.5 py-0.5 border border-white/20">
-              <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${studentPrice}</span>
+              <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${escapedStudentPrice}</span>
             </div>
           </div>
         `;
@@ -1863,7 +1488,7 @@ function renderCanteenMenu() {
 
       const priceBadgeInline = !dish.image_url ? `
         <div class="bg-price-badge/95 backdrop-blur-md shadow-sm rounded-full px-2.5 py-0.5 border border-white/20 flex-shrink-0 ml-auto">
-          <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${studentPrice}</span>
+          <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${escapedStudentPrice}</span>
         </div>
       ` : "";
 
@@ -1881,9 +1506,9 @@ function renderCanteenMenu() {
 
               <!-- Title & Description -->
               <div class="min-w-0">
-                <h3 class="font-headline-sm text-headline-sm text-text-heading font-bold leading-snug mb-0.5 line-clamp-2">${mealName}</h3>
-                ${componentsText ? `<p class="font-body-sm text-[13px] text-on-surface-variant dark:text-gray-400 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${componentsText}</p>` : ""}
-                ${mealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2 mt-1">${mealDesc}</p>` : ""}
+                <h3 class="font-headline-sm text-headline-sm text-text-heading font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
+                ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-on-surface-variant dark:text-gray-400 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${escapedComponentsText}</p>` : ""}
+                ${escapedMealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
               </div>
 
               <!-- Serving Meta -->
@@ -2109,45 +1734,7 @@ function showSuccessToast() {
 }
 
 // 12. Standard Allergens Fallback Map
-const STANDARD_ALLERGENS = {
-  "1": { de: "Mit Farbstoff", en: "Contains colorants" },
-  "2": { de: "Mit Konservierungsstoff", en: "Contains preservatives" },
-  "3": { de: "Mit Antioxidationsmittel", en: "Contains antioxidants" },
-  "4": { de: "Mit Geschmacksverstärker", en: "Contains flavor enhancers" },
-  "5": { de: "Geschwefelt", en: "Sulfurated" },
-  "6": { de: "Geschwärzt", en: "Blackened" },
-  "7": { de: "Gewachst", en: "Waxed" },
-  "8": { de: "Mit Phosphat", en: "Contains phosphate" },
-  "9": { de: "Mit Süßungsmittel", en: "Contains sweeteners" },
-  "10": { de: "Enthält eine Phenylalaninquelle", en: "Contains a source of phenylalanine" },
-  "11": { de: "Enthält Gluten", en: "Contains gluten" },
-  "11w": { de: "Enthält Weizen Gluten", en: "Contains wheat" },
-  "11r": { de: "Enthält Roggen Gluten", en: "Contains rye" },
-  "11b": { de: "Enthält Gerste Gluten", en: "Contains barley" },
-  "11h": { de: "Enthält Hafer Gluten", en: "Contains oats" },
-  "11d": { de: "Enthält Dinkel Gluten", en: "Contains spelt" },
-  "12": { de: "Enthält Krebstiere", en: "Contains crustaceans" },
-  "13": { de: "Enthält Eier", en: "Contains eggs" },
-  "14": { de: "Enthält Fisch", en: "Contains fish" },
-  "15": { de: "Enthält Erdnüsse", en: "Contains peanuts" },
-  "16": { de: "Enthält Soja", en: "Contains soy" },
-  "17": { de: "Enthält Milch", en: "Contains milk" },
-  "18": { de: "Enthält Laktose", en: "Contains lactose" },
-  "19": { de: "Enthält Schalenfrüchte", en: "Contains nuts" },
-  "20": { de: "Enthält Sellerie", en: "Contains celery" },
-  "21": { de: "Enthält Senf", en: "Contains mustard" },
-  "22": { de: "Enthält Sesamsamen", en: "Contains sesame seeds" },
-  "23": { de: "Enthält Schwefeldioxid/Sulfite", en: "Contains sulfur dioxide/sulfites" },
-  "24": { de: "Enthält Lupinen", en: "Contains lupins" },
-  "25": { de: "Enthält Weichtiere", en: "Contains molluscs" },
-  "26": { de: "Mit Rindfleisch", en: "Contains beef" },
-  "27": { de: "Mit Gelatine", en: "Contains gelatin" },
-  "28": { de: "Mit Schweinefleisch", en: "Contains pork" },
-  "29": { de: "Mit Geflügel", en: "Contains poultry" },
-  "30": { de: "Mit Lammfleisch", en: "Contains lamb" },
-  "31": { de: "Mit Knoblauch", en: "Contains garlic" },
-  "32": { de: "Mit Alkohol", en: "Contains alcohol" }
-};
+
 
 function findDishById(dishId) {
   for (const day of state.menuData) {
@@ -2216,10 +1803,10 @@ window.showAllergens = function(dishId) {
     listContainer.innerHTML += `
       <div class="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-black/[0.04] dark:border-white/[0.04]">
         <span class="inline-flex items-center justify-center bg-primary-container text-white text-[11px] font-bold px-2 py-0.5 rounded min-w-[28px] text-center dark:bg-slate-700">
-          ${code}
+          ${escapeHtml(code)}
         </span>
         <span class="text-sm text-text-heading dark:text-gray-200 font-medium">
-          ${name}
+          ${escapeHtml(name)}
         </span>
       </div>
     `;
