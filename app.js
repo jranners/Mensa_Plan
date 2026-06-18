@@ -1,5 +1,9 @@
 
 
+function getLocalIsoDate(date = new Date()) {
+  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+}
+
 function getIconHTML(name, classes = "") {
   const iconSvg = SVG_ICONS[name] || "";
   return `<span class="inline-flex items-center justify-center ${classes}" style="width: 1.2em; height: 1.2em; vertical-align: middle; line-height: 1;">${iconSvg}</span>`;
@@ -509,7 +513,7 @@ function hasDishesForSelectedCanteensAndDiet(dateStr) {
 function hasAvailableDishesForDate(dateStr) {
   if (!hasDishesForSelectedCanteensAndDiet(dateStr)) return false;
 
-  const todayIso = new Date().toISOString().split("T")[0];
+  const todayIso = getLocalIsoDate();
   if (dateStr < todayIso) return false; // Past days are not available
   if (dateStr > todayIso) return true;  // Future days are assumed open
 
@@ -599,7 +603,7 @@ async function fetchAndRender(forceNetwork = false) {
     // We have cached data, let's determine the active date and render immediately!
     const daysWithDishes = state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
     if (daysWithDishes.length > 0) {
-      const todayIso = new Date().toISOString().split("T")[0];
+      const todayIso = getLocalIsoDate();
       const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
       
       if (hasTodayWithMeals) {
@@ -615,7 +619,7 @@ async function fetchAndRender(forceNetwork = false) {
         }
       }
     } else {
-      state.activeDate = new Date().toISOString().split("T")[0];
+      state.activeDate = getLocalIsoDate();
     }
     
     // Render from cache
@@ -651,7 +655,7 @@ async function fetchAndRender(forceNetwork = false) {
         
         const daysWithDishes = rawData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
         if (daysWithDishes.length > 0) {
-          const todayIso = new Date().toISOString().split("T")[0];
+          const todayIso = getLocalIsoDate();
           const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
           
           if (hasTodayWithMeals) {
@@ -667,7 +671,7 @@ async function fetchAndRender(forceNetwork = false) {
             }
           }
         } else {
-          state.activeDate = new Date().toISOString().split("T")[0];
+          state.activeDate = getLocalIsoDate();
         }
         
         renderApp(true);
@@ -706,7 +710,7 @@ async function updateMenuDataBackground(isManual = false) {
       
       const daysWithDishes = rawData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
       if (daysWithDishes.length > 0) {
-        const todayIso = new Date().toISOString().split("T")[0];
+        const todayIso = getLocalIsoDate();
         const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
         
         if (hasTodayWithMeals) {
@@ -779,8 +783,8 @@ async function fetchWeekMenuData(startDate, endDate) {
 
   const payload = {
     "p_organization_id": SUPABASE_CONFIG.orgId,
-    "p_start_date": startDate.toISOString().split("T")[0],
-    "p_end_date": endDate.toISOString().split("T")[0]
+    "p_start_date": getLocalIsoDate(startDate),
+    "p_end_date": getLocalIsoDate(endDate)
   };
 
   try {
@@ -854,8 +858,7 @@ function renderDateSelector(forceScroll = false) {
     return;
   }
 
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayStr = getLocalIsoDate();
 
   daysWithDishes.forEach(day => {
     const date = new Date(day.date);
@@ -1249,7 +1252,7 @@ function renderCanteenMenu() {
     const endHour = hasServingTimes ? Math.max(maxEndHour, generalEndHour) : generalEndHour;
 
     // HIDE CLOSED CANTEENS ONLY IF THEY HAVE FINISHED FOR THE DAY (VIEWING TODAY)
-    const todayIso = new Date().toISOString().split("T")[0];
+    const todayIso = getLocalIsoDate();
     const isViewingToday = state.activeDate === todayIso;
 
     if (isViewingToday && currentHour > endHour) {
