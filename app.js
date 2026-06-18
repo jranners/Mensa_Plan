@@ -481,15 +481,40 @@ function initInstallPrompt() {
 }
 
 // 8. API Fetching & Recovery (Supreme CORS-Proxy Fallback)
-function hasAvailableDishesForDate(dateStr) {
+function hasDishesForSelectedCanteensAndDiet(dateStr) {
   const dayData = state.menuData.find(d => d.date === dateStr);
   if (!dayData || !dayData.dishes || dayData.dishes.length === 0) return false;
+
+  let validDishesCount = 0;
+
+  state.selectedCanteens.forEach(canteenKey => {
+    const canteen = CANTEENS[canteenKey];
+    if (!canteen) return;
+
+    let dishes = dayData.dishes.filter(dish => getCanteenKeyFromDish(dish, canteenKey, canteen));
+    
+    // Filter by diet
+    if (state.diet === "vegan") {
+      dishes = dishes.filter(d => getDishDietType(d) === "vegan");
+    } else if (state.diet === "vegetarian") {
+      dishes = dishes.filter(d => getDishDietType(d) === "vegan" || getDishDietType(d) === "vegetarian");
+    }
+
+    validDishesCount += dishes.length;
+  });
+
+  return validDishesCount > 0;
+}
+
+function hasAvailableDishesForDate(dateStr) {
+  if (!hasDishesForSelectedCanteensAndDiet(dateStr)) return false;
 
   const todayIso = new Date().toISOString().split("T")[0];
   if (dateStr < todayIso) return false; // Past days are not available
   if (dateStr > todayIso) return true;  // Future days are assumed open
 
   // For today, check if there's at least one valid dish that has not expired yet
+  const dayData = state.menuData.find(d => d.date === dateStr);
   const now = new Date();
   const currentHour = now.getHours() + now.getMinutes() / 60;
   
@@ -572,7 +597,7 @@ async function fetchAndRender(forceNetwork = false) {
   
   if (hasCache && state.menuData && state.menuData.length > 0) {
     // We have cached data, let's determine the active date and render immediately!
-    const daysWithDishes = state.menuData.filter(d => (d.dishes || []).length > 0);
+    const daysWithDishes = state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
     if (daysWithDishes.length > 0) {
       const todayIso = new Date().toISOString().split("T")[0];
       const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
@@ -624,7 +649,7 @@ async function fetchAndRender(forceNetwork = false) {
         saveMenuCache(rawData);
         state.isOfflineMode = false;
         
-        const daysWithDishes = rawData.filter(d => (d.dishes || []).length > 0);
+        const daysWithDishes = rawData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
         if (daysWithDishes.length > 0) {
           const todayIso = new Date().toISOString().split("T")[0];
           const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
@@ -679,7 +704,7 @@ async function updateMenuDataBackground(isManual = false) {
       saveMenuCache(rawData);
       state.isOfflineMode = false;
       
-      const daysWithDishes = rawData.filter(d => (d.dishes || []).length > 0);
+      const daysWithDishes = rawData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
       if (daysWithDishes.length > 0) {
         const todayIso = new Date().toISOString().split("T")[0];
         const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
@@ -823,7 +848,7 @@ function renderDateSelector(forceScroll = false) {
   const selectorContainer = document.getElementById("date-selector-container");
   selectorContainer.innerHTML = "";
   
-  const daysWithDishes = state.menuData.filter(d => (d.dishes || []).length > 0);
+  const daysWithDishes = state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
   
   if (daysWithDishes.length === 0) {
     return;
@@ -1275,9 +1300,11 @@ function renderCanteenMenu() {
               <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${canteen.name}</h2>
               <p class="font-body-md text-body-md text-on-surface-variant dark:text-gray-300">${canteen.strasse}, ${canteen.plz} ${canteen.ort}</p>
             </div>
+            ${isViewingToday ? `
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass} flex-shrink-0">
               ${statusText}
             </span>
+            ` : ""}
           </div>
           <div class="flex items-center gap-1 text-on-surface-variant dark:text-gray-300 font-body-sm text-[12px] opacity-85">
             ${getIconHTML('schedule', 'text-[16px]')}
