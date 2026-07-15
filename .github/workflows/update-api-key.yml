@@ -2,7 +2,7 @@ name: Update Supabase API Key
 
 on:
   schedule:
-    - cron: '*/30 8-18 * * 1-5'  # Alle 30 Minuten während der Geschäftszeiten (Mo-Fr, 8-18 Uhr)
+    - cron: '*/5 8-18 * * 1-5'  # Alle 5 Minuten während der Geschäftszeiten (Mo-Fr, 8-18 Uhr)
     - cron: '0 0,12 * * *'       # Zweimal täglich als Fallback für den API-Key (täglich um 00:00 und 12:00 Uhr)
   workflow_dispatch:      # Ermöglicht manuellen Start im GitHub-Interface
 

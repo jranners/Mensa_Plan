@@ -933,6 +933,22 @@ function renderAnnouncements() {
     const iconColor = "text-red-600 dark:text-red-400";
     const iconName = "error";
 
+    let dateStr = "";
+    if (announce.dateFetched) {
+      const date = new Date(announce.dateFetched);
+      if (!isNaN(date.getTime())) {
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        
+        const prefix = state.language === "de" ? "Stand:" : "As of:";
+        const timeSuffix = state.language === "de" ? " Uhr" : "";
+        
+        dateStr = `<p class="text-[11px] opacity-60 mt-2 font-medium">${prefix} ${day}.${month}. ${hours}:${minutes}${timeSuffix}</p>`;
+      }
+    }
+
     html += `
       <div class="w-full border rounded-2xl p-4 flex gap-3 text-sm animate-fade-in shadow-sm mb-4 ${cardClass}">
         <div class="flex-shrink-0 mt-0.5">
@@ -941,6 +957,7 @@ function renderAnnouncements() {
         <div class="flex-1">
           <h4 class="font-bold mb-1">${escapeHTML(announce.topic)}</h4>
           <p class="leading-relaxed">${escapeHTML(announce.content)}</p>
+          ${dateStr}
         </div>
       </div>
     `;
