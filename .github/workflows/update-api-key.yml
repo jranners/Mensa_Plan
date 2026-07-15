@@ -25,6 +25,7 @@ jobs:
 
       - name: Run Announcement Scraper
         run: node scripts/update-announcements.js
+        continue-on-error: true
 
       - name: Commit and Push Changes
         run: |

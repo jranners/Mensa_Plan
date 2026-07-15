@@ -10,6 +10,7 @@ const CANTEENS = {
     "phone": "+49 221 944 053 426",
     "infokurz": "Mo - Fr 11.30 - 21.00 Uhr\nSa 11.30 - 15.00 Uhr",
     "ort_id": "201",
+    "keywords": ["Zülpicher", "MZS", "Uni-Mensa", "Mensa Zülpicher Straße"],
     "screen_locations": [
       "MZS - EG Nord 1", "MZS - EG Nord 2", "MZS - EG Süd 1", "MZS - EG Süd 2",
       "MZS - Foyer EG 1", "MZS - Foyer EG 2", "MZS - MG Nord (Ausgabe 1)",
@@ -29,6 +30,7 @@ const CANTEENS = {
     "phone": "+49 221 829 584 11",
     "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
     "ort_id": "281",
+    "keywords": ["Deutz"],
     "screen_locations": [
       "Mensa Deutz", "Mensa Deutz - Foyer", "Mensa Deutz - Foyer Info-Display",
       "Mensa Deutz - Theke 1", "Mensa Deutz - Theke 2", "Mensa Deutz - Theke 3", "Mensa Deutz - Theke 4"
@@ -45,6 +47,7 @@ const CANTEENS = {
     "phone": "+49 221 9320 328",
     "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
     "ort_id": "241",
+    "keywords": ["Südstadt"],
     "screen_locations": [
       "Mensa Südstadt", "Mensa Südstadt - Foyer EG",
       "Mensa Südstadt - Theke 1 (links)", "Mensa Südstadt - Theke 2 (Caféteria)"
@@ -61,6 +64,7 @@ const CANTEENS = {
     "phone": "+49 221 9472 335",
     "infokurz": "Mo - Do 11.15 - 14.30 Uhr\nFr 11.15 - 14.15 Uhr",
     "ort_id": "271",
+    "keywords": ["Sportpark", "SpoHo", "Müngersdorf"],
     "screen_locations": [
       "Mensa Am Sportpark Müngersdorf", "Mensa SpoHo - Abendmensa",
       "Mensa SpoHo - Ausgabe 1", "Mensa SpoHo - Ausgabe 2", "Mensa SpoHo - Ausgabe 3",
@@ -79,6 +83,7 @@ const CANTEENS = {
     "phone": "+49 221 9415 573",
     "infokurz": "Mo - Do 07.30 - 18.00 Uhr\nFr 07.30 - 15.00 Uhr",
     "ort_id": null,
+    "keywords": ["E-Raum", "Uni E-Raum"],
     "screen_locations": [
       "Bistro E-Raum", "Bistro Uni-E-Raum - Fenster"
     ]
@@ -94,6 +99,7 @@ const CANTEENS = {
     "phone": "+49 221 9469 384",
     "infokurz": "Mo - Do 11.30 - 18.00 Uhr\nFr 11.30 - 16.00 Uhr",
     "ort_id": "242",
+    "keywords": ["Himmelsblick", "Claudiusstraße"],
     "screen_locations": [
       "Mensa Claudiusstrasse", "Mensa Claudiusstraße - Café Himmelsblick"
     ]
@@ -109,6 +115,7 @@ const CANTEENS = {
     "phone": "+49 2261 919 266",
     "infokurz": "Mo - Do 11.30 - 15.00 Uhr\nFr 11.30 - 14.00 Uhr",
     "ort_id": "291",
+    "keywords": ["Gummersbach"],
     "screen_locations": [
       "Mensa Gummersbach", "Mensa Gummersbach - Theke 1 (Mitte)",
       "Mensa Gummersbach - Theke 1 (links)", "Mensa Gummersbach - Theke 1 (rechts)"
@@ -125,6 +132,7 @@ const CANTEENS = {
     "phone": "+49 221 201 893 81",
     "infokurz": "Mo - Fr 10.00 - 17.00 Uhr",
     "ort_id": null,
+    "keywords": ["Kunsthochschule", "Medien", "KHM"],
     "screen_locations": [
       "Mensa Kunsthochschule"
     ]
@@ -140,6 +148,7 @@ const CANTEENS = {
     "phone": "+49 221 9129 486",
     "infokurz": "Mo - Do 07.30 - 18.00 Uhr\nFr 07.30 - 16.00 Uhr",
     "ort_id": null,
+    "keywords": ["Lindenthal"],
     "screen_locations": [
       "Bistro Lindenthal", "Bistro Lindenthal - Warmausgabe"
     ]
@@ -155,6 +164,7 @@ const CANTEENS = {
     "phone": "+49 221 9129 486",
     "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
     "ort_id": "261",
+    "keywords": ["Musikhochschule", "MuHo"],
     "screen_locations": [
       "Mensa MuHo - Theke 1 (links)", "Mensa MuHo - Theke 2 (rechts)", "Mensa Musikhochschule"
     ]
@@ -170,6 +180,7 @@ const CANTEENS = {
     "phone": "+49 221 941 57 09",
     "infokurz": "Mo - Fr 11.00 - 15.00 Uhr",
     "ort_id": "231",
+    "keywords": ["Robert-Koch-Straße", "Robert Koch"],
     "screen_locations": [
       "Mensa Lindenthal", "Mensa Lindenthal - Ausgabe 1 (Suppe/Fleisch, links)",
       "Mensa Lindenthal - Ausgabe 3 (Beilagenbuffet, Mitte-links)",
@@ -188,6 +199,7 @@ const CANTEENS = {
     "phone": "+49 217 136 634 82",
     "infokurz": "Mo - Fr 11.30 - 14.00 Uhr",
     "ort_id": "235",
+    "keywords": ["Leverkusen"],
     "screen_locations": [
       "Mensa Leverkusen", "Mensa Leverkusen - Mensa"
     ]
@@ -203,6 +215,7 @@ const CANTEENS = {
     "phone": "+49 221 470 765 72",
     "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
     "ort_id": null,
+    "keywords": ["Zollstock"],
     "screen_locations": [
       "Mensa Zollstock - Ausgabe 1 (links)", "Mensa Zollstock - Ausgabe 2 (rechts)"
     ]
@@ -218,6 +231,7 @@ const CANTEENS = {
     "phone": "+49 221 9415 570",
     "infokurz": "Mo - Do 08.00 - 17.00 Uhr\nFr 08.00 - 15.00 Uhr",
     "ort_id": null,
+    "keywords": ["PhilCafé", "Phil Cafe"],
     "screen_locations": [
       "Bistro PhilCafé", "Bistro PhilCafé - Warmausgabe"
     ]

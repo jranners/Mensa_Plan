@@ -897,6 +897,13 @@ function renderError() {
   removeSplash();
 }
 
+function escapeHTML(str) {
+  if (!str) return "";
+  return str.replace(/[&<>'"]/g, 
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+  );
+}
+
 function renderAnnouncements() {
   const container = document.getElementById("announcement-banner-container");
   if (!container) return;
@@ -908,18 +915,30 @@ function renderAnnouncements() {
 
   const favoriteCanteens = state.selectedCanteens.map(key => CANTEENS[key]).filter(Boolean);
   let html = "";
+  
+  // 24 hours TTL
+  const now = new Date();
+  const ttlMs = 24 * 60 * 60 * 1000;
 
   state.announcements.forEach((announce) => {
+    // TTL Check
+    if (announce.dateFetched) {
+      const fetchTime = new Date(announce.dateFetched);
+      if (isNaN(fetchTime.getTime()) || (now - fetchTime) > ttlMs) {
+        // Stale announcement, skip rendering
+        return;
+      }
+    }
+
     const textToSearch = `${announce.topic} ${announce.content}`.toLowerCase();
     
+    // Check for global keywords affecting everyone (e.g. Streik, alle Mensen)
+    const globalKeywords = ["alle", "streik", "feiertag", "gesamt"];
+    const isGlobalWarning = globalKeywords.some(kw => textToSearch.includes(kw));
+
     // Check if it affects one of the favorite canteens
-    const affectsFavorite = favoriteCanteens.some(canteen => {
-      const keywords = [canteen.name];
-      if (canteen.name.includes("Zülpicher")) keywords.push("Uni-Mensa", "Zülpicher", "MZS");
-      if (canteen.name.includes("Deutz")) keywords.push("Deutz");
-      if (canteen.name.includes("Südstadt")) keywords.push("Südstadt");
-      if (canteen.name.includes("Sportpark")) keywords.push("Sportpark", "SpoHo");
-      
+    const affectsFavorite = isGlobalWarning || favoriteCanteens.some(canteen => {
+      const keywords = canteen.keywords || [canteen.name];
       return keywords.some(kw => textToSearch.includes(kw.toLowerCase()));
     });
 
@@ -936,8 +955,8 @@ function renderAnnouncements() {
           ${getIconHTML(iconName, `text-[20px] ${iconColor}`)}
         </div>
         <div class="flex-1">
-          <h4 class="font-bold mb-1">${announce.topic}</h4>
-          <p class="leading-relaxed">${announce.content}</p>
+          <h4 class="font-bold mb-1">${escapeHTML(announce.topic)}</h4>
+          <p class="leading-relaxed">${escapeHTML(announce.content)}</p>
         </div>
       </div>
     `;
