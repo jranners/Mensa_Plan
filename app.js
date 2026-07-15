@@ -25,6 +25,7 @@ let state = {
   diet: "all", // "vegan", "vegetarian", "all"
   activeDate: "", // YYYY-MM-DD
   menuData: [], // parsed days list
+  announcements: [], // active announcements from KStW website
   isLoaded: false,
   isSettingsMenu: false,
   isOfflineMode: false,
@@ -164,6 +165,27 @@ function loadMenuCache() {
     }
   } catch (err) {
     console.error("Failed to load menu cache:", err);
+  }
+  return false;
+}
+
+function saveAnnouncementsCache(data) {
+  try {
+    localStorage.setItem("kstw_announcements_cache", JSON.stringify(data));
+  } catch (err) {
+    console.error("Failed to save announcements cache:", err);
+  }
+}
+
+function loadAnnouncementsCache() {
+  try {
+    const cached = localStorage.getItem("kstw_announcements_cache");
+    if (cached) {
+      state.announcements = JSON.parse(cached);
+      return true;
+    }
+  } catch (err) {
+    console.error("Failed to load announcements cache:", err);
   }
   return false;
 }
@@ -598,6 +620,7 @@ function hasAvailableDishesForDate(dateStr) {
 
 async function fetchAndRender(forceNetwork = false) {
   const hasCache = loadMenuCache();
+  loadAnnouncementsCache();
   
   if (hasCache && state.menuData && state.menuData.length > 0) {
     // We have cached data, let's determine the active date and render immediately!
@@ -646,36 +669,43 @@ async function fetchAndRender(forceNetwork = false) {
     const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
 
     try {
-      const rawData = await fetchWeekMenuData(start_date, end_date);
+      const [rawData, rawAnnouncements] = await Promise.all([
+        fetchWeekMenuData(start_date, end_date),
+        fetchAnnouncements()
+      ]);
 
       if (rawData) {
         state.menuData = rawData;
         saveMenuCache(rawData);
-        state.isOfflineMode = false;
-        
-        const daysWithDishes = rawData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
-        if (daysWithDishes.length > 0) {
-          const todayIso = getLocalIsoDate();
-          const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
-          
-          if (hasTodayWithMeals) {
-            state.activeDate = todayIso;
-          } else {
-            const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
-            const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
-            if (nextAvailableDay) {
-              state.activeDate = nextAvailableDay.date;
-            } else {
-              const futureDays = sortedDays.filter(d => d.date >= todayIso);
-              state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
-            }
-          }
-        } else {
-          state.activeDate = getLocalIsoDate();
-        }
-        
-        renderApp(true);
       }
+      if (rawAnnouncements) {
+        state.announcements = rawAnnouncements;
+        saveAnnouncementsCache(rawAnnouncements);
+      }
+      state.isOfflineMode = false;
+      
+      const daysWithDishes = state.menuData ? state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date)) : [];
+      if (daysWithDishes.length > 0) {
+        const todayIso = getLocalIsoDate();
+        const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
+        
+        if (hasTodayWithMeals) {
+          state.activeDate = todayIso;
+        } else {
+          const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
+          const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
+          if (nextAvailableDay) {
+            state.activeDate = nextAvailableDay.date;
+          } else {
+            const futureDays = sortedDays.filter(d => d.date >= todayIso);
+            state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
+          }
+        }
+      } else {
+        state.activeDate = getLocalIsoDate();
+      }
+      
+      renderApp(true);
     } catch (err) {
       console.error("Blocking fetch completely failed:", err);
       state.isOfflineMode = true;
@@ -701,34 +731,41 @@ async function updateMenuDataBackground(isManual = false) {
   const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
 
   try {
-    const rawData = await fetchWeekMenuData(start_date, end_date);
+    const [rawData, rawAnnouncements] = await Promise.all([
+      fetchWeekMenuData(start_date, end_date),
+      fetchAnnouncements()
+    ]);
 
     if (rawData) {
       state.menuData = rawData;
       saveMenuCache(rawData);
-      state.isOfflineMode = false;
+    }
+    if (rawAnnouncements) {
+      state.announcements = rawAnnouncements;
+      saveAnnouncementsCache(rawAnnouncements);
+    }
+    state.isOfflineMode = false;
+    
+    const daysWithDishes = state.menuData ? state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date)) : [];
+    if (daysWithDishes.length > 0) {
+      const todayIso = getLocalIsoDate();
+      const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
       
-      const daysWithDishes = rawData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
-      if (daysWithDishes.length > 0) {
-        const todayIso = getLocalIsoDate();
-        const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
-        
-        if (hasTodayWithMeals) {
-          state.activeDate = todayIso;
+      if (hasTodayWithMeals) {
+        state.activeDate = todayIso;
+      } else {
+        const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
+        const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
+        if (nextAvailableDay) {
+          state.activeDate = nextAvailableDay.date;
         } else {
-          const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
-          const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
-          if (nextAvailableDay) {
-            state.activeDate = nextAvailableDay.date;
-          } else {
-            const futureDays = sortedDays.filter(d => d.date >= todayIso);
-            state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
-          }
+          const futureDays = sortedDays.filter(d => d.date >= todayIso);
+          state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
         }
       }
-      
-      renderApp(true);
     }
+    
+    renderApp(true);
   } catch (err) {
     console.error("Background fetch failed:", err);
     state.isOfflineMode = true;
@@ -813,6 +850,26 @@ async function fetchWeekMenuData(startDate, endDate) {
   }
 }
 
+async function fetchAnnouncements() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch("data/announcements.json?t=" + Date.now(), {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch announcements: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error("Failed to fetch announcements:", error);
+    return null;
+  }
+}
+
 // 9. UI Rendering & Interaction
 function renderLoading() {
   const t = TRANSLATIONS[state.language];
@@ -840,7 +897,57 @@ function renderError() {
   removeSplash();
 }
 
+function renderAnnouncements() {
+  const container = document.getElementById("announcement-banner-container");
+  if (!container) return;
+
+  if (!state.announcements || state.announcements.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const favoriteCanteens = state.selectedCanteens.map(key => CANTEENS[key]).filter(Boolean);
+  let html = "";
+
+  state.announcements.forEach((announce) => {
+    const textToSearch = `${announce.topic} ${announce.content}`.toLowerCase();
+    
+    // Check if it affects one of the favorite canteens
+    const affectsFavorite = favoriteCanteens.some(canteen => {
+      const keywords = [canteen.name];
+      if (canteen.name.includes("Zülpicher")) keywords.push("Uni-Mensa", "Zülpicher", "MZS");
+      if (canteen.name.includes("Deutz")) keywords.push("Deutz");
+      if (canteen.name.includes("Südstadt")) keywords.push("Südstadt");
+      if (canteen.name.includes("Sportpark")) keywords.push("Sportpark", "SpoHo");
+      
+      return keywords.some(kw => textToSearch.includes(kw.toLowerCase()));
+    });
+
+    const cardClass = affectsFavorite 
+      ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/60 text-red-800 dark:text-red-300"
+      : "bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 text-blue-800 dark:text-blue-300";
+      
+    const iconColor = affectsFavorite ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400";
+    const iconName = affectsFavorite ? "error" : "info";
+
+    html += `
+      <div class="w-full border rounded-2xl p-4 flex gap-3 text-sm animate-fade-in shadow-sm mb-4 ${cardClass}">
+        <div class="flex-shrink-0 mt-0.5">
+          ${getIconHTML(iconName, `text-[20px] ${iconColor}`)}
+        </div>
+        <div class="flex-1">
+          <h4 class="font-bold mb-1">${announce.topic}</h4>
+          <p class="leading-relaxed">${announce.content}</p>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
 function renderApp(initialLoad = false) {
+  renderAnnouncements();
   renderDateSelector(initialLoad);
   renderDietToggle();
   renderCanteenMenu();

@@ -23,14 +23,17 @@ jobs:
       - name: Run Key Scraper
         run: node scripts/update-key.js
 
+      - name: Run Announcement Scraper
+        run: node scripts/update-announcements.js
+
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git diff --exit-code data/config.js; then
-            git add data/config.js
-            git commit -m "chore: auto-update Supabase credentials [skip ci]"
+          git add data/config.js data/announcements.json
+          if ! git diff --cached --exit-code; then
+            git commit -m "chore: auto-update Supabase credentials & announcements [skip ci]"
             git push
           else
-            echo "No changes in API key detected."
+            echo "No changes in credentials or announcements detected."
           fi
