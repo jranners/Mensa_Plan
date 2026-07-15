@@ -913,7 +913,6 @@ function renderAnnouncements() {
     return;
   }
 
-  const favoriteCanteens = state.selectedCanteens.map(key => CANTEENS[key]).filter(Boolean);
   let html = "";
   
   // 24 hours TTL
@@ -930,24 +929,9 @@ function renderAnnouncements() {
       }
     }
 
-    const textToSearch = `${announce.topic} ${announce.content}`.toLowerCase();
-    
-    // Check for global keywords affecting everyone (e.g. Streik, alle Mensen)
-    const globalKeywords = ["alle", "streik", "feiertag", "gesamt"];
-    const isGlobalWarning = globalKeywords.some(kw => textToSearch.includes(kw));
-
-    // Check if it affects one of the favorite canteens
-    const affectsFavorite = isGlobalWarning || favoriteCanteens.some(canteen => {
-      const keywords = canteen.keywords || [canteen.name];
-      return keywords.some(kw => textToSearch.includes(kw.toLowerCase()));
-    });
-
-    const cardClass = affectsFavorite 
-      ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/60 text-red-800 dark:text-red-300"
-      : "bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 text-blue-800 dark:text-blue-300";
-      
-    const iconColor = affectsFavorite ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400";
-    const iconName = affectsFavorite ? "error" : "info";
+    const cardClass = "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/60 text-red-800 dark:text-red-300";
+    const iconColor = "text-red-600 dark:text-red-400";
+    const iconName = "error";
 
     html += `
       <div class="w-full border rounded-2xl p-4 flex gap-3 text-sm animate-fade-in shadow-sm mb-4 ${cardClass}">
