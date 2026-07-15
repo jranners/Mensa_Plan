@@ -1742,6 +1742,9 @@ function registerSW() {
         .then(reg => {
           console.log('Service Worker registered successfully!', reg.scope);
 
+          // Force check for updates on page load
+          reg.update().catch(err => console.warn('SW update check failed:', err));
+
           // If a new service worker is already waiting (e.g. user dismissed prompt earlier and re-opened)
           if (reg.waiting) {
             showUpdateDialog(reg.waiting);
