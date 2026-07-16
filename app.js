@@ -294,8 +294,9 @@ function shouldExcludeDish(dish, selectedAllergyGroups) {
   
   const dishAllergens = getDishAllergens(dish);
   
-  // If the dish has absolutely no allergen declarations, we exclude it for safety
-  if (dishAllergens.length === 0) return true;
+  // If the dish has absolutely no allergen declarations, we do NOT exclude it.
+  // We keep it visible but display a warning badge (the user requested this).
+  if (dishAllergens.length === 0) return false;
   
   // Get all codes that are excluded
   const excludedCodes = new Set();
@@ -1823,6 +1824,20 @@ function renderCanteenMenu() {
         `;
       }
 
+      let undeclaredBadge = "";
+      if (state.allergies && state.allergies.length > 0) {
+        const dishAllergens = getDishAllergens(dish);
+        if (dishAllergens.length === 0) {
+          const label = state.language === "en" ? "No allergen info" : "Keine Allergen-Info";
+          undeclaredBadge = `
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900">
+              ${getIconHTML('info', 'text-[14px]')}
+              ${label}
+            </span>
+          `;
+        }
+      }
+
       const allergensText = customFields["allergens_names"] || "";
       let allergenIcons = "";
       // Merge allergen codes: official list + codes from dish component texts
@@ -1981,6 +1996,7 @@ function renderCanteenMenu() {
           <div class="flex items-center justify-between mt-1 pt-2 border-t border-black/5 dark:border-white/5">
             <div class="flex gap-1.5 flex-wrap">
               ${dietBadge}
+              ${undeclaredBadge}
             </div>
             ${allergenIcons}
           </div>
