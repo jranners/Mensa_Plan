@@ -31,7 +31,8 @@ let state = {
   isOfflineMode: false,
   isUpdatingBackground: false,
   isManualUpdating: false,
-  lastCacheTime: null
+  lastCacheTime: null,
+  allergies: []
 };
 
 let onboardingInitialized = false;
@@ -48,6 +49,70 @@ function removeSplash() {
   }
 }
 
+function checkAllergenPrompt() {
+  if (localStorage.getItem("kstw_allergen_prompt_shown") === "true") return;
+
+  const t = TRANSLATIONS[state.language] || TRANSLATIONS.de;
+  const modal = document.createElement("div");
+  modal.id = "allergen-prompt-modal";
+  modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-fade-in";
+  
+  modal.innerHTML = `
+    <div class="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-black/[0.08] dark:border-white/[0.08] p-6 shadow-2xl flex flex-col gap-4 animate-zoom-in">
+      <div class="flex items-center gap-3">
+        <div class="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 flex-shrink-0">
+          ${getIconHTML('warning', 'text-[28px]')}
+        </div>
+        <div>
+          <h3 class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.allergenPromptTitle}</h3>
+        </div>
+      </div>
+      <p class="text-sm text-text-main dark:text-gray-200 leading-relaxed">
+        ${t.allergenPromptDesc}
+      </p>
+      <div class="flex gap-3 mt-2">
+        <button id="allergen-prompt-no-btn" class="flex-1 h-11 border border-black/[0.08] dark:border-white/[0.08] hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-transform font-label-md text-label-md rounded-xl text-on-surface-variant dark:text-gray-300 font-semibold">
+          ${t.allergenPromptNo}
+        </button>
+        <button id="allergen-prompt-yes-btn" class="flex-1 h-11 bg-price-badge text-primary hover:opacity-90 active:scale-95 transition-transform font-label-md text-label-md rounded-xl font-bold shadow-sm">
+          ${t.allergenPromptYes}
+        </button>
+      </div>
+    </div>
+  `;
+
+  const appContainer = document.getElementById('app-container');
+  if (appContainer) {
+    appContainer.appendChild(modal);
+  } else {
+    document.body.appendChild(modal);
+  }
+
+  // Dismiss listeners
+  document.getElementById('allergen-prompt-no-btn').addEventListener('click', () => {
+    localStorage.setItem("kstw_allergen_prompt_shown", "true");
+    closeModal();
+  });
+
+  document.getElementById('allergen-prompt-yes-btn').addEventListener('click', () => {
+    localStorage.setItem("kstw_allergen_prompt_shown", "true");
+    closeModal();
+    // Open settings and expand allergen section
+    showOnboarding(true, true);
+  });
+
+  function closeModal() {
+    modal.classList.remove('animate-fade-in');
+    modal.classList.add('animate-fade-out');
+    const innerDiv = modal.querySelector('div');
+    if (innerDiv) {
+      innerDiv.classList.remove('animate-zoom-in');
+      innerDiv.classList.add('animate-zoom-out');
+    }
+    setTimeout(() => modal.remove(), 200);
+  }
+}
+
 // 5. Initialize App
 window.addEventListener("DOMContentLoaded", async () => {
   loadPreferences();
@@ -61,6 +126,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (hasPreferences()) {
     hideOnboarding();
     await fetchAndRender();
+    checkAllergenPrompt();
   } else {
     showOnboarding();
   }
@@ -108,6 +174,142 @@ window.addEventListener("DOMContentLoaded", async () => {
 });
 
 // 6. Onboarding & Preferences Management
+const ALLERGEN_GROUPS = {
+  "gluten": {
+    de: "Gluten",
+    en: "Gluten",
+    codes: ["11", "11w", "11r", "11b", "11h", "11d", "11g"]
+  },
+  "crustaceans": {
+    de: "Krebstiere",
+    en: "Crustaceans",
+    codes: ["12"]
+  },
+  "eggs": {
+    de: "Eier",
+    en: "Eggs",
+    codes: ["13"]
+  },
+  "fish": {
+    de: "Fisch",
+    en: "Fish",
+    codes: ["14"]
+  },
+  "peanuts": {
+    de: "Erdnüsse",
+    en: "Peanuts",
+    codes: ["15"]
+  },
+  "soy": {
+    de: "Soja",
+    en: "Soy",
+    codes: ["16"]
+  },
+  "milk": {
+    de: "Milch & Laktose",
+    en: "Milk & Lactose",
+    codes: ["17", "18"]
+  },
+  "nuts": {
+    de: "Schalenfrüchte (Nüsse)",
+    en: "Nuts (Tree nuts)",
+    codes: ["19", "19c", "19h", "19m", "19w"]
+  },
+  "celery": {
+    de: "Sellerie",
+    en: "Celery",
+    codes: ["20"]
+  },
+  "mustard": {
+    de: "Senf",
+    en: "Mustard",
+    codes: ["21"]
+  },
+  "sesame": {
+    de: "Sesamsamen",
+    en: "Sesame",
+    codes: ["22"]
+  },
+  "sulfites": {
+    de: "Sulfite / Schwefeldioxid",
+    en: "Sulfites / Sulfur dioxide",
+    codes: ["23"]
+  },
+  "lupins": {
+    de: "Lupinen",
+    en: "Lupins",
+    codes: ["24"]
+  },
+  "molluscs": {
+    de: "Weichtiere",
+    en: "Molluscs",
+    codes: ["25"]
+  },
+  "gelatin": {
+    de: "Gelatine",
+    en: "Gelatin",
+    codes: ["27"]
+  },
+  "alcohol": {
+    de: "Alkohol",
+    en: "Alcohol",
+    codes: ["26"]
+  }
+};
+
+function getDishAllergens(dish) {
+  const customFields = {};
+  (dish.custom_fields || []).forEach(f => {
+    if (f) customFields[f.field_id] = f.value;
+  });
+
+  const officialCodes = (customFields["allergens_numbers"] || "")
+    .split(",")
+    .map(c => c.trim())
+    .filter(Boolean);
+
+  const mergedCodesSet = new Set(officialCodes);
+
+  // Extract from component text
+  for (let i = 1; i <= 5; i++) {
+    const partText = customFields[`dish_ger_${i}`] || "";
+    if (partText) {
+      const matches = partText.matchAll(/\(([^)]+)\)/g);
+      for (const m of matches) {
+        m[1].split(",").forEach(c => {
+          const cleaned = c.trim();
+          if (cleaned && cleaned !== "g" && cleaned.toLowerCase() !== "kartoffeln") {
+            mergedCodesSet.add(cleaned);
+          }
+        });
+      }
+    }
+  }
+
+  return [...mergedCodesSet];
+}
+
+function shouldExcludeDish(dish, selectedAllergyGroups) {
+  if (!selectedAllergyGroups || selectedAllergyGroups.length === 0) return false;
+  
+  const dishAllergens = getDishAllergens(dish);
+  
+  // If the dish has absolutely no allergen declarations, we exclude it for safety
+  if (dishAllergens.length === 0) return true;
+  
+  // Get all codes that are excluded
+  const excludedCodes = new Set();
+  selectedAllergyGroups.forEach(groupKey => {
+    const group = ALLERGEN_GROUPS[groupKey];
+    if (group) {
+      group.codes.forEach(code => excludedCodes.add(code));
+    }
+  });
+  
+  // Check if the dish contains any excluded codes
+  return dishAllergens.some(code => excludedCodes.has(code));
+}
+
 function hasPreferences() {
   return localStorage.getItem("kstw_prefs_saved") === "true";
 }
@@ -130,16 +332,33 @@ function loadPreferences() {
   } else {
     state.selectedCanteens = ["unimensa"];
   }
+
+  const savedAllergies = localStorage.getItem("kstw_allergies");
+  if (savedAllergies) {
+    try {
+      state.allergies = JSON.parse(savedAllergies);
+      if (!Array.isArray(state.allergies)) {
+        state.allergies = [];
+      }
+    } catch (e) {
+      console.error("Failed to parse saved allergies:", e);
+      state.allergies = [];
+    }
+  } else {
+    state.allergies = [];
+  }
 }
 
-function savePreferences(language, canteens, diet) {
+function savePreferences(language, canteens, diet, allergies = []) {
   state.language = language;
   state.selectedCanteens = canteens;
   state.diet = diet;
+  state.allergies = allergies;
 
   localStorage.setItem("kstw_lang", language);
   localStorage.setItem("kstw_canteens", JSON.stringify(canteens));
   localStorage.setItem("kstw_diet", diet);
+  localStorage.setItem("kstw_allergies", JSON.stringify(allergies));
   localStorage.setItem("kstw_prefs_saved", "true");
 }
 
@@ -344,6 +563,56 @@ function initOnboardingUI() {
     `;
   });
 
+  // Render Allergen Accordion labels & checkboxes
+  document.getElementById("onboarding-allergen-icon").innerHTML = getIconHTML('warning', 'text-[18px]');
+  document.getElementById("onboarding-allergen-title").textContent = t.allergenTitle;
+  document.getElementById("onboarding-allergen-arrow").innerHTML = getIconHTML('expand_more', 'text-[20px] transition-transform duration-200 group-open:rotate-180');
+  document.getElementById("onboarding-allergen-desc").textContent = t.allergenDesc;
+  document.getElementById("allergen-warning-icon").innerHTML = getIconHTML('info', 'text-[14px]');
+  document.getElementById("onboarding-allergen-warning").textContent = t.allergenWarning;
+
+  const allergenListContainer = document.getElementById("allergen-checkbox-list");
+  allergenListContainer.innerHTML = "";
+  
+  Object.keys(ALLERGEN_GROUPS).forEach(key => {
+    const group = ALLERGEN_GROUPS[key];
+    const isChecked = state.allergies.includes(key) ? "checked" : "";
+    const name = state.language === "en" ? group.en : group.de;
+    
+    allergenListContainer.innerHTML += `
+      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg transition-colors group">
+        <div class="relative flex items-center justify-center w-5 h-5 flex-shrink-0">
+          <input type="checkbox" value="${key}" ${isChecked} class="allergy-checkbox checkbox-custom opacity-0 absolute w-full h-full cursor-pointer z-10"/>
+          <div class="w-4 h-4 rounded-sm border-2 border-outline-variant bg-surface-container-lowest flex items-center justify-center transition-colors">
+            <svg class="hidden w-3 h-3 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+            </svg>
+          </div>
+        </div>
+        <span class="font-body-md text-body-md text-text-main dark:text-gray-300 group-hover:text-text-heading dark:group-hover:text-white">${name}</span>
+      </label>
+    `;
+  });
+
+  // Setup Custom Checkbox Visual States for Allergies
+  document.querySelectorAll(".allergy-checkbox").forEach(chk => {
+    const box = chk.nextElementSibling;
+    const updateBox = () => {
+      if (chk.checked) {
+        box.classList.add("bg-primary-container", "border-primary-container");
+        box.querySelector("svg").classList.remove("hidden");
+      } else {
+        box.classList.remove("bg-primary-container", "border-primary-container");
+        box.querySelector("svg").classList.add("hidden");
+      }
+      
+      const checkedBoxes = document.querySelectorAll(".allergy-checkbox:checked");
+      state.allergies = Array.from(checkedBoxes).map(cb => cb.value);
+    };
+    updateBox();
+    chk.addEventListener("change", updateBox);
+  });
+
   // Setup Submit Button Handler
   document.getElementById("submit-onboarding-btn").onclick = async () => {
     const checkboxes = document.querySelectorAll(".canteen-checkbox:checked");
@@ -354,7 +623,11 @@ function initOnboardingUI() {
       return;
     }
 
-    savePreferences(state.language, selected, state.diet);
+    const allergyCbs = document.querySelectorAll(".allergy-checkbox:checked");
+    const selectedAllergies = Array.from(allergyCbs).map(cb => cb.value);
+
+    savePreferences(state.language, selected, state.diet, selectedAllergies);
+    localStorage.setItem("kstw_allergen_prompt_shown", "true");
     hideOnboarding();
     await fetchAndRender();
   };
@@ -372,7 +645,7 @@ window.changeDietPreference = function(diet) {
   initOnboardingUI();
 };
 
-function showOnboarding(isSettingsMenu = false) {
+function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
   state.isSettingsMenu = isSettingsMenu;
   const onboarding = document.getElementById("onboarding");
   onboarding.classList.remove("hidden");
@@ -380,6 +653,20 @@ function showOnboarding(isSettingsMenu = false) {
   if (!onboardingInitialized) {
     initOnboardingUI();
     onboardingInitialized = true;
+  }
+  
+  // Expand or collapse the allergen accordion based on flag
+  const accordion = document.getElementById("allergen-details-accordion");
+  if (accordion) {
+    if (expandAllergens) {
+      accordion.open = true;
+      // Scroll it into view after a short delay so the container has rendered
+      setTimeout(() => {
+        accordion.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    } else {
+      accordion.open = false;
+    }
   }
   
   initInstallPrompt();
@@ -526,6 +813,11 @@ function hasDishesForSelectedCanteensAndDiet(dateStr) {
       dishes = dishes.filter(d => getDishDietType(d) === "vegan" || getDishDietType(d) === "vegetarian");
     }
 
+    // Filter by allergies
+    if (state.allergies && state.allergies.length > 0) {
+      dishes = dishes.filter(d => !shouldExcludeDish(d, state.allergies));
+    }
+
     validDishesCount += dishes.length;
   });
 
@@ -557,6 +849,11 @@ function hasAvailableDishesForDate(dateStr) {
       dishes = dishes.filter(d => getDishDietType(d) === "vegan");
     } else if (state.diet === "vegetarian") {
       dishes = dishes.filter(d => getDishDietType(d) === "vegan" || getDishDietType(d) === "vegetarian");
+    }
+
+    // Filter by allergies
+    if (state.allergies && state.allergies.length > 0) {
+      dishes = dishes.filter(d => !shouldExcludeDish(d, state.allergies));
     }
 
     dishes.forEach(dish => {
@@ -1313,6 +1610,10 @@ function renderCanteenMenu() {
       dishes = dishes.filter(d => getDishDietType(d) === "vegan");
     } else if (state.diet === "vegetarian") {
       dishes = dishes.filter(d => getDishDietType(d) === "vegan" || getDishDietType(d) === "vegetarian");
+    }
+
+    if (state.allergies && state.allergies.length > 0) {
+      dishes = dishes.filter(d => !shouldExcludeDish(d, state.allergies));
     }
 
     if (dishes.length === 0) return;

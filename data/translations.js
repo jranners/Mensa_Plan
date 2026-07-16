@@ -42,7 +42,14 @@ const TRANSLATIONS = {
     offlineBannerUpdating: "Aktualisiere...",
     justNow: "gerade eben",
     minutesAgo: "vor {n} Min.",
-    hoursAgo: "vor {n} Std."
+    hoursAgo: "vor {n} Std.",
+    allergenTitle: "Allergene & Unverträglichkeiten",
+    allergenDesc: "Wähle die Stoffe aus, auf die du allergisch reagierst. Gerichte mit diesen Stoffen werden automatisch ausgeblendet.",
+    allergenWarning: "Gerichte ohne explizite Allergenangaben werden zur Sicherheit ebenfalls ausgeblendet. Bitte frage im Zweifel immer das Mensapersonal.",
+    allergenPromptTitle: "Allergene einstellen?",
+    allergenPromptDesc: "Möchtest du Allergene und Unverträglichkeiten einrichten, um ungeeignete Gerichte automatisch auszublenden? Du kannst dies auch später in den Einstellungen ändern.",
+    allergenPromptYes: "Ja, einrichten",
+    allergenPromptNo: "Nein, danke"
   },
   en: {
     title: "Mensaplan",
@@ -87,6 +94,13 @@ const TRANSLATIONS = {
     offlineBannerUpdating: "Updating...",
     justNow: "just now",
     minutesAgo: "{n} min ago",
-    hoursAgo: "{n} hr ago"
+    hoursAgo: "{n} hr ago",
+    allergenTitle: "Allergens & Intolerances",
+    allergenDesc: "Select substances you are allergic to. Dishes containing these substances will be automatically hidden.",
+    allergenWarning: "Dishes without explicit allergen declarations will also be hidden for safety. In case of doubt, please always ask the canteen staff.",
+    allergenPromptTitle: "Configure allergens?",
+    allergenPromptDesc: "Would you like to set up allergens and intolerances to automatically hide unsuitable dishes? You can also change this later in settings.",
+    allergenPromptYes: "Yes, configure",
+    allergenPromptNo: "No, thanks"
   }
 };

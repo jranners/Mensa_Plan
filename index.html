@@ -170,6 +170,33 @@
                         </div>
                     </section>
 
+                    <!-- Allergens Accordion -->
+                    <section class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-black/[0.04] dark:border-white/[0.04] p-inset-card shadow-sm">
+                        <details id="allergen-details-accordion" class="group">
+                            <summary class="flex justify-between items-center font-headline text-[16px] font-bold text-text-heading dark:text-white cursor-pointer list-none select-none py-0.5">
+                                <span class="flex items-center gap-2">
+                                    <span id="onboarding-allergen-icon" class="flex items-center"></span>
+                                    <span id="onboarding-allergen-title">Allergene & Unverträglichkeiten</span>
+                                </span>
+                                <span id="onboarding-allergen-arrow" class="flex items-center"></span>
+                            </summary>
+                            <div class="flex flex-col gap-2 mt-4">
+                                <p id="onboarding-allergen-desc" class="text-xs text-on-surface-variant dark:text-gray-400 leading-relaxed mb-2">
+                                    Wähle die Stoffe aus, auf die du allergisch reagierst. Gerichte mit diesen Stoffen werden automatisch ausgeblendet.
+                                </p>
+                                <div id="allergen-checkbox-list" class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                                    <!-- Loaded dynamically -->
+                                </div>
+                                <div class="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed flex gap-2">
+                                    <span class="flex-shrink-0 mt-0.5" id="allergen-warning-icon"></span>
+                                    <p id="onboarding-allergen-warning">
+                                        Gerichte ohne explizite Allergenangaben werden zur Sicherheit ebenfalls ausgeblendet. Bitte frage im Zweifel immer das Personal.
+                                    </p>
+                                </div>
+                            </div>
+                        </details>
+                    </section>
+
                     <!-- Install App Card -->
                     <section id="install-promo-card" class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-black/[0.04] dark:border-white/[0.04] p-inset-card shadow-sm hidden">
                         <h2 id="install-title" class="font-headline text-[15px] font-bold text-text-heading dark:text-white mb-2 flex items-center gap-1.5">
