@@ -19,6 +19,59 @@
     <link href="fonts.css" rel="stylesheet"/>
 
     <link href="styles.css" rel="stylesheet"/>
+    <!-- Splash Screen critical styles (inline for instant rendering) -->
+    <style>
+        #app-splash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #143d59;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 80;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+        #app-splash.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .splash-logo {
+            height: 64px;
+            width: auto;
+            object-fit: contain;
+            margin-bottom: 16px;
+            animation: splash-pulse 2s infinite ease-in-out;
+        }
+        .splash-title {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 0.05em;
+            margin-bottom: 24px;
+            font-family: 'Hanken Grotesk', sans-serif;
+        }
+        .splash-spinner {
+            width: 32px;
+            height: 32px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            animation: splash-spin 1s linear infinite;
+        }
+        @keyframes splash-pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        @keyframes splash-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body class="w-full flex justify-center text-text-main">
 
@@ -182,11 +235,11 @@
     </div>
 
     <!-- App Script -->
-    <script src="data/icons.js"></script>
-    <script src="data/canteens.js"></script>
-    <script src="data/translations.js"></script>
-    <script src="data/allergens.js"></script>
-    <script src="data/config.js"></script>
-    <script src="app.js"></script>
+    <script src="data/icons.js" defer></script>
+    <script src="data/canteens.js" defer></script>
+    <script src="data/translations.js" defer></script>
+    <script src="data/allergens.js" defer></script>
+    <script src="data/config.js" defer></script>
+    <script src="app.js" defer></script>
 </body>
 </html>

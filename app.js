@@ -1737,6 +1737,9 @@ function renderCanteenMenu() {
 // 12. PWA Update & Service Worker Lifecycle Management
 function registerSW() {
   if ('serviceWorker' in navigator) {
+    // Check if the page was already controlled by a service worker on load
+    const wasControlled = !!navigator.serviceWorker.controller;
+
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
         .then(reg => {
@@ -1773,7 +1776,7 @@ function registerSW() {
     // Handle controller change (reloading the page once skipWaiting has activated the new service worker)
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) {
+      if (!refreshing && wasControlled) {
         refreshing = true;
         localStorage.setItem("kstw_updated_successfully", "true");
         // Force the browser to bypass memory and HTTP cache by reloading with a cache-busting query param
