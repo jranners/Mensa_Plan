@@ -1828,10 +1828,10 @@ function renderCanteenMenu() {
       if (state.allergies && state.allergies.length > 0) {
         const dishAllergens = getDishAllergens(dish);
         if (dishAllergens.length === 0) {
-          const label = state.language === "en" ? "No allergen info" : "Keine Allergen-Info";
+          const label = state.language === "en" ? "No allergen info – please ask staff" : "Keine Allergen-Info – bitte Personal fragen";
           undeclaredBadge = `
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900">
-              ${getIconHTML('info', 'text-[14px]')}
+              ${getIconHTML('warning', 'text-[14px]')}
               ${label}
             </span>
           `;
