@@ -1520,6 +1520,13 @@ function getCanteenKeyFromDish(dish, canteenKey, canteen) {
   const overlap = dishScreens.some(screen => canteenScreens.includes(screen));
   if (overlap) return true;
 
+  // Fallback for central production dishes (Gemeinkostenstelle HSG / ort_id 9999)
+  // which KStW cataloged centrally for the main Mensen (Zülpicher Straße / Lindenthal)
+  if ((dishOrtId === "9999" || dishLocation.toLowerCase().includes("gemeinkostenstelle")) && 
+      (canteenKey === "unimensa" || canteenKey === "robertkoch")) {
+    return true;
+  }
+
   return false;
 }
 
