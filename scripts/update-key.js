@@ -6,8 +6,8 @@ async function run() {
   console.log("Fetching CloudMensa HTML...");
   
   try {
-    const htmlResponse = await fetch(targetUrl);
-    if (!htmlResponse.ok) throw new Error("CloudMensa failed to load");
+    const htmlResponse = await fetch(targetUrl, { signal: AbortSignal.timeout(15000) });
+    if (!htmlResponse.ok) throw new Error(`CloudMensa failed to load: ${htmlResponse.status}`);
     const html = await htmlResponse.text();
 
     const scriptRegex = /<script[^>]+src=["']([^"']+)["']/g;
@@ -23,33 +23,37 @@ async function run() {
       const fullUrl = src.startsWith("http") ? src : `https://app.cloudmensa.io${src}`;
       console.log(`Checking script: ${fullUrl}`);
       
-      const jsResponse = await fetch(fullUrl);
-      if (!jsResponse.ok) continue;
-      const js = await jsResponse.text();
-      
-      const credentialsMatch = js.match(pattern);
-      if (credentialsMatch) {
-        const newUrl = credentialsMatch[1];
-        const newKey = credentialsMatch[2];
+      try {
+        const jsResponse = await fetch(fullUrl, { signal: AbortSignal.timeout(10000) });
+        if (!jsResponse.ok) continue;
+        const js = await jsResponse.text();
         
-        console.log("Credentials found!");
-        const configPath = path.join(__dirname, '../data/config.js');
-        
-        const newConfigContent = `// Diese Datei wird automatisch von der GitHub Action aktualisiert.
+        const credentialsMatch = js.match(pattern);
+        if (credentialsMatch) {
+          const newUrl = credentialsMatch[1];
+          const newKey = credentialsMatch[2];
+          
+          console.log("Credentials found!");
+          const configPath = path.join(__dirname, '../data/config.js');
+          
+          const newConfigContent = `// Diese Datei wird automatisch von der GitHub Action aktualisiert.
 const SUPABASE_CONFIG = {
   url: "${newUrl}",
   apiKey: "${newKey}",
   orgId: "4c89c35f-16ac-413f-af04-ec9ffe610f67"
 };
 `;
-        fs.writeFileSync(configPath, newConfigContent);
-        console.log("data/config.js successfully updated.");
-        return;
+          fs.writeFileSync(configPath, newConfigContent);
+          console.log("data/config.js successfully updated.");
+          return;
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch script ${fullUrl}:`, err.message);
       }
     }
     console.log("No credentials found in any scripts.");
   } catch (err) {
-    console.error("Scraper Error:", err);
+    console.error("Scraper Error:", err.message || err);
     process.exit(1);
   }
 }

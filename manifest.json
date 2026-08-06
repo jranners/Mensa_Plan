@@ -12,13 +12,42 @@
       "src": "icons/icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     },
     {
       "src": "icons/icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["food", "lifestyle", "education"],
+  "shortcuts": [
+    {
+      "name": "Heutiger Speiseplan",
+      "short_name": "Heute",
+      "description": "Direkt zum heutigen Speiseplan",
+      "url": "./index.html?view=today",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Einstellungen",
+      "short_name": "Einstellungen",
+      "description": "Mensen und Diät-Präferenzen anpassen",
+      "url": "./index.html?view=settings",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

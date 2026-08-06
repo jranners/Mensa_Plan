@@ -58,10 +58,11 @@ module.exports = {
         "on-secondary-container": "#6f5c00"
       },
       borderRadius: {
-        "DEFAULT": "0.125rem",
-        "lg": "0.25rem",
-        "xl": "0.5rem",
-        "full": "0.75rem"
+        "DEFAULT": "0.375rem",   // 6px – moderner Basis-Radius
+        "lg": "0.625rem",        // 10px
+        "xl": "0.875rem",        // 14px
+        "2xl": "1rem",           // 16px
+        "full": "9999px"         // ← KORREKT: echte Pill-Form
       },
       spacing: {
         "margin-page": "16px",

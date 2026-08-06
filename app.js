@@ -1,5 +1,12 @@
 
 
+(function initTheme() {
+  const saved = localStorage.getItem('kstw_theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = saved ? saved === 'dark' : prefersDark;
+  document.documentElement.classList.toggle('dark', isDark);
+})();
+
 function getLocalIsoDate(date = new Date()) {
   return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
@@ -127,6 +134,16 @@ window.addEventListener("DOMContentLoaded", async () => {
     hideOnboarding();
     await fetchAndRender();
     checkAllergenPrompt();
+
+    // URL-Parameter beim Start auswerten
+    const urlParams = new URLSearchParams(window.location.search);
+    const startView = urlParams.get('view');
+    if (startView === 'today') {
+      const todayIso = getLocalIsoDate();
+      setActiveDate(todayIso);
+    } else if (startView === 'settings') {
+      showOnboarding(true);
+    }
   } else {
     showOnboarding();
   }
@@ -134,6 +151,48 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Setup Global Event Listeners
   document.getElementById("settings-btn").addEventListener("click", () => {
     showOnboarding(true);
+  });
+
+  // Theme-Toggle Event Listener
+  document.getElementById('theme-toggle')?.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('kstw_theme', isDark ? 'dark' : 'light');
+  });
+
+  // System-Preference-Änderungen live verfolgen
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (!localStorage.getItem('kstw_theme')) {
+      document.documentElement.classList.toggle('dark', e.matches);
+    }
+  });
+
+  // Share Event Delegation
+  document.addEventListener('click', async e => {
+    const btn = e.target.closest('.share-btn');
+    if (!btn) return;
+    try {
+      await navigator.share({
+        title: btn.dataset.dishName,
+        text: `${btn.dataset.dishName} – ${btn.dataset.dishPrice} | ${btn.dataset.canteenName}`,
+        url: window.location.href
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') console.warn('Share failed:', err);
+    }
+  });
+
+  // Favorites Event Delegation
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.fav-btn');
+    if (!btn) return;
+    const dishId = btn.dataset.dishId;
+    const added = toggleFavorite(dishId);
+    const icon = btn.querySelector('.fav-icon');
+    if (icon) {
+      icon.setAttribute('fill', added ? '#ffd600' : 'none');
+      icon.setAttribute('stroke', added ? '#ffd600' : 'currentColor');
+    }
+    if ('vibrate' in navigator) navigator.vibrate(added ? [10] : [5]); // Haptic
   });
 
   const closeOnboardingBtn = document.getElementById("close-onboarding-btn");
@@ -172,6 +231,50 @@ window.addEventListener("DOMContentLoaded", async () => {
     }, 150);
   });
 });
+
+(function initPullToRefresh() {
+  let startY = 0;
+  let isPulling = false;
+  const threshold = 80; // px
+
+  // Pull-Indicator-Element ins DOM
+  const indicator = document.createElement('div');
+  indicator.id = 'ptr-indicator';
+  indicator.className = 'fixed top-0 left-1/2 -translate-x-1/2 -translate-y-full transition-transform z-50 bg-surface-card shadow-md rounded-full p-3 text-primary flex items-center gap-2';
+  indicator.innerHTML = `
+    <svg class="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    </svg>
+    <span class="text-sm font-medium">Aktualisieren...</span>
+  `;
+  document.body.prepend(indicator);
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (startY === 0) return;
+    const diff = e.touches[0].clientY - startY;
+    if (diff > 0 && window.scrollY === 0) {
+      isPulling = true;
+      const progress = Math.min(diff / threshold, 1);
+      indicator.style.transform = `translateX(-50%) translateY(${progress * 100}%)`;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!isPulling) return;
+    const indicatorY = parseFloat(indicator.style.transform.match(/translateY\((.+)%\)/)?.[1] || 0);
+    if (indicatorY >= 100) {
+      triggerManualReload();
+    }
+    indicator.style.transform = 'translateX(-50%) translateY(-100%)';
+    startY = 0;
+    isPulling = false;
+  });
+})();
 
 // 6. Onboarding & Preferences Management
 const ALLERGEN_GROUPS = {
@@ -956,7 +1059,7 @@ async function fetchAndRender(forceNetwork = false) {
     }
   } else {
     // No cache, perform a blocking load
-    renderLoading();
+    renderSkeletons();
     
     const today = new Date();
     const day = today.getDay();
@@ -1181,6 +1284,42 @@ function renderLoading() {
   `;
 }
 
+function renderSkeletons(count = 3) {
+  const container = document.getElementById('main-feed');
+  if (!container) return;
+  container.innerHTML = Array.from({ length: count }, () => `
+    <div class="bg-surface-card rounded-xl p-4 space-y-3 shadow-sm">
+      <div class="skeleton h-4 w-3/4"></div>
+      <div class="skeleton h-3 w-1/2"></div>
+      <div class="flex gap-2 mt-2">
+        <div class="skeleton h-6 w-16 rounded-full"></div>
+        <div class="skeleton h-6 w-12 rounded-full"></div>
+      </div>
+      <div class="skeleton h-5 w-20 mt-1"></div>
+    </div>
+  `).join('');
+}
+
+const FAVORITES_KEY = 'kstw_favorites';
+
+function getFavorites() {
+  try { return JSON.parse(localStorage.getItem(FAVORITES_KEY)) || []; }
+  catch { return []; }
+}
+
+function toggleFavorite(dishId) {
+  const favs = getFavorites();
+  const idx = favs.indexOf(dishId);
+  if (idx === -1) favs.push(dishId);
+  else favs.splice(idx, 1);
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs));
+  return idx === -1; // true = wurde hinzugefügt
+}
+
+function isFavorite(dishId) {
+  return getFavorites().includes(dishId);
+}
+
 function renderError() {
   const t = TRANSLATIONS[state.language];
   const dateContainer = document.getElementById("active-date-container");
@@ -1206,27 +1345,21 @@ function renderAnnouncements() {
   const container = document.getElementById("announcement-banner-container");
   if (!container) return;
 
-  if (!state.announcements || state.announcements.length === 0) {
+  const announcements = state.announcements || [];
+  const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 Stunden
+  const freshAnnouncements = announcements.filter(a => {
+    if (!a.dateFetched) return false;
+    return (Date.now() - new Date(a.dateFetched).getTime()) < MAX_AGE_MS;
+  });
+
+  if (freshAnnouncements.length === 0) {
     container.innerHTML = "";
     return;
   }
 
   let html = "";
   
-  // 24 hours TTL
-  const now = new Date();
-  const ttlMs = 24 * 60 * 60 * 1000;
-
-  state.announcements.forEach((announce) => {
-    // TTL Check
-    if (announce.dateFetched) {
-      const fetchTime = new Date(announce.dateFetched);
-      if (isNaN(fetchTime.getTime()) || (now - fetchTime) > ttlMs) {
-        // Stale announcement, skip rendering
-        return;
-      }
-    }
-
+  freshAnnouncements.forEach((announce) => {
     const cardClass = "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/60 text-red-800 dark:text-red-300";
     const iconColor = "text-red-600 dark:text-red-400";
     const iconName = "error";
@@ -1943,6 +2076,36 @@ function renderCanteenMenu() {
       const escapedMealDesc = escapeHtml(mealDesc);
       const escapedStudentPrice = escapeHtml(studentPrice);
 
+      const shareBtn = 'share' in navigator ? `
+        <button 
+          class="share-btn p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container transition-colors"
+          data-dish-name="${escapeHtml(mealName)}"
+          data-dish-price="${studentPrice || ''}"
+          data-canteen-name="${escapeHtml(canteen.name)}"
+          aria-label="Teilen"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </button>
+      ` : '';
+
+      const favBtn = `
+        <button 
+          class="fav-btn p-1.5 rounded-full transition-colors"
+          data-dish-id="${dish.id || dish.name_de}"
+          aria-label="Favorit"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fav-icon" 
+               fill="${isFavorite(dish.id || dish.name_de) ? '#ffd600' : 'none'}" 
+               stroke="${isFavorite(dish.id || dish.name_de) ? '#ffd600' : 'currentColor'}" 
+               stroke-width="2" viewBox="0 0 24 24">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+      `;
+
       let thumbnailHTML = "";
       let rightColumnHTML = "";
       if (dish.image_url) {
@@ -1998,7 +2161,11 @@ function renderCanteenMenu() {
               ${dietBadge}
               ${undeclaredBadge}
             </div>
-            ${allergenIcons}
+            <div class="flex items-center gap-1.5 ml-auto">
+              ${shareBtn}
+              ${favBtn}
+              ${allergenIcons}
+            </div>
           </div>
         </article>
       `;

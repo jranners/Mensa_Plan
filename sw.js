@@ -1,4 +1,6 @@
-const CACHE_NAME = 'kstw-mensa-v26';
+const CACHE_NAME = 'kstw-mensa-v27';
+const API_CACHE_NAME = 'kstw-api-v1';
+const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -65,7 +67,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
+          if (cache !== CACHE_NAME && cache !== API_CACHE_NAME) {
             console.log('Service Worker: Clearing Old Cache...', cache);
             return caches.delete(cache);
           }
@@ -77,25 +79,36 @@ self.addEventListener('activate', event => {
 
 // Fetch Interceptor
 self.addEventListener('fetch', event => {
-  // Only handle GET requests (static assets)
-  if (event.request.method !== 'GET') {
+  if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  // Strategie A: API-Calls → Stale-While-Revalidate
+  if (url.hostname === API_HOST) {
+    event.respondWith(
+      caches.open(API_CACHE_NAME).then(async cache => {
+        const cached = await cache.match(event.request);
+        const networkFetch = fetch(event.request).then(response => {
+          if (response.ok) {
+            cache.put(event.request, response.clone());
+          }
+          return response;
+        }).catch(() => cached); // Offline-Fallback: cached zurückgeben
+
+        // Sofort cached zurückgeben (wenn vorhanden), Netz läuft im Hintergrund
+        return cached || networkFetch;
+      })
+    );
     return;
   }
 
+  // Strategie B: Statische Assets → Cache-First (wie bisher)
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      
+      if (cachedResponse) return cachedResponse;
       return fetch(event.request).then(response => {
-        // Cache new static assets dynamically (e.g. dynamic Google Fonts assets)
-        if (event.request.url.includes('gstatic.com') || 
-            event.request.url.includes('fonts.googleapis.com')) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseClone);
-          });
+        if (url.hostname.includes('gstatic.com') || url.hostname.includes('fonts.googleapis.com')) {
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()));
         }
         return response;
       });
