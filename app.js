@@ -281,7 +281,7 @@ const ALLERGEN_GROUPS = {
   "gluten": {
     de: "Gluten",
     en: "Gluten",
-    codes: ["11", "11w", "11r", "11b", "11h", "11d", "11g"]
+    codes: ["11", "11w", "11a", "11r", "11b", "11g", "11c", "11h", "11d", "11k"]
   },
   "crustaceans": {
     de: "Krebstiere",
@@ -316,7 +316,7 @@ const ALLERGEN_GROUPS = {
   "nuts": {
     de: "Schalenfrüchte (Nüsse)",
     en: "Nuts (Tree nuts)",
-    codes: ["19", "19c", "19h", "19m", "19w"]
+    codes: ["19", "19a", "19m", "19b", "19h", "19c", "19d", "19w", "19e", "19p", "19pe", "19f", "19g", "19pi", "19mac"]
   },
   "celery": {
     de: "Sellerie",
@@ -336,7 +336,7 @@ const ALLERGEN_GROUPS = {
   "sulfites": {
     de: "Sulfite / Schwefeldioxid",
     en: "Sulfites / Sulfur dioxide",
-    codes: ["23"]
+    codes: ["23", "5"]
   },
   "lupins": {
     de: "Lupinen",
@@ -356,9 +356,21 @@ const ALLERGEN_GROUPS = {
   "alcohol": {
     de: "Alkohol",
     en: "Alcohol",
-    codes: ["26"]
+    codes: ["26", "32"]
   }
 };
+
+const ALLERGEN_CODE_REGEX = /^(?:[1-9]|[12][0-9]|3[0-2])(?:[a-z]{1,3})?$/i;
+
+function isValidAllergenCode(code) {
+  if (!code || typeof code !== "string") return false;
+  const cleaned = code.trim();
+  if (!ALLERGEN_CODE_REGEX.test(cleaned)) return false;
+  const lower = cleaned.toLowerCase();
+  // Exclude weight unit grams like 3g, 5g, 10g, 15g, 20g, 25g (only 11g and 19g are valid allergen subcodes ending in g)
+  if (lower.endsWith("g") && lower !== "11g" && lower !== "19g") return false;
+  return true;
+}
 
 function getDishAllergens(dish) {
   const customFields = {};
@@ -371,9 +383,15 @@ function getDishAllergens(dish) {
     .map(c => c.trim())
     .filter(Boolean);
 
-  const mergedCodesSet = new Set(officialCodes);
+  const mergedCodesSet = new Set();
 
-  // Extract from component text
+  officialCodes.forEach(code => {
+    if (isValidAllergenCode(code)) {
+      mergedCodesSet.add(code);
+    }
+  });
+
+  // Extract from component text (only valid allergen codes)
   for (let i = 1; i <= 5; i++) {
     const partText = customFields[`dish_ger_${i}`] || "";
     if (partText) {
@@ -381,7 +399,7 @@ function getDishAllergens(dish) {
       for (const m of matches) {
         m[1].split(",").forEach(c => {
           const cleaned = c.trim();
-          if (cleaned && cleaned !== "g" && cleaned.toLowerCase() !== "kartoffeln") {
+          if (isValidAllergenCode(cleaned)) {
             mergedCodesSet.add(cleaned);
           }
         });
@@ -1978,19 +1996,7 @@ function renderCanteenMenu() {
         }
       }
 
-      const allergensText = customFields["allergens_names"] || "";
-      let allergenIcons = "";
-      // Merge allergen codes: official list + codes from dish component texts
-      const officialCodes = (customFields["allergens_numbers"] || "").split(",").map(c => c.trim()).filter(Boolean);
-      const componentCodes = new Set(officialCodes);
-      for (let i = 1; i <= 5; i++) {
-        const partText = customFields[`dish_ger_${i}`] || "";
-        const matches = partText.matchAll(/\(([^)]+)\)/g);
-        for (const m of matches) {
-          m[1].split(",").forEach(c => { if (c.trim()) componentCodes.add(c.trim()); });
-        }
-      }
-      const allCodes = [...componentCodes];
+      const allCodes = getDishAllergens(dish);
       if (allCodes.length > 0) {
         const label = state.language === "en" ? "Allergens:" : "Allergene:";
         allergenIcons = `
@@ -2408,24 +2414,12 @@ window.showAllergens = function(dishId) {
   });
 
   const allergensNamesText = customFields["allergens_names"] || "";
-  const allergensNumbersText = customFields["allergens_numbers"] || "";
-  
-  // Merge: official allergen codes + codes extracted from dish component texts
-  const officialCodes = allergensNumbersText.split(",").map(c => c.trim()).filter(Boolean);
-  const mergedCodesSet = new Set(officialCodes);
-  for (let i = 1; i <= 5; i++) {
-    const partText = customFields[`dish_ger_${i}`] || "";
-    const matches = partText.matchAll(/\(([^)]+)\)/g);
-    for (const m of matches) {
-      m[1].split(",").forEach(c => { if (c.trim()) mergedCodesSet.add(c.trim()); });
-    }
-  }
-  const codes = [...mergedCodesSet];
+  const codes = getDishAllergens(dish);
   if (codes.length === 0) return;
 
   const allergenMap = {};
   if (allergensNamesText) {
-    const parts = allergensNamesText.split(",").map(p => p.trim()).filter(Boolean);
+    const parts = allergensNamesText.split(/,\s*(?=[0-9]{1,2}[a-z]{0,3}\s*=)/i).map(p => p.trim()).filter(Boolean);
     parts.forEach(part => {
       const eqIdx = part.indexOf("=");
       if (eqIdx !== -1) {
@@ -2439,7 +2433,9 @@ window.showAllergens = function(dishId) {
           nameDe = val.substring(0, pipeIdx).trim();
           nameEn = val.substring(pipeIdx + 1).trim();
         }
-        allergenMap[code] = { de: nameDe, en: nameEn };
+        if (isValidAllergenCode(code)) {
+          allergenMap[code] = { de: nameDe, en: nameEn };
+        }
       }
     });
   }
