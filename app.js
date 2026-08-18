@@ -1992,18 +1992,36 @@ function renderCanteenMenu() {
 
     // Determine opening hours and status
     const dayOfWeek = new Date(state.activeDate).getDay(); // 0 is Sunday, 6 is Saturday
-    let openingHoursText = canteen.opening_hours.weekdays;
+    let openingHoursText = canteen.infokurz ? canteen.infokurz.replace(/\n/g, " · ") : "11:30 - 14:30 Uhr";
     let startHour = 11.0;
     let endHour = 14.5;
 
-    if (dayOfWeek === 6) {
-      openingHoursText = canteen.opening_hours.saturday;
-      startHour = 11.5;
-      endHour = 14.0;
-    } else if (dayOfWeek === 0) {
-      openingHoursText = canteen.opening_hours.sunday;
-      startHour = 0;
-      endHour = 0;
+    if (canteen.opening_hours) {
+      openingHoursText = canteen.opening_hours.weekdays || openingHoursText;
+      if (dayOfWeek === 6) {
+        openingHoursText = canteen.opening_hours.saturday || openingHoursText;
+        startHour = 11.5;
+        endHour = 14.0;
+      } else if (dayOfWeek === 0) {
+        openingHoursText = canteen.opening_hours.sunday || openingHoursText;
+        startHour = 0;
+        endHour = 0;
+      }
+    } else if (canteen.infokurz) {
+      const lines = canteen.infokurz.split("\n");
+      const dayNamesMap = { 1: ["Mo"], 2: ["Di"], 3: ["Mi"], 4: ["Do"], 5: ["Fr"], 6: ["Sa"], 0: ["So"] };
+      const searchTerms = dayNamesMap[dayOfWeek] || [];
+      for (const line of lines) {
+        if (searchTerms.some(term => line.includes(term)) || (dayOfWeek >= 1 && dayOfWeek <= 5 && (line.includes("Mo - Fr") || line.includes("Mo - Do")))) {
+          const match = line.match(/(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})/);
+          if (match) {
+            startHour = parseInt(match[1]) + parseInt(match[2])/60;
+            endHour = parseInt(match[3]) + parseInt(match[4])/60;
+            openingHoursText = `${match[1]}:${match[2]} - ${match[3]}:${match[4]} ${state.language === "de" ? "Uhr" : ""}`.trim();
+            break;
+          }
+        }
+      }
     }
 
     // Check if there are explicit serving times in the dishes
