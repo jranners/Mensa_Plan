@@ -1,13 +1,5 @@
 
 
-(function initTheme() {
-  const saved = localStorage.getItem('kstw_theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = saved ? saved === 'dark' : prefersDark;
-  document.documentElement.classList.toggle('dark', isDark);
-  document.documentElement.classList.toggle('light', !isDark);
-})();
-
 function getLocalIsoDate(date = new Date()) {
   return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
@@ -1207,12 +1199,18 @@ function hasAvailableDishesForDate(dateStr) {
   return validDishesCount > 0;
 }
 
+function hasValidCurrentOrFutureMenuData() {
+  if (!state.menuData || !Array.isArray(state.menuData) || state.menuData.length === 0) return false;
+  const todayIso = getLocalIsoDate();
+  return state.menuData.some(d => d.date >= todayIso && d.dishes && d.dishes.length > 0);
+}
+
 async function fetchAndRender(forceNetwork = false) {
   const hasCache = loadMenuCache();
   loadAnnouncementsCache();
   
-  if (hasCache && state.menuData && state.menuData.length > 0) {
-    // We have cached data, let's determine the active date and render immediately!
+  if (hasCache && hasValidCurrentOrFutureMenuData()) {
+    // We have valid current/future cached data, let's determine the active date and render immediately!
     const daysWithDishes = state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
     if (daysWithDishes.length > 0) {
       const todayIso = getLocalIsoDate();
@@ -1246,13 +1244,15 @@ async function fetchAndRender(forceNetwork = false) {
       renderOfflineBanner();
     }
   } else {
-    // No cache, perform a blocking load
+    // No valid current cache: render skeleton and dismiss splash immediately so user sees loading animation
     renderSkeletons();
+    removeSplash();
     
     const today = new Date();
     const day = today.getDay();
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(today.setDate(diff));
+    const monday = new Date(today.getTime());
+    monday.setDate(diff);
     
     const start_date = monday;
     const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
@@ -1314,7 +1314,8 @@ async function updateMenuDataBackground(isManual = false) {
   const today = new Date();
   const day = today.getDay();
   const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(today.setDate(diff));
+  const monday = new Date(today.getTime());
+  monday.setDate(diff);
   
   const start_date = monday;
   const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
@@ -1335,26 +1336,34 @@ async function updateMenuDataBackground(isManual = false) {
     }
     state.isOfflineMode = false;
     
-    const daysWithDishes = state.menuData ? state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date)) : [];
-    if (daysWithDishes.length > 0) {
-      const todayIso = getLocalIsoDate();
-      const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
-      
-      if (hasTodayWithMeals) {
-        state.activeDate = todayIso;
-      } else {
-        const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
-        const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
-        if (nextAvailableDay) {
-          state.activeDate = nextAvailableDay.date;
+    // Preserve previously selected active date if available in updated data
+    const previousActiveDate = state.activeDate;
+    const hasPreviousDateInNewData = state.menuData && state.menuData.some(d => d.date === previousActiveDate);
+
+    if (!previousActiveDate || !hasPreviousDateInNewData) {
+      const daysWithDishes = state.menuData ? state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date)) : [];
+      if (daysWithDishes.length > 0) {
+        const todayIso = getLocalIsoDate();
+        const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
+        
+        if (hasTodayWithMeals) {
+          state.activeDate = todayIso;
         } else {
-          const futureDays = sortedDays.filter(d => d.date >= todayIso);
-          state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
+          const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
+          const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
+          if (nextAvailableDay) {
+            state.activeDate = nextAvailableDay.date;
+          } else {
+            const futureDays = sortedDays.filter(d => d.date >= todayIso);
+            state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
+          }
         }
       }
+    } else {
+      state.activeDate = previousActiveDate;
     }
     
-    renderApp(true);
+    renderApp(false);
   } catch (err) {
     console.error("Background fetch failed:", err);
     state.isOfflineMode = true;
@@ -2365,7 +2374,7 @@ function registerSW() {
     // Check if the page was already controlled by a service worker on load
     const wasControlled = !!navigator.serviceWorker.controller;
 
-    window.addEventListener('load', () => {
+    const initRegistration = () => {
       navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
         .then(reg => {
           console.log('Service Worker registered successfully!', reg.scope);
@@ -2396,7 +2405,13 @@ function registerSW() {
         .catch(err => {
           console.error('Service Worker registration failed:', err);
         });
-    });
+    };
+
+    if (document.readyState === 'complete') {
+      initRegistration();
+    } else {
+      window.addEventListener('load', initRegistration);
+    }
 
     // Handle controller change (reloading the page once skipWaiting has activated the new service worker)
     let refreshing = false;

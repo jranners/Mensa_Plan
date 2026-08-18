@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v33';
+const CACHE_NAME = 'kstw-mensa-v34';
 const API_CACHE_NAME = 'kstw-api-v1';
 const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
 const STATIC_ASSETS = [
@@ -14,8 +14,7 @@ const STATIC_ASSETS = [
   './data/icons.js',
   './data/canteens.js',
   './data/translations.js',
-  './data/allergens.js',
-  './data/config.js'
+  './data/allergens.js'
 ];
 
 // Install Service Worker and cache static shell assets
@@ -82,6 +81,34 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+  const pathname = url.pathname;
+
+  // Strategie 1: Dynamische Konfiguration & Ankündigungen → Network-First mit Cache-Fallback
+  if (pathname.endsWith('data/config.js') || pathname.endsWith('data/announcements.json')) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+          // Frische Daten vom Netzwerk mit 2.5s Timeout laden
+          const networkPromise = fetch(event.request);
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Network timeout')), 2500)
+          );
+          const response = await Promise.race([networkPromise, timeoutPromise]);
+          if (response.ok) {
+            cache.put(event.request, response.clone());
+          }
+          return response;
+        } catch (err) {
+          // Fallback auf gecachte Version bei Offline / Timeout
+          const cached = await cache.match(event.request, { ignoreSearch: true });
+          if (cached) return cached;
+          throw err;
+        }
+      })()
+    );
+    return;
+  }
 
   // Strategie A: API-Calls → Stale-While-Revalidate
   if (url.hostname === API_HOST) {
@@ -102,7 +129,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Strategie B: Statische Assets → Cache-First (wie bisher)
+  // Strategie B: Statische Assets (App Shell) → Cache-First
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
       if (cachedResponse) return cachedResponse;

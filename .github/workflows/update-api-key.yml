@@ -2,9 +2,9 @@ name: Update Supabase API Key
 
 on:
   schedule:
-    - cron: '*/5 8-18 * * 1-5'  # Alle 5 Minuten während der Geschäftszeiten (Mo-Fr, 8-18 Uhr)
+    - cron: '*/30 6-16 * * 1-5'  # Alle 30 Minuten während der Geschäftszeiten (Mo-Fr, ca. 07:00-18:00 MEZ/MESZ)
     - cron: '0 0,12 * * *'       # Zweimal täglich als Fallback für den API-Key (täglich um 00:00 und 12:00 Uhr)
-  workflow_dispatch:      # Ermöglicht manuellen Start im GitHub-Interface
+  workflow_dispatch:            # Ermöglicht manuellen Start im GitHub-Interface
 
 permissions:
   contents: write
@@ -24,18 +24,21 @@ jobs:
 
       - name: Run Key Scraper
         run: node scripts/update-key.js
+        continue-on-error: true
 
       - name: Run Announcement Scraper
         run: node scripts/update-announcements.js
         continue-on-error: true
 
       - name: Commit and Push Changes
+        if: always()
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/config.js data/announcements.json
+          git add data/config.js data/announcements.json sw.js
           if ! git diff --cached --exit-code; then
             git commit -m "chore: auto-update Supabase credentials & announcements [skip ci]"
+            git pull --rebase origin main || true
             git push
           else
             echo "No changes in credentials or announcements detected."
