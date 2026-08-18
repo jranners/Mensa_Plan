@@ -7,6 +7,7 @@
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const isDark = saved ? saved === 'dark' : prefersDark;
         document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.classList.toggle('light', !isDark);
       })();
     </script>
     <meta charset="utf-8"/>
@@ -81,7 +82,7 @@
         }
     </style>
 </head>
-<body class="w-full flex justify-center text-text-main">
+<body class="w-full flex justify-center text-text-main dark:text-slate-100">
 
     <!-- Splash Screen -->
     <div id="app-splash">
@@ -91,7 +92,7 @@
     </div>
 
     <!-- Main Mobile Viewport Container -->
-    <div id="app-container" class="w-full max-w-md md:max-w-6xl min-h-screen md:min-h-[calc(100vh-4rem)] md:my-8 md:rounded-3xl md:border md:border-white/40 md:shadow-2xl bg-gradient-to-br from-[#e0eaf5] via-[#f0f4f8] to-[#d6dade] flex flex-col relative sm:border-x sm:border-white/30 shadow-2xl mx-auto pb-safe overflow-hidden">
+    <div id="app-container" class="w-full max-w-md md:max-w-6xl min-h-screen md:min-h-[calc(100vh-4rem)] md:my-8 md:rounded-3xl md:border md:border-white/40 dark:md:border-white/[0.08] md:shadow-2xl bg-gradient-to-br from-[#e0eaf5] via-[#f0f4f8] to-[#d6dade] dark:bg-gradient-to-br dark:from-[#08131e] dark:via-[#0f2236] dark:to-[#060d14] dark:border-slate-800 flex flex-col relative sm:border-x sm:border-white/30 dark:sm:border-white/[0.08] shadow-2xl mx-auto pb-safe overflow-hidden">
         
         <!-- Top App Bar -->
         <header class="sticky top-0 w-full z-40 glass-dark text-on-primary flex items-center justify-between px-margin-page h-control-height shadow-sm pt-safe">
@@ -157,7 +158,7 @@
 
         <!-- Onboarding/Settings Overlay -->
         <div id="onboarding" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden pt-safe pb-safe">
-            <div class="w-full max-w-md h-full md:h-[680px] md:max-h-[90vh] md:rounded-3xl md:shadow-2xl overflow-hidden bg-white dark:bg-slate-900 border border-black/[0.08] dark:border-white/[0.08] flex flex-col relative mx-auto">
+            <div class="w-full max-w-md h-full md:h-[680px] md:max-h-[90vh] md:rounded-3xl md:shadow-2xl overflow-hidden bg-white dark:bg-[#0b1926] border border-black/[0.08] dark:border-white/[0.08] flex flex-col relative mx-auto">
                 
                 <!-- Onboarding/Settings Header -->
                 <header class="px-margin-page pt-8 pb-4 relative z-10 flex items-center justify-between">
@@ -165,7 +166,7 @@
                     <h1 id="onboarding-title" class="font-headline text-[22px] font-bold text-text-heading dark:text-white text-center leading-tight flex-1">
                         Willkommen bei der KStW Mensa
                     </h1>
-                    <button id="close-onboarding-btn" class="hover:bg-black/5 dark:hover:bg-white/5 p-1.5 rounded-full text-on-surface-variant dark:text-gray-400 hidden flex items-center justify-center">
+                    <button id="close-onboarding-btn" class="hover:bg-black/5 dark:hover:bg-white/10 p-1.5 rounded-full text-on-surface-variant dark:text-slate-300 hidden flex items-center justify-center">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </header>
@@ -179,7 +180,7 @@
                     </section>
 
                     <!-- Canteen Selection -->
-                    <section class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-black/[0.04] dark:border-white/[0.04] p-inset-card shadow-sm">
+                    <section class="bg-slate-50 dark:bg-[#122338] rounded-2xl border border-black/[0.04] dark:border-white/[0.08] p-inset-card shadow-sm">
                         <h2 id="onboarding-canteen-title" class="font-headline text-[16px] font-bold text-text-heading dark:text-white mb-stack-md">Mensa-Auswahl</h2>
                         <div id="canteen-checkbox-list" class="flex flex-col gap-1.5 pr-1">
                             <!-- Checklist loaded dynamically -->
@@ -189,13 +190,13 @@
                     <!-- Dietary Preference -->
                     <section class="flex flex-col gap-stack-sm">
                         <h2 id="onboarding-diet-title" class="font-headline text-[16px] font-bold text-text-heading dark:text-white px-1">Deine Ernährung</h2>
-                        <div id="diet-selector" class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-black/[0.06] dark:border-white/[0.06]">
+                        <div id="diet-selector" class="flex bg-slate-100 dark:bg-[#122338] p-1 rounded-xl border border-black/[0.06] dark:border-white/[0.08]">
                             <!-- Diet selector buttons loaded dynamically -->
                         </div>
                     </section>
 
                     <!-- Allergens Accordion -->
-                    <section class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-black/[0.04] dark:border-white/[0.04] p-inset-card shadow-sm">
+                    <section class="bg-slate-50 dark:bg-[#122338] rounded-2xl border border-black/[0.04] dark:border-white/[0.08] p-inset-card shadow-sm">
                         <details id="allergen-details-accordion" class="group">
                             <summary class="flex justify-between items-center font-headline text-[16px] font-bold text-text-heading dark:text-white cursor-pointer list-none select-none py-0.5">
                                 <span class="flex items-center gap-2">
@@ -205,7 +206,7 @@
                                 <span id="onboarding-allergen-arrow" class="flex items-center"></span>
                             </summary>
                             <div class="flex flex-col gap-2 mt-4">
-                                <p id="onboarding-allergen-desc" class="text-xs text-on-surface-variant dark:text-gray-400 leading-relaxed mb-2">
+                                <p id="onboarding-allergen-desc" class="text-xs text-on-surface-variant dark:text-slate-400 leading-relaxed mb-2">
                                     Wähle die Stoffe aus, auf die du allergisch reagierst. Gerichte mit diesen Stoffen werden automatisch ausgeblendet.
                                 </p>
                                 <div id="allergen-checkbox-list" class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
@@ -222,30 +223,30 @@
                     </section>
 
                     <!-- Install App Card -->
-                    <section id="install-promo-card" class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-black/[0.04] dark:border-white/[0.04] p-inset-card shadow-sm hidden">
+                    <section id="install-promo-card" class="bg-slate-50 dark:bg-[#122338] rounded-2xl border border-black/[0.04] dark:border-white/[0.08] p-inset-card shadow-sm hidden">
                         <h2 id="install-title" class="font-headline text-[15px] font-bold text-text-heading dark:text-white mb-2 flex items-center gap-1.5">
-                            <span class="inline-flex items-center justify-center text-primary-container" style="width: 18px; height: 18px;"><svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M12 2v8M12 14v8M4.93 4.93a10 10 0 0 1 14.14 0M7.76 7.76a6 6 0 0 1 8.48 0"/></svg></span>
+                            <span class="inline-flex items-center justify-center text-primary-container dark:text-price-badge" style="width: 18px; height: 18px;"><svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M12 2v8M12 14v8M4.93 4.93a10 10 0 0 1 14.14 0M7.76 7.76a6 6 0 0 1 8.48 0"/></svg></span>
                             Mensaplan als App installieren?
                         </h2>
-                        <p id="install-desc" class="font-body-md text-body-md text-on-surface-variant dark:text-gray-300 leading-relaxed mb-4">
+                        <p id="install-desc" class="font-body-md text-body-md text-on-surface-variant dark:text-slate-300 leading-relaxed mb-4">
                             Möchtest du schneller auf deinen Mensaplan zugreifen und ihn auch offline nutzen? Füge ein Icon zu deinem Homescreen hinzu!
                         </p>
                         
                         <!-- Privacy & Specs Badges -->
-                        <div class="grid grid-cols-2 gap-2 mb-4 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm">
-                            <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded border border-black/[0.04] dark:border-white/[0.04]">
+                        <div class="grid grid-cols-2 gap-2 mb-4 text-[11px] text-on-surface-variant dark:text-slate-300 font-body-sm">
+                            <div class="flex items-center gap-1.5 bg-white dark:bg-[#0b1926] p-1.5 rounded border border-black/[0.04] dark:border-white/[0.08]">
                                 <span class="inline-flex items-center justify-center text-green-700 dark:text-green-400" style="width: 15px; height: 15px;"><svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
                                 <span id="badge-privacy">100% DSGVO-konform</span>
                             </div>
-                            <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded border border-black/[0.04] dark:border-white/[0.04]">
+                            <div class="flex items-center gap-1.5 bg-white dark:bg-[#0b1926] p-1.5 rounded border border-black/[0.04] dark:border-white/[0.08]">
                                 <span class="inline-flex items-center justify-center text-blue-700 dark:text-blue-400" style="width: 15px; height: 15px;"><svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 22H6a2 2 0 0 1-2-2V8l4-4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2zM14 6v4M10 6v4M7 8v2"/></svg></span>
                                 <span id="badge-size">Sehr klein (&lt; 50 KB)</span>
                             </div>
-                            <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded border border-black/[0.04] dark:border-white/[0.04]">
+                            <div class="flex items-center gap-1.5 bg-white dark:bg-[#0b1926] p-1.5 rounded border border-black/[0.04] dark:border-white/[0.08]">
                                 <span class="inline-flex items-center justify-center text-orange-700 dark:text-orange-400" style="width: 15px; height: 15px;"><svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 17.8C16.8 15.6 14.6 14 12 14c-1 0-2 .2-2.9.7M8.5 8.5a4 4 0 0 1 6.5-1M3 3l18 18M12 2a10 10 0 1 0 10 10"/></svg></span>
                                 <span id="badge-perms">Keine Berechtigungen</span>
                             </div>
-                            <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded border border-black/[0.04] dark:border-white/[0.04]">
+                            <div class="flex items-center gap-1.5 bg-white dark:bg-[#0b1926] p-1.5 rounded border border-black/[0.04] dark:border-white/[0.08]">
                                 <span class="inline-flex items-center justify-center text-purple-700 dark:text-purple-400" style="width: 15px; height: 15px;"><svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg></span>
                                 <span id="badge-offline">Offline-fähig</span>
                             </div>
@@ -257,7 +258,7 @@
                 </div>
 
                 <!-- Onboarding Sticky Footer CTA -->
-                <div class="absolute bottom-0 w-full p-margin-page bg-white dark:bg-slate-900 border-t border-black/[0.08] dark:border-white/[0.08] z-20">
+                <div class="absolute bottom-0 w-full p-margin-page bg-white dark:bg-[#0b1926] border-t border-black/[0.08] dark:border-white/[0.08] z-20">
                     <button id="submit-onboarding-btn" class="w-full h-control-height bg-price-badge text-primary font-label-lg text-label-lg rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,214,0,0.3)] font-bold">
                         Speiseplan anzeigen
                         <span class="inline-flex items-center justify-center" style="width: 20px; height: 20px;"><svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
@@ -268,11 +269,11 @@
 
         <!-- Allergens Detail Modal -->
         <div id="allergens-modal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden pt-safe pb-safe">
-            <div class="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-black/[0.08] dark:border-white/[0.08] shadow-2xl p-6 flex flex-col gap-4 mx-4 animate-zoom-in">
+            <div class="w-full max-w-sm bg-white dark:bg-[#0b1926] rounded-3xl border border-black/[0.08] dark:border-white/[0.08] shadow-2xl p-6 flex flex-col gap-4 mx-4 animate-zoom-in">
                 <!-- Modal Header -->
                 <div class="flex items-center justify-between">
                     <h3 id="allergens-modal-title" class="font-headline text-[18px] font-bold text-text-heading dark:text-white">Allergene & Zusatzstoffe</h3>
-                    <button id="close-allergens-modal-btn" class="hover:bg-black/5 dark:hover:bg-white/5 p-1 rounded-full text-on-surface-variant dark:text-gray-400 flex items-center justify-center" onclick="closeAllergensModal()">
+                    <button id="close-allergens-modal-btn" class="hover:bg-black/5 dark:hover:bg-white/10 p-1 rounded-full text-on-surface-variant dark:text-slate-300 flex items-center justify-center" onclick="closeAllergensModal()">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>

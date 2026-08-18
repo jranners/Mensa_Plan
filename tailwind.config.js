@@ -55,7 +55,12 @@ module.exports = {
         "background": "#f6fafe",
         "surface-container": "#eaeef2",
         "on-tertiary-fixed": "#1b1c1c",
-        "on-secondary-container": "#6f5c00"
+        "on-secondary-container": "#6f5c00",
+        "navy-dark": "#08131e",
+        "navy-surface": "#0b1926",
+        "navy-card": "#122338",
+        "navy-dish": "#182c44",
+        "navy-dish-hover": "#1f3754"
       },
       borderRadius: {
         "DEFAULT": "0.375rem",   // 6px – moderner Basis-Radius

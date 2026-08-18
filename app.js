@@ -5,6 +5,7 @@
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const isDark = saved ? saved === 'dark' : prefersDark;
   document.documentElement.classList.toggle('dark', isDark);
+  document.documentElement.classList.toggle('light', !isDark);
 })();
 
 function getLocalIsoDate(date = new Date()) {
@@ -65,7 +66,7 @@ function checkAllergenPrompt() {
   modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-fade-in";
   
   modal.innerHTML = `
-    <div class="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-black/[0.08] dark:border-white/[0.08] p-6 shadow-2xl flex flex-col gap-4 animate-zoom-in">
+    <div class="w-full max-w-sm bg-white dark:bg-[#0b1926] rounded-3xl border border-black/[0.08] dark:border-white/[0.08] p-6 shadow-2xl flex flex-col gap-4 animate-zoom-in">
       <div class="flex items-center gap-3">
         <div class="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 flex-shrink-0">
           ${getIconHTML('warning', 'text-[28px]')}
@@ -74,11 +75,11 @@ function checkAllergenPrompt() {
           <h3 class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.allergenPromptTitle}</h3>
         </div>
       </div>
-      <p class="text-sm text-text-main dark:text-gray-200 leading-relaxed">
+      <p class="text-sm text-text-main dark:text-slate-200 leading-relaxed">
         ${t.allergenPromptDesc}
       </p>
       <div class="flex gap-3 mt-2">
-        <button id="allergen-prompt-no-btn" class="flex-1 h-11 border border-black/[0.08] dark:border-white/[0.08] hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-transform font-label-md text-label-md rounded-xl text-on-surface-variant dark:text-gray-300 font-semibold">
+        <button id="allergen-prompt-no-btn" class="flex-1 h-11 border border-black/[0.08] dark:border-white/[0.08] hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform font-label-md text-label-md rounded-xl text-on-surface-variant dark:text-slate-300 font-semibold">
           ${t.allergenPromptNo}
         </button>
         <button id="allergen-prompt-yes-btn" class="flex-1 h-11 bg-price-badge text-primary hover:opacity-90 active:scale-95 transition-transform font-label-md text-label-md rounded-xl font-bold shadow-sm">
@@ -120,6 +121,63 @@ function checkAllergenPrompt() {
   }
 }
 
+function showToast(message, iconName = 'check_circle') {
+  const existing = document.getElementById('app-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'app-toast';
+  toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-32px)] max-w-sm bg-[#143d59] dark:bg-[#0b1926] text-white rounded-xl px-4 py-3 shadow-lg flex items-center justify-between gap-3 animate-slide-in border border-black/10 dark:border-white/10';
+  
+  toast.innerHTML = `
+    <div class="flex items-center gap-2.5">
+      ${getIconHTML(iconName, 'text-[20px] text-price-badge flex-shrink-0')}
+      <span class="text-sm font-semibold tracking-wide">${escapeHtml(message)}</span>
+    </div>
+    <button id="close-toast-btn" class="text-white/60 hover:text-white transition-colors flex items-center justify-center">${getIconHTML('close', 'text-[18px]')}</button>
+  `;
+
+  const appContainer = document.getElementById('app-container');
+  if (appContainer) {
+    appContainer.appendChild(toast);
+  } else {
+    document.body.appendChild(toast);
+  }
+
+  const dismiss = () => {
+    toast.classList.remove('animate-slide-in');
+    toast.classList.add('animate-slide-out');
+    setTimeout(() => toast.remove(), 300);
+  };
+
+  document.getElementById('close-toast-btn')?.addEventListener('click', dismiss);
+  setTimeout(() => {
+    if (toast.parentNode) dismiss();
+  }, 3000);
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
+    const msg = state.language === "en" ? "Copied to clipboard!" : "In die Zwischenablage kopiert!";
+    showToast(msg);
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err);
+  }
+}
+
 // 5. Initialize App
 window.addEventListener("DOMContentLoaded", async () => {
   loadPreferences();
@@ -156,6 +214,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Theme-Toggle Event Listener
   document.getElementById('theme-toggle')?.addEventListener('click', () => {
     const isDark = document.documentElement.classList.toggle('dark');
+    document.documentElement.classList.toggle('light', !isDark);
     localStorage.setItem('kstw_theme', isDark ? 'dark' : 'light');
   });
 
@@ -163,6 +222,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
     if (!localStorage.getItem('kstw_theme')) {
       document.documentElement.classList.toggle('dark', e.matches);
+      document.documentElement.classList.toggle('light', !e.matches);
     }
   });
 
@@ -170,14 +230,24 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.addEventListener('click', async e => {
     const btn = e.target.closest('.share-btn');
     if (!btn) return;
-    try {
-      await navigator.share({
-        title: btn.dataset.dishName,
-        text: `${btn.dataset.dishName} – ${btn.dataset.dishPrice} | ${btn.dataset.canteenName}`,
-        url: window.location.href
-      });
-    } catch (err) {
-      if (err.name !== 'AbortError') console.warn('Share failed:', err);
+    const shareTitle = btn.dataset.dishName || 'Mensaplan';
+    const shareText = `${btn.dataset.dishName} – ${btn.dataset.dishPrice} | ${btn.dataset.canteenName}`;
+    const shareUrl = window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          await copyTextToClipboard(`${shareText}\n${shareUrl}`);
+        }
+      }
+    } else {
+      await copyTextToClipboard(`${shareText}\n${shareUrl}`);
     }
   });
 
@@ -240,13 +310,13 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Pull-Indicator-Element ins DOM
   const indicator = document.createElement('div');
   indicator.id = 'ptr-indicator';
-  indicator.className = 'fixed top-0 left-1/2 -translate-x-1/2 -translate-y-full transition-transform z-50 bg-surface-card shadow-md rounded-full p-3 text-primary flex items-center gap-2';
+  indicator.className = 'fixed top-0 left-1/2 -translate-x-1/2 -translate-y-full transition-transform z-50 bg-white dark:bg-[#122338] shadow-md rounded-full p-3 text-primary dark:text-price-badge border border-black/5 dark:border-white/10 flex items-center gap-2';
   indicator.innerHTML = `
     <svg class="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
     </svg>
-    <span class="text-sm font-medium">Aktualisieren...</span>
+    <span class="text-sm font-medium text-text-heading dark:text-slate-200">Aktualisieren...</span>
   `;
   document.body.prepend(indicator);
 
@@ -378,6 +448,7 @@ function getDishAllergens(dish) {
     if (f) customFields[f.field_id] = f.value;
   });
 
+  // 1) Extrahiere Codes aus custom_fields["allergens_numbers"]
   const officialCodes = (customFields["allergens_numbers"] || "")
     .split(",")
     .map(c => c.trim())
@@ -387,23 +458,118 @@ function getDishAllergens(dish) {
 
   officialCodes.forEach(code => {
     if (isValidAllergenCode(code)) {
-      mergedCodesSet.add(code);
+      mergedCodesSet.add(code.toLowerCase());
     }
   });
 
-  // Extract from component text (only valid allergen codes)
-  for (let i = 1; i <= 5; i++) {
-    const partText = customFields[`dish_ger_${i}`] || "";
-    if (partText) {
-      const matches = partText.matchAll(/\(([^)]+)\)/g);
+  // Prüfe, ob das Gericht selbst ein reines Dessert ist
+  const category = dish.category || null;
+  const catNameDe = (category && category.name_de) ? category.name_de.toLowerCase() : "";
+  const rawType = (customFields["menu_type"] || "").toLowerCase();
+  const dishNameDe = (dish.name_de || "").toLowerCase();
+  const isPureDessert = catNameDe.includes("dessert") || 
+                        catNameDe.includes("nachspeise") || 
+                        rawType.includes("dessert") || 
+                        /^(?:dessert|nachspeise)\b/i.test(dishNameDe.trim());
+
+  // 2) Extrahiere Codes aus dish.name_de, dish.name_en und dish_ger_1 bis dish_ger_5
+  [dish.name_de, dish.name_en].forEach(nameStr => {
+    if (nameStr) {
+      const matches = nameStr.matchAll(/\(([^)]+)\)/g);
       for (const m of matches) {
         m[1].split(",").forEach(c => {
           const cleaned = c.trim();
           if (isValidAllergenCode(cleaned)) {
-            mergedCodesSet.add(cleaned);
+            mergedCodesSet.add(cleaned.toLowerCase());
           }
         });
       }
+    }
+  });
+
+  for (let i = 1; i <= 5; i++) {
+    const partText = customFields[`dish_ger_${i}`] || "";
+    if (partText) {
+      // 5) Wenn Komponente ein generisches Dessert ist und Gericht selbst KEIN reines Dessert ist:
+      const isGenericDessertComponent = !isPureDessert && (/^dessert\b/i.test(partText.trim()) || /(?:nachspeise|dessert)/i.test(partText));
+      if (!isGenericDessertComponent) {
+        const matches = partText.matchAll(/\(([^)]+)\)/g);
+        for (const m of matches) {
+          m[1].split(",").forEach(c => {
+            const cleaned = c.trim();
+            if (isValidAllergenCode(cleaned)) {
+              mergedCodesSet.add(cleaned.toLowerCase());
+            }
+          });
+        }
+      }
+    }
+  }
+
+  // Diet-Erkennung
+  const foodIcon = (customFields["food_icon"] || "").toUpperCase();
+  const isVegan = foodIcon.includes("VGN") || 
+                  getDishDietType(dish) === "vegan" || 
+                  dishNameDe.includes("vegan");
+  const isVegetarian = isVegan || 
+                       foodIcon.includes("VGT") || 
+                       foodIcon.includes("VG") || 
+                       getDishDietType(dish) === "vegetarian" || 
+                       dishNameDe.includes("vegetarisch");
+
+  // 3) Wenn ein Gericht VEGAN ist:
+  // Entferne ALLE nicht-veganen Codes: 12, 13, 14, 17, 18, 25, 27, 28, 29, 30
+  if (isVegan) {
+    const NON_VEGAN_CODES = ["12", "13", "14", "17", "18", "25", "27", "28", "29", "30"];
+    NON_VEGAN_CODES.forEach(code => mergedCodesSet.delete(code));
+  } else if (isVegetarian) {
+    // 4) Wenn ein Gericht VEGETARISCH ist:
+    // Entferne ALLE Fleisch-/Fisch-/Gelatine-Codes: 12, 14, 25, 27, 28, 29, 30
+    const NON_VEG_CODES = ["12", "14", "25", "27", "28", "29", "30"];
+    NON_VEG_CODES.forEach(code => mergedCodesSet.delete(code));
+  }
+
+  // 5) Wenn eine Komponente ein generisches Dessert ist und das Gericht selbst KEIN reines Dessert ist:
+  // Dessen Dessert-Allergene (1, 3, 11h, 11w, 17, 18, 27) dürfen das Hauptgericht nicht kontaminieren
+  let hasGenericDessertComp = false;
+  for (let i = 1; i <= 5; i++) {
+    const pText = customFields[`dish_ger_${i}`] || "";
+    if (!isPureDessert && (/^dessert\b/i.test(pText.trim()) || /(?:nachspeise|dessert)/i.test(pText))) {
+      hasGenericDessertComp = true;
+      break;
+    }
+  }
+
+  if (hasGenericDessertComp && !isPureDessert) {
+    const mainComponentsCodes = new Set();
+    [dish.name_de, dish.name_en].forEach(nameStr => {
+      if (nameStr) {
+        const matches = nameStr.matchAll(/\(([^)]+)\)/g);
+        for (const m of matches) {
+          m[1].split(",").forEach(c => {
+            if (isValidAllergenCode(c.trim())) mainComponentsCodes.add(c.trim().toLowerCase());
+          });
+        }
+      }
+    });
+    for (let i = 1; i <= 5; i++) {
+      const partText = customFields[`dish_ger_${i}`] || "";
+      if (partText && !(/^dessert\b/i.test(partText.trim()) || /(?:nachspeise|dessert)/i.test(partText))) {
+        const matches = partText.matchAll(/\(([^)]+)\)/g);
+        for (const m of matches) {
+          m[1].split(",").forEach(c => {
+            if (isValidAllergenCode(c.trim())) mainComponentsCodes.add(c.trim().toLowerCase());
+          });
+        }
+      }
+    }
+    if (mainComponentsCodes.size > 0) {
+      const DESSERT_CODES = ["1", "3", "11h", "11w", "17", "18", "27"];
+      DESSERT_CODES.forEach(dCode => {
+        if (!mainComponentsCodes.has(dCode)) {
+          mergedCodesSet.delete(dCode);
+        }
+      });
     }
   }
 
@@ -424,12 +590,12 @@ function shouldExcludeDish(dish, selectedAllergyGroups) {
   selectedAllergyGroups.forEach(groupKey => {
     const group = ALLERGEN_GROUPS[groupKey];
     if (group) {
-      group.codes.forEach(code => excludedCodes.add(code));
+      group.codes.forEach(code => excludedCodes.add(code.toLowerCase()));
     }
   });
   
   // Check if the dish contains any excluded codes
-  return dishAllergens.some(code => excludedCodes.has(code));
+  return dishAllergens.some(code => excludedCodes.has(code.toLowerCase()));
 }
 
 function hasPreferences() {
@@ -580,8 +746,8 @@ function initOnboardingUI() {
   // Render Language Buttons
   const langContainer = document.getElementById("lang-selector");
   langContainer.innerHTML = `
-    <button id="lang-de" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "de" ? "bg-[#143d59] text-white border-[#143d59] font-bold" : "bg-slate-50 dark:bg-slate-800 text-on-surface-variant dark:text-gray-300 border-black/[0.08] dark:border-white/[0.08]"}" onclick="changeLanguage('de')">Deutsch</button>
-    <button id="lang-en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "en" ? "bg-[#143d59] text-white border-[#143d59] font-bold" : "bg-slate-50 dark:bg-slate-800 text-on-surface-variant dark:text-gray-300 border-black/[0.08] dark:border-white/[0.08]"}" onclick="changeLanguage('en')">English</button>
+    <button id="lang-de" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "de" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}" onclick="changeLanguage('de')">Deutsch</button>
+    <button id="lang-en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "en" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}" onclick="changeLanguage('en')">English</button>
   `;
 
   // Render Canteen Checkbox List (Clustered into Canteens and Bistros)
@@ -597,16 +763,16 @@ function initOnboardingUI() {
     const isBistro = canteen.type === "bistro";
     
     const itemHTML = `
-      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg transition-colors group">
+      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-slate-100 dark:hover:bg-[#182c44]/80 rounded-lg transition-colors group">
         <div class="relative flex items-center justify-center w-5 h-5 flex-shrink-0">
           <input type="checkbox" value="${key}" ${isChecked} class="canteen-checkbox checkbox-custom opacity-0 absolute w-full h-full cursor-pointer z-10"/>
-          <div class="w-4 h-4 rounded-sm border-2 border-outline-variant bg-surface-container-lowest flex items-center justify-center transition-colors">
-            <svg class="hidden w-3 h-3 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div class="w-4 h-4 rounded-sm border-2 border-outline-variant dark:border-slate-600 bg-surface-container-lowest dark:bg-[#0b1926] flex items-center justify-center transition-colors">
+            <svg class="hidden w-3 h-3 text-white dark:text-primary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
             </svg>
           </div>
         </div>
-        <span class="font-body-md text-body-md text-text-main dark:text-gray-300 group-hover:text-text-heading dark:group-hover:text-white">${canteen.name}</span>
+        <span class="font-body-md text-body-md text-text-main dark:text-slate-300 group-hover:text-text-heading dark:group-hover:text-white">${canteen.name}</span>
       </label>
     `;
 
@@ -621,7 +787,7 @@ function initOnboardingUI() {
   const bistroLabel = "Bistros & Cafés";
 
   canteenListContainer.innerHTML = `
-    <details class="group border-b border-black/5 dark:border-white/5 pb-2" open>
+    <details class="group border-b border-black/5 dark:border-white/[0.08] pb-2" open>
       <summary class="flex justify-between items-center font-headline text-[15px] font-bold text-text-heading dark:text-white cursor-pointer list-none py-1.5 select-none">
         <span class="flex items-center gap-2">
           ${getIconHTML('restaurant', 'text-[18px]')}
@@ -679,7 +845,7 @@ function initOnboardingUI() {
   options.forEach(opt => {
     const isActive = state.diet === opt.value;
     dietContainer.innerHTML += `
-      <button class="diet-option-btn flex-1 py-2 font-label-md text-label-md text-center rounded transition-colors focus:outline-none ${isActive ? "bg-price-badge text-primary font-bold shadow-sm" : "text-on-surface-variant dark:text-gray-300 opacity-70 hover:opacity-100"}" onclick="changeDietPreference('${opt.value}')">
+      <button class="diet-option-btn flex-1 py-2 font-label-md text-label-md text-center rounded transition-colors focus:outline-none ${isActive ? "bg-price-badge text-primary font-bold shadow-sm" : "text-on-surface-variant dark:text-slate-300 opacity-70 hover:opacity-100"}" onclick="changeDietPreference('${opt.value}')">
         ${opt.label}
       </button>
     `;
@@ -702,16 +868,16 @@ function initOnboardingUI() {
     const name = state.language === "en" ? group.en : group.de;
     
     allergenListContainer.innerHTML += `
-      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg transition-colors group">
+      <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-slate-100 dark:hover:bg-[#182c44]/80 rounded-lg transition-colors group">
         <div class="relative flex items-center justify-center w-5 h-5 flex-shrink-0">
           <input type="checkbox" value="${key}" ${isChecked} class="allergy-checkbox checkbox-custom opacity-0 absolute w-full h-full cursor-pointer z-10"/>
-          <div class="w-4 h-4 rounded-sm border-2 border-outline-variant bg-surface-container-lowest flex items-center justify-center transition-colors">
-            <svg class="hidden w-3 h-3 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div class="w-4 h-4 rounded-sm border-2 border-outline-variant dark:border-slate-600 bg-surface-container-lowest dark:bg-[#0b1926] flex items-center justify-center transition-colors">
+            <svg class="hidden w-3 h-3 text-white dark:text-primary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
             </svg>
           </div>
         </div>
-        <span class="font-body-md text-body-md text-text-main dark:text-gray-300 group-hover:text-text-heading dark:group-hover:text-white">${name}</span>
+        <span class="font-body-md text-body-md text-text-main dark:text-slate-300 group-hover:text-text-heading dark:group-hover:text-white">${name}</span>
       </label>
     `;
   });
@@ -805,7 +971,7 @@ function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
     resetContainer.id = "reset-container";
     resetContainer.className = "mt-4 flex justify-center";
     resetContainer.innerHTML = `
-      <button class="px-4 py-2 text-red-600 hover:text-red-800 transition-colors font-label-md text-label-md" onclick="resetApp()">
+      <button class="px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors font-label-md text-label-md" onclick="resetApp()">
         ${t.resetBtn}
       </button>
     `;
@@ -860,7 +1026,7 @@ function initInstallPrompt() {
 
   // Update text values
   document.getElementById("install-title").innerHTML = `
-    ${getIconHTML('cell_tower', 'text-primary-container text-[18px]')}
+    ${getIconHTML('cell_tower', 'text-primary-container dark:text-price-badge text-[18px]')}
     ${t.installTitle}
   `;
   document.getElementById("install-desc").textContent = t.installDesc;
@@ -876,8 +1042,8 @@ function initInstallPrompt() {
 
   if (isIOS) {
     actionsContainer.innerHTML = `
-      <div class="bg-primary/5 border border-primary/20 rounded-xl p-3 text-sm text-text-heading leading-relaxed flex items-start gap-2">
-        ${getIconHTML('info', 'text-[20px] text-primary-fixed-dim mt-0.5')}
+      <div class="bg-primary/5 dark:bg-[#0b1926] border border-primary/20 dark:border-white/[0.08] rounded-xl p-3 text-sm text-text-heading dark:text-slate-200 leading-relaxed flex items-start gap-2">
+        ${getIconHTML('info', 'text-[20px] text-primary-fixed-dim dark:text-price-badge mt-0.5')}
         <div>
           ${t.iosInstall}
         </div>
@@ -886,7 +1052,7 @@ function initInstallPrompt() {
     installCard.classList.remove("hidden");
   } else {
     actionsContainer.innerHTML = `
-      <button id="native-install-btn" class="w-full py-2 bg-primary text-white font-bold rounded-xl shadow-md hover:bg-primary/95 transition-colors flex items-center justify-center gap-1.5 active:scale-98 transition-transform">
+      <button id="native-install-btn" class="w-full py-2 bg-primary dark:bg-price-badge text-white dark:text-primary font-bold rounded-xl shadow-md hover:bg-primary/95 dark:hover:bg-price-badge/90 transition-colors flex items-center justify-center gap-1.5 active:scale-98 transition-transform">
         ${getIconHTML('download', 'text-[18px]')}
         ${t.installBtn}
       </button>
@@ -1230,6 +1396,11 @@ function renderOfflineBanner() {
 }
 
 window.triggerManualReload = async function() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if (reg) reg.update().catch(() => {});
+    });
+  }
   await updateMenuDataBackground(true);
 };
 
@@ -1295,8 +1466,8 @@ function renderLoading() {
   const dateContainer = document.getElementById("active-date-container");
   if (dateContainer) dateContainer.innerHTML = "";
   document.getElementById("main-feed").innerHTML = `
-    <div class="flex flex-col items-center justify-center py-20 text-text-main gap-4">
-      ${getIconHTML('sync', 'text-[48px] animate-spin text-primary-container')}
+    <div class="flex flex-col items-center justify-center py-20 text-text-main dark:text-slate-300 gap-4">
+      ${getIconHTML('sync', 'text-[48px] animate-spin text-primary-container dark:text-price-badge')}
       <p class="font-label-lg text-label-lg">${t.loading}</p>
     </div>
   `;
@@ -1306,7 +1477,7 @@ function renderSkeletons(count = 3) {
   const container = document.getElementById('main-feed');
   if (!container) return;
   container.innerHTML = Array.from({ length: count }, () => `
-    <div class="bg-surface-card rounded-xl p-4 space-y-3 shadow-sm">
+    <div class="bg-surface-card dark:bg-[#122338] border border-black/[0.04] dark:border-white/[0.08] rounded-xl p-4 space-y-3 shadow-sm">
       <div class="skeleton h-4 w-3/4"></div>
       <div class="skeleton h-3 w-1/2"></div>
       <div class="flex gap-2 mt-2">
@@ -1343,10 +1514,10 @@ function renderError() {
   const dateContainer = document.getElementById("active-date-container");
   if (dateContainer) dateContainer.innerHTML = "";
   document.getElementById("main-feed").innerHTML = `
-    <div class="flex flex-col items-center justify-center py-20 text-red-600 gap-4">
+    <div class="flex flex-col items-center justify-center py-20 text-red-600 dark:text-red-400 gap-4">
       ${getIconHTML('error', 'text-[48px]')}
       <p class="font-label-lg text-label-lg">${t.errorLoading}</p>
-      <button class="mt-4 px-6 py-2 bg-primary-container text-white rounded-lg font-label-md" onclick="fetchAndRender()">${state.language === "de" ? "Erneut versuchen" : "Retry"}</button>
+      <button class="mt-4 px-6 py-2 bg-primary-container dark:bg-price-badge text-white dark:text-primary font-bold rounded-lg font-label-md shadow-sm" onclick="fetchAndRender()">${state.language === "de" ? "Erneut versuchen" : "Retry"}</button>
     </div>
   `;
   removeSplash();
@@ -1455,7 +1626,7 @@ function renderDateSelector(forceScroll = false) {
     
     const btnClass = isActive 
       ? "bg-price-badge text-primary shadow-sm font-bold scale-105" 
-      : "text-text-heading hover:bg-white/40";
+      : "text-text-heading dark:text-slate-300 hover:bg-white/40 dark:hover:bg-white/10 dark:hover:text-white";
       
     selectorContainer.innerHTML += `
       <button class="flex-shrink-0 px-4 py-2 rounded-lg font-label-md text-label-md transition-all duration-200 ${btnClass}" onclick="setActiveDate('${day.date}')">
@@ -1494,8 +1665,8 @@ function renderDietToggle() {
   options.forEach(opt => {
     const isActive = state.diet === opt.value;
     const activeClass = isActive 
-      ? "bg-primary-container text-on-primary shadow-sm font-bold" 
-      : "text-on-surface-variant hover:bg-white/40";
+      ? "bg-primary-container dark:bg-price-badge text-on-primary dark:text-primary shadow-sm font-bold" 
+      : "text-on-surface-variant dark:text-slate-300 hover:bg-white/40 dark:hover:bg-white/10 dark:hover:text-white";
       
     container.innerHTML += `
       <button class="flex-1 py-2 rounded-lg font-label-md text-label-md text-center transition-colors focus:outline-none ${activeClass}" onclick="setDietFilter('${opt.value}')">
@@ -1701,12 +1872,12 @@ function getDateHeaderHTML() {
   const formattedDate = dateObj.toLocaleDateString(state.language === "de" ? "de-DE" : "en-US", options);
   const prefix = state.language === "de" ? "Speiseplan für" : "Menu for";
   return `
-    <div class="flex items-center gap-3 text-text-heading px-1 py-3 mb-2 mt-2 border-b border-black/5 dark:border-white/5 animate-fade-in">
-      <div class="w-9 h-9 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-white/60 dark:border-white/5 shadow-sm flex items-center justify-center">
-        ${getIconHTML('calendar_today', 'text-[20px] text-primary-container dark:text-[#a6cbed]')}
+    <div class="flex items-center gap-3 text-text-heading dark:text-white px-1 py-3 mb-2 mt-2 border-b border-black/5 dark:border-white/[0.08] animate-fade-in">
+      <div class="w-9 h-9 rounded-xl bg-white/50 dark:bg-[#122338] border border-white/60 dark:border-white/[0.08] shadow-sm flex items-center justify-center">
+        ${getIconHTML('calendar_today', 'text-[20px] text-primary-container dark:text-price-badge')}
       </div>
       <div>
-        <span class="text-[10px] font-bold text-on-surface-variant/60 dark:text-gray-400/60 uppercase tracking-widest block leading-none mb-1">${prefix}</span>
+        <span class="text-[10px] font-bold text-on-surface-variant/60 dark:text-slate-400 uppercase tracking-widest block leading-none mb-1">${prefix}</span>
         <h2 class="text-base md:text-lg font-headline font-extrabold text-text-heading dark:text-white leading-tight">${formattedDate}</h2>
       </div>
     </div>
@@ -1728,9 +1899,9 @@ function renderCanteenMenu() {
   const activeDayData = state.menuData.find(d => d.date === state.activeDate);
   if (!activeDayData || !activeDayData.dishes || activeDayData.dishes.length === 0) {
     feedContainer.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2 w-full">
+      <div class="flex flex-col items-center justify-center py-20 text-text-heading dark:text-white gap-2 w-full">
         ${getIconHTML('calendar_today', 'text-[48px] opacity-40')}
-        <p class="font-body-lg text-body-lg opacity-60">${t.noDishes}</p>
+        <p class="font-body-lg text-body-lg opacity-60 dark:text-slate-300">${t.noDishes}</p>
       </div>
     `;
     return;
@@ -1882,13 +2053,13 @@ function renderCanteenMenu() {
       : (opensLater ? t.opensLater : t.closed);
 
     let canteenSection = `
-      <div class="canteen-card w-full bg-white dark:bg-slate-900 rounded-3xl p-6 border border-black/[0.08] dark:border-white/[0.08] shadow-md flex flex-col gap-4 hover:shadow-lg transition-all duration-300">
+      <div class="canteen-card w-full bg-white dark:bg-[#122338] rounded-3xl p-6 border border-black/[0.08] dark:border-white/[0.08] shadow-md flex flex-col gap-4 hover:shadow-lg transition-all duration-300">
         <!-- Canteen Header -->
         <header class="flex flex-col gap-2">
           <div class="flex justify-between items-start gap-2">
             <div class="min-w-0">
               <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${canteen.name}</h2>
-              <p class="font-body-md text-body-md text-on-surface-variant dark:text-gray-300">${canteen.strasse}, ${canteen.plz} ${canteen.ort}</p>
+              <p class="font-body-md text-body-md text-on-surface-variant dark:text-slate-300">${canteen.strasse}, ${canteen.plz} ${canteen.ort}</p>
             </div>
             ${isViewingToday ? `
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass} flex-shrink-0">
@@ -1896,7 +2067,7 @@ function renderCanteenMenu() {
             </span>
             ` : ""}
           </div>
-          <div class="flex items-center gap-1 text-on-surface-variant dark:text-gray-300 font-body-sm text-[12px] opacity-85">
+          <div class="flex items-center gap-1 text-on-surface-variant dark:text-slate-300 font-body-sm text-[12px] opacity-85">
             ${getIconHTML('schedule', 'text-[16px]')}
             <span>${serviceWindowText}</span>
           </div>
@@ -1997,13 +2168,14 @@ function renderCanteenMenu() {
       }
 
       const allCodes = getDishAllergens(dish);
+      let allergenIcons = "";
       if (allCodes.length > 0) {
         const label = state.language === "en" ? "Allergens:" : "Allergene:";
         allergenIcons = `
-          <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-on-surface-variant dark:text-gray-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
+          <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-on-surface-variant dark:text-slate-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
             <span class="font-semibold">${label}</span>
-            ${allCodes.slice(0, 3).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/60 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.08] dark:text-gray-300">${escapeHtml(c)}</span>`).join("")}
-            ${allCodes.length > 3 ? `<span class="text-xs font-bold text-[#143d59] dark:text-white">+${allCodes.length - 3}</span>` : ""}
+            ${allCodes.slice(0, 3).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/80 dark:text-slate-200 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.1]">${escapeHtml(c)}</span>`).join("")}
+            ${allCodes.length > 3 ? `<span class="text-xs font-bold text-[#143d59] dark:text-price-badge">+${allCodes.length - 3}</span>` : ""}
           </div>
         `;
       }
@@ -2011,15 +2183,15 @@ function renderCanteenMenu() {
       let servingMetaHTML = "";
       if (locationBadge || servingTime) {
         servingMetaHTML = `
-          <div class="flex flex-wrap items-center gap-2 text-[12px] font-label-sm text-primary-container/80 mt-1">
+          <div class="flex flex-wrap items-center gap-2 text-[12px] font-label-sm text-primary-container/80 dark:text-slate-300 mt-1">
             ${locationBadge ? `
-              <span class="inline-flex items-center gap-1 bg-white/50 border border-white/60 shadow-sm px-2 py-0.5 rounded text-[11px] dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
+              <span class="inline-flex items-center gap-1 bg-white/50 dark:bg-slate-800/80 border border-white/60 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-on-surface-variant dark:text-slate-200">
                 ${getIconHTML('location_on', 'text-[14px]')}
                 ${escapeHtml(locationBadge)}
               </span>
             ` : ""}
             ${servingTime ? `
-              <span class="inline-flex items-center gap-1 bg-white/50 border border-white/60 shadow-sm px-2 py-0.5 rounded text-[11px] dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
+              <span class="inline-flex items-center gap-1 bg-white/50 dark:bg-slate-800/80 border border-white/60 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-on-surface-variant dark:text-slate-200">
                 ${getIconHTML('alarm', 'text-[14px]')}
                 ${escapeHtml(servingTime)}
               </span>
@@ -2052,8 +2224,6 @@ function renderCanteenMenu() {
         const dpLower = cleanedDPName.toLowerCase();
         const nameLower = (dish.name_de || "").toLowerCase();
         // Only use DPNAME if name_de doesn't already contain its content
-        // e.g. "Flammkuchen mit Mediterranem Gemüse" already includes "Flammkuchen" → keep name_de
-        // but "Pommes frites" does NOT include "Veganes Gyros" → use DPNAME
         if (!nameLower.includes(dpLower)) {
           mealName = state.language === "en" && dish.name_en ? dish.name_en : cleanedDPName;
         }
@@ -2077,7 +2247,6 @@ function renderCanteenMenu() {
           dishComponents.shift();
         }
       }
-      // Filter out generic items optionally (keep them for now, they're useful info)
       const componentsText = dishComponents.length > 0 
         ? dishComponents.join(" · ") 
         : "";
@@ -2089,9 +2258,9 @@ function renderCanteenMenu() {
       const escapedMealDesc = escapeHtml(mealDesc);
       const escapedStudentPrice = escapeHtml(studentPrice);
 
-      const shareBtn = 'share' in navigator ? `
+      const shareBtn = `
         <button 
-          class="share-btn p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container transition-colors"
+          class="share-btn p-1.5 rounded-full text-on-surface-variant dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center justify-center active:scale-95"
           data-dish-name="${escapeHtml(mealName)}"
           data-dish-price="${studentPrice || ''}"
           data-canteen-name="${escapeHtml(canteen.name)}"
@@ -2100,21 +2269,6 @@ function renderCanteenMenu() {
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-        </button>
-      ` : '';
-
-      const favBtn = `
-        <button 
-          class="fav-btn p-1.5 rounded-full transition-colors"
-          data-dish-id="${dish.id || dish.name_de}"
-          aria-label="Favorit"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fav-icon" 
-               fill="${isFavorite(dish.id || dish.name_de) ? '#ffd600' : 'none'}" 
-               stroke="${isFavorite(dish.id || dish.name_de) ? '#ffd600' : 'currentColor'}" 
-               stroke-width="2" viewBox="0 0 24 24">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
         </button>
       `;
@@ -2142,7 +2296,7 @@ function renderCanteenMenu() {
       ` : "";
 
       canteenSection += `
-        <article class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-slate-100/50 dark:hover:bg-slate-800/80 transition-colors duration-200 border border-black/[0.04] dark:border-white/[0.04] shadow-sm">
+        <article class="bg-slate-50 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-slate-100/50 dark:hover:bg-[#1f3754] transition-colors duration-200 border border-black/[0.04] dark:border-white/[0.08] shadow-sm">
           <!-- Main layout: Content left, optional thumbnail+price right -->
           <div class="flex justify-between items-start gap-3">
             <div class="flex-1 flex flex-col gap-2.5 min-w-0">
@@ -2155,9 +2309,9 @@ function renderCanteenMenu() {
 
               <!-- Title & Description -->
               <div class="min-w-0">
-                <h3 class="font-headline-sm text-headline-sm text-text-heading font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
-                ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-on-surface-variant dark:text-gray-400 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${escapedComponentsText}</p>` : ""}
-                ${escapedMealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
+                <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
+                ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-on-surface-variant dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${escapedComponentsText}</p>` : ""}
+                ${escapedMealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
               </div>
 
               <!-- Serving Meta -->
@@ -2176,7 +2330,6 @@ function renderCanteenMenu() {
             </div>
             <div class="flex items-center gap-1.5 ml-auto">
               ${shareBtn}
-              ${favBtn}
               ${allergenIcons}
             </div>
           </div>
@@ -2219,9 +2372,9 @@ function renderCanteenMenu() {
 
   if (renderedCanteensCount === 0) {
     feedContainer.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-20 text-text-heading gap-2 w-full">
+      <div class="flex flex-col items-center justify-center py-20 text-text-heading dark:text-white gap-2 w-full">
         ${getIconHTML('notifications_off', 'text-[48px] opacity-40')}
-        <p class="font-body-lg text-body-lg opacity-60 text-center px-4 leading-relaxed">
+        <p class="font-body-lg text-body-lg opacity-60 dark:text-slate-300 text-center px-4 leading-relaxed">
           ${state.language === "de" 
             ? "Alle ausgewählten Mensen haben für heute den Service beendet oder sind geschlossen." 
             : "All selected canteens are closed or have finished food service for today."}
@@ -2294,21 +2447,21 @@ function showUpdateDialog(worker) {
   modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-fade-in';
   
   modal.innerHTML = `
-    <div class="w-full max-w-sm glass rounded-2xl p-6 shadow-xl flex flex-col gap-4 animate-zoom-in">
+    <div class="w-full max-w-sm bg-white dark:bg-[#0b1926] border border-black/[0.08] dark:border-white/[0.08] rounded-2xl p-6 shadow-xl flex flex-col gap-4 animate-zoom-in">
       <div class="flex items-center gap-3">
-        <div class="h-12 w-12 rounded-xl bg-[#143d59]/10 flex items-center justify-center text-[#143d59] dark:bg-white/10 dark:text-white flex-shrink-0">
+        <div class="h-12 w-12 rounded-xl bg-[#143d59]/10 dark:bg-price-badge/10 flex items-center justify-center text-[#143d59] dark:text-price-badge flex-shrink-0">
           ${getIconHTML('update', 'text-[28px]')}
         </div>
         <div>
           <h3 class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.updateAvailableTitle}</h3>
-          <p class="text-[12px] text-on-surface-variant dark:text-gray-400">${t.updateAvailableDesc}</p>
+          <p class="text-[12px] text-on-surface-variant dark:text-slate-400">${t.updateAvailableDesc}</p>
         </div>
       </div>
-      <p class="text-sm text-text-main dark:text-gray-200 leading-relaxed">
+      <p class="text-sm text-text-main dark:text-slate-200 leading-relaxed">
         ${t.updatePrompt}
       </p>
       <div class="flex gap-3 mt-2">
-        <button id="update-later-btn" class="flex-1 h-11 border border-outline/20 hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-transform font-label-md text-label-md rounded-xl text-on-surface-variant dark:text-gray-300 font-semibold">
+        <button id="update-later-btn" class="flex-1 h-11 border border-outline/20 dark:border-white/[0.08] hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-transform font-label-md text-label-md rounded-xl text-on-surface-variant dark:text-slate-300 font-semibold">
           ${t.updateLater}
         </button>
         <button id="update-now-btn" class="flex-1 h-11 bg-price-badge text-primary hover:opacity-90 active:scale-95 transition-transform font-label-md text-label-md rounded-xl font-bold shadow-sm">
@@ -2360,7 +2513,7 @@ function showSuccessToast() {
   const toast = document.createElement('div');
   toast.id = 'update-toast';
   // Slide in from bottom, aligned to app-container if possible, or centered
-  toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-32px)] max-w-sm bg-[#143d59] text-white rounded-xl px-4 py-3 shadow-lg flex items-center justify-between gap-3 animate-slide-in';
+  toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-32px)] max-w-sm bg-[#143d59] dark:bg-[#122338] dark:border dark:border-white/[0.08] text-white rounded-xl px-4 py-3 shadow-lg flex items-center justify-between gap-3 animate-slide-in';
   
   toast.innerHTML = `
     <div class="flex items-center gap-2.5">
@@ -2451,11 +2604,11 @@ window.showAllergens = function(dishId) {
     const name = state.language === "en" ? info.en : info.de;
     
     listContainer.innerHTML += `
-      <div class="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-black/[0.04] dark:border-white/[0.04]">
-        <span class="inline-flex items-center justify-center bg-primary-container text-white text-[11px] font-bold px-2 py-0.5 rounded min-w-[28px] text-center dark:bg-slate-700">
+      <div class="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-[#182c44] border border-black/[0.04] dark:border-white/[0.08]">
+        <span class="inline-flex items-center justify-center bg-primary-container dark:bg-price-badge text-white dark:text-primary text-[11px] font-bold px-2 py-0.5 rounded min-w-[28px] text-center">
           ${escapeHtml(code)}
         </span>
-        <span class="text-sm text-text-heading dark:text-gray-200 font-medium">
+        <span class="text-sm text-text-heading dark:text-slate-100 font-medium">
           ${escapeHtml(name)}
         </span>
       </div>
