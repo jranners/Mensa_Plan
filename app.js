@@ -177,6 +177,11 @@ async function copyTextToClipboard(text) {
 
 // 5. Initialize App
 window.addEventListener("DOMContentLoaded", async () => {
+  // Failsafe: dismiss splash screen after max 3.5 seconds under any network condition
+  setTimeout(() => {
+    removeSplash();
+  }, 3500);
+
   loadPreferences();
   applyLanguage();
   initInstallPrompt();
@@ -1586,12 +1591,17 @@ function renderAnnouncements() {
 }
 
 function renderApp(initialLoad = false) {
-  renderAnnouncements();
-  renderDateSelector(initialLoad);
-  renderDietToggle();
-  renderCanteenMenu();
-  renderOfflineBanner();
-  removeSplash();
+  try {
+    renderAnnouncements();
+    renderDateSelector(initialLoad);
+    renderDietToggle();
+    renderCanteenMenu();
+    renderOfflineBanner();
+  } catch (err) {
+    console.error("Error during renderApp:", err);
+  } finally {
+    removeSplash();
+  }
 }
 
 function renderDateSelector(forceScroll = false) {
@@ -1927,7 +1937,7 @@ function renderCanteenMenu() {
   else if (width >= 768) numCols = 2;
 
   // Create column elements if multi-column
-  let columns = [];
+  const colHeights = Array(numCols).fill(0);
   if (numCols > 1) {
     feedContainer.className = "w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start";
     for (let c = 0; c < numCols; c++) {
@@ -1935,7 +1945,6 @@ function renderCanteenMenu() {
       colDiv.id = `canteen-col-${c}`;
       colDiv.className = "flex flex-col gap-6";
       feedContainer.appendChild(colDiv);
-      columns.push({ element: colDiv, heightEst: 0 });
     }
   } else {
     feedContainer.className = "w-full flex flex-col gap-6";
