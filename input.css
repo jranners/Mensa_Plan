@@ -24,8 +24,8 @@ body {
 /* Solid Modern Styles (Replaces Glassmorphism) */
 .glass {
     background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 39, 62, 0.08);
+    box-shadow: 0 4px 12px -2px rgba(0, 39, 62, 0.05);
 }
 .dark .glass {
     background: #122338;
@@ -34,8 +34,8 @@ body {
 }
 
 .glass-dark {
-    background: #143d59;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background: #00273e;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
 }
 .dark .glass-dark {
     background: #0b1926;
@@ -43,12 +43,16 @@ body {
 }
 
 .glass-panel {
-    background: rgba(0, 0, 0, 0.03);
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 39, 62, 0.08);
+    box-shadow: 0 2px 8px -2px rgba(0, 39, 62, 0.04);
 }
 .dark .glass-panel {
     background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: none;
     border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: none;
 }
 
 .checkbox-custom:checked + div {

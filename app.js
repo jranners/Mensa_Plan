@@ -1624,8 +1624,8 @@ function renderDateSelector(forceScroll = false) {
     const isActive = day.date === state.activeDate;
     
     const btnClass = isActive 
-      ? "bg-price-badge text-primary shadow-sm font-bold scale-105" 
-      : "text-text-heading dark:text-slate-300 hover:bg-white/40 dark:hover:bg-white/10 dark:hover:text-white";
+      ? "bg-price-badge text-primary shadow-sm font-bold scale-[1.02]" 
+      : "text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 hover:text-primary dark:hover:text-white hover:shadow-sm font-medium";
       
     selectorContainer.innerHTML += `
       <button class="flex-shrink-0 px-4 py-2 rounded-lg font-label-md text-label-md transition-all duration-200 ${btnClass}" onclick="setActiveDate('${day.date}')">
@@ -1664,11 +1664,11 @@ function renderDietToggle() {
   options.forEach(opt => {
     const isActive = state.diet === opt.value;
     const activeClass = isActive 
-      ? "bg-primary-container dark:bg-price-badge text-on-primary dark:text-primary shadow-sm font-bold" 
-      : "text-on-surface-variant dark:text-slate-300 hover:bg-white/40 dark:hover:bg-white/10 dark:hover:text-white";
+      ? "bg-primary-container dark:bg-price-badge text-white dark:text-primary shadow-sm font-bold" 
+      : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 hover:text-primary dark:hover:text-white hover:shadow-sm font-medium";
       
     container.innerHTML += `
-      <button class="flex-1 py-2 rounded-lg font-label-md text-label-md text-center transition-colors focus:outline-none ${activeClass}" onclick="setDietFilter('${opt.value}')">
+      <button class="flex-1 py-2 rounded-lg font-label-md text-label-md text-center transition-all duration-200 focus:outline-none ${activeClass}" onclick="setDietFilter('${opt.value}')">
         ${opt.label}
       </button>
     `;
@@ -1790,42 +1790,42 @@ function getBrandAndSubTag(dish) {
     case "HEIMSPIEL":
       brandName = "Heimspiel";
       brandIcon = "home";
-      brandColor = "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
+      brandColor = "bg-amber-50 text-amber-900 border-amber-200/90 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
       break;
     case "WORLDWIDE":
       brandName = "Worldwide";
       brandIcon = "public";
-      brandColor = "bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-900";
+      brandColor = "bg-cyan-50 text-cyan-900 border-cyan-200/90 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-900";
       break;
     case "QUERBEET":
       brandName = "Querbeet";
       brandIcon = "yard";
-      brandColor = "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
+      brandColor = "bg-emerald-50 text-emerald-900 border-emerald-200/90 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
       break;
     case "MEISTERWERK":
       brandName = "Meisterwerk";
       brandIcon = "workspace_premium";
-      brandColor = "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900";
+      brandColor = "bg-purple-50 text-purple-900 border-purple-200/90 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900";
       break;
     case "STREETFOOD":
       brandName = "Streetfood";
       brandIcon = "fastfood";
-      brandColor = "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900";
+      brandColor = "bg-rose-50 text-rose-900 border-rose-200/90 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900";
       break;
     case "SOZIALGERICHT":
       brandName = state.language === "de" ? "Sozialgericht" : "Social Meal";
       brandIcon = "volunteer_activism";
-      brandColor = "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900";
+      brandColor = "bg-blue-50 text-blue-900 border-blue-200/90 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900";
       break;
     case "BEILAGE":
       brandName = state.language === "de" ? "Beilage" : "Side";
       brandIcon = "grain";
-      brandColor = "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+      brandColor = "bg-slate-100 text-slate-800 border-slate-200/90 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
       break;
     case "DESSERT":
       brandName = "Dessert";
       brandIcon = "icecream";
-      brandColor = "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-900";
+      brandColor = "bg-pink-50 text-pink-900 border-pink-200/90 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-900";
       break;
     default:
       if (category && (category.name_de || category.name_en)) {
@@ -1834,7 +1834,7 @@ function getBrandAndSubTag(dish) {
         brandName = state.language === "de" ? "Gericht" : "Dish";
       }
       brandIcon = "restaurant";
-      brandColor = "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
+      brandColor = "bg-slate-100 text-slate-800 border-slate-200/90 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
   }
 
   let subTagHTML = "";
@@ -1848,7 +1848,7 @@ function getBrandAndSubTag(dish) {
     displaySub = displaySub.charAt(0).toUpperCase() + displaySub.slice(1).toLowerCase();
     
     subTagHTML = `
-      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/60 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/80 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
         ${escapeHtml(displaySub)}
       </span>
     `;
@@ -1871,12 +1871,12 @@ function getDateHeaderHTML() {
   const formattedDate = dateObj.toLocaleDateString(state.language === "de" ? "de-DE" : "en-US", options);
   const prefix = state.language === "de" ? "Speiseplan für" : "Menu for";
   return `
-    <div class="flex items-center gap-3 text-text-heading dark:text-white px-1 py-3 mb-2 mt-2 border-b border-black/5 dark:border-white/[0.08] animate-fade-in">
-      <div class="w-9 h-9 rounded-xl bg-white/50 dark:bg-[#122338] border border-white/60 dark:border-white/[0.08] shadow-sm flex items-center justify-center">
-        ${getIconHTML('calendar_today', 'text-[20px] text-primary-container dark:text-price-badge')}
+    <div class="flex items-center gap-3 text-text-heading px-1 py-3 mb-2 mt-2 border-b border-slate-200/70 dark:border-white/5 animate-fade-in">
+      <div class="w-9 h-9 rounded-xl bg-white dark:bg-slate-900/40 border border-slate-200/80 dark:border-white/5 shadow-sm flex items-center justify-center">
+        ${getIconHTML('calendar_today', 'text-[20px] text-primary-container dark:text-[#a6cbed]')}
       </div>
       <div>
-        <span class="text-[10px] font-bold text-on-surface-variant/60 dark:text-slate-400 uppercase tracking-widest block leading-none mb-1">${prefix}</span>
+        <span class="text-[10px] font-bold text-slate-500 dark:text-gray-400/60 uppercase tracking-widest block leading-none mb-1">${prefix}</span>
         <h2 class="text-base md:text-lg font-headline font-extrabold text-text-heading dark:text-white leading-tight">${formattedDate}</h2>
       </div>
     </div>
@@ -1888,135 +1888,134 @@ function renderCanteenMenu() {
   feedContainer.innerHTML = "";
   
   const t = TRANSLATIONS[state.language];
-  const dateHeader = getDateHeaderHTML();
 
-  const dateContainer = document.getElementById("active-date-container");
-  if (dateContainer) {
-    dateContainer.innerHTML = dateHeader;
-  }
-
-  const activeDayData = state.menuData.find(d => d.date === state.activeDate);
-  if (!activeDayData || !activeDayData.dishes || activeDayData.dishes.length === 0) {
+  if (!state.menuData || state.menuData.length === 0) {
     feedContainer.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-20 text-text-heading dark:text-white gap-2 w-full">
-        ${getIconHTML('calendar_today', 'text-[48px] opacity-40')}
-        <p class="font-body-lg text-body-lg opacity-60 dark:text-slate-300">${t.noDishes}</p>
+      <div class="text-center py-20 text-on-surface-variant dark:text-slate-300">
+        ${getIconHTML('restaurant', 'text-[48px] text-slate-400 mb-2')}
+        <p class="font-label-lg text-label-lg">${t.noDataAvailable}</p>
       </div>
     `;
+    removeSplash();
     return;
   }
 
-  const visibleCanteens = state.selectedCanteens;
-  let renderedCanteensCount = 0;
+  // Determine current active date
+  const currentDayData = state.menuData.find(d => d.date === state.activeDate);
 
-  // Determine number of columns based on width
+  if (!currentDayData) {
+    feedContainer.innerHTML = `
+      <div class="text-center py-20 text-on-surface-variant dark:text-slate-300">
+        ${getIconHTML('event_busy', 'text-[48px] text-slate-400 mb-2')}
+        <p class="font-label-lg text-label-lg">${t.noMenuForDate}</p>
+      </div>
+    `;
+    removeSplash();
+    return;
+  }
+
+  // Set the Date Header
+  const dateContainer = document.getElementById("active-date-container");
+  if (dateContainer) {
+    dateContainer.innerHTML = getDateHeaderHTML();
+  }
+
+  // Determine layout columns based on viewport width
   const width = window.innerWidth;
   let numCols = 1;
-  if (width >= 1024) {
-    numCols = 3;
-  } else if (width >= 768) {
-    numCols = 2;
-  }
+  if (width >= 1024) numCols = 3;
+  else if (width >= 768) numCols = 2;
 
-  // Initialize columns and heights
-  const colHeights = Array(numCols).fill(0);
+  // Create column elements if multi-column
+  let columns = [];
   if (numCols > 1) {
-    feedContainer.className = "flex gap-6 w-full items-start";
-    for (let i = 0; i < numCols; i++) {
-      feedContainer.innerHTML += `<div id="canteen-col-${i}" class="flex-1 flex flex-col gap-6 min-w-0"></div>`;
+    feedContainer.className = "w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start";
+    for (let c = 0; c < numCols; c++) {
+      const colDiv = document.createElement("div");
+      colDiv.id = `canteen-col-${c}`;
+      colDiv.className = "flex flex-col gap-6";
+      feedContainer.appendChild(colDiv);
+      columns.push({ element: colDiv, heightEst: 0 });
     }
   } else {
-    feedContainer.className = "flex flex-col gap-6 w-full";
+    feedContainer.className = "w-full flex flex-col gap-6";
   }
 
-  visibleCanteens.forEach(canteenKey => {
+  let renderedCanteensCount = 0;
+  const now = new Date();
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const todayIso = getLocalIsoDate(now);
+  const isViewingToday = state.activeDate === todayIso;
+
+  state.selectedCanteens.forEach(canteenKey => {
     const canteen = CANTEENS[canteenKey];
     if (!canteen) return;
 
-    let dishes = activeDayData.dishes.filter(dish => getCanteenKeyFromDish(dish, canteenKey, canteen));
+    let dishes = (currentDayData.dishes || []).filter(dish => {
+      return getCanteenKeyFromDish(dish, canteenKey, canteen);
+    });
 
-    if (state.diet === "vegan") {
-      dishes = dishes.filter(d => getDishDietType(d) === "vegan");
-    } else if (state.diet === "vegetarian") {
-      dishes = dishes.filter(d => getDishDietType(d) === "vegan" || getDishDietType(d) === "vegetarian");
+    // Apply Diet Filter
+    if (state.diet !== "all") {
+      dishes = dishes.filter(dish => {
+        const dType = getDishDietType(dish);
+        if (state.diet === "vegan") return dType === "vegan";
+        if (state.diet === "vegetarian") return dType === "vegan" || dType === "vegetarian";
+        return true;
+      });
     }
 
+    // Apply Allergy Filter
     if (state.allergies && state.allergies.length > 0) {
-      dishes = dishes.filter(d => !shouldExcludeDish(d, state.allergies));
+      dishes = dishes.filter(dish => !shouldExcludeDish(dish, state.allergies));
     }
 
     if (dishes.length === 0) return;
 
-    // Determine canteen serving window and opening status dynamically based on dish service times
-    let maxEndHour = 0;
-    let minStartHour = 24;
+    // Determine opening hours and status
+    const dayOfWeek = new Date(state.activeDate).getDay(); // 0 is Sunday, 6 is Saturday
+    let openingHoursText = canteen.opening_hours.weekdays;
+    let startHour = 11.0;
+    let endHour = 14.5;
+
+    if (dayOfWeek === 6) {
+      openingHoursText = canteen.opening_hours.saturday;
+      startHour = 11.5;
+      endHour = 14.0;
+    } else if (dayOfWeek === 0) {
+      openingHoursText = canteen.opening_hours.sunday;
+      startHour = 0;
+      endHour = 0;
+    }
+
+    // Check if there are explicit serving times in the dishes
+    let minDishStart = 24;
+    let maxDishEnd = 0;
     let hasServingTimes = false;
 
-    dishes.forEach(dish => {
+    dishes.forEach(d => {
       const customFields = {};
-      (dish.custom_fields || []).forEach(f => {
+      (d.custom_fields || []).forEach(f => {
         if (f) customFields[f.field_id] = f.value;
       });
       const dishInfo = customFields["dish_info"] || "";
-      if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
+      if (dishInfo) {
         const timeMatch = dishInfo.match(/(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})/);
         if (timeMatch) {
-          const start = parseInt(timeMatch[1]) + parseInt(timeMatch[2])/60;
-          const end = parseInt(timeMatch[3]) + parseInt(timeMatch[4])/60;
-          if (start < minStartHour) minStartHour = start;
-          if (end > maxEndHour) maxEndHour = end;
           hasServingTimes = true;
+          const sH = parseInt(timeMatch[1]) + parseInt(timeMatch[2])/60;
+          const eH = parseInt(timeMatch[3]) + parseInt(timeMatch[4])/60;
+          if (sH < minDishStart) minDishStart = sH;
+          if (eH > maxDishEnd) maxDishEnd = eH;
         }
       }
     });
 
-    // Parse general canteen times
-    let generalStartHour = 11.5; // default 11:30
-    let generalEndHour = 14.5;   // default 14:30
-    const now = new Date();
-    const currentHour = now.getHours() + now.getMinutes() / 60;
-    const currentDayOfWeek = now.getDay();
-    const openingInfo = canteen.infokurz;
-    let openingHoursText = state.language === "de" ? "Keine Servicezeit" : "No service hours";
-
-    if (openingInfo) {
-      const lines = openingInfo.split("\n");
-      const dayNamesMap = {
-        1: ["Mo", "Mon"],
-        2: ["Di", "Tue"],
-        3: ["Mi", "Wed"],
-        4: ["Do", "Thu"],
-        5: ["Fr", "Fri"],
-        6: ["Sa", "Sat"],
-        0: ["So", "Sun"]
-      };
-
-      const searchTerms = dayNamesMap[currentDayOfWeek] || [];
-      for (const line of lines) {
-        if (searchTerms.some(term => line.includes(term)) || (currentDayOfWeek >= 1 && currentDayOfWeek <= 5 && line.includes("Mo - Fr"))) {
-          openingHoursText = line;
-          const hourMatch = line.match(/(\d{2})[.:](\d{2})\s*-\s*(\d{2})[.:](\d{2})/);
-          if (hourMatch) {
-            generalStartHour = parseInt(hourMatch[1]) + parseInt(hourMatch[2])/60;
-            generalEndHour = parseInt(hourMatch[3]) + parseInt(hourMatch[4])/60;
-          }
-        }
-      }
+    if (hasServingTimes) {
+      startHour = minDishStart;
+      endHour = maxDishEnd;
     }
 
-    // Determine effective serving window
-    const startHour = hasServingTimes ? Math.min(minStartHour, generalStartHour) : generalStartHour;
-    const endHour = hasServingTimes ? Math.max(maxEndHour, generalEndHour) : generalEndHour;
-
-    // HIDE CLOSED CANTEENS ONLY IF THEY HAVE FINISHED FOR THE DAY (VIEWING TODAY)
-    const todayIso = getLocalIsoDate();
-    const isViewingToday = state.activeDate === todayIso;
-
-    if (isViewingToday && currentHour > endHour) {
-      return;
-    }
-
-    // Check if currently open for food service or opens later
     let isCanteenOpen = false;
     let opensLater = false;
     if (isViewingToday) {
@@ -2029,44 +2028,39 @@ function renderCanteenMenu() {
       isCanteenOpen = true;
     }
 
-    // Format display text for opening hours
     let serviceWindowText = openingHoursText;
     if (hasServingTimes) {
-      const formatTime = (h) => {
-        const mins = Math.round((h % 1) * 60);
-        return `${Math.floor(h)}:${mins.toString().padStart(2, '0')}`;
-      };
-      const servingLabel = state.language === "de" ? "Essensausgabe" : "Food Service";
-      serviceWindowText = `${servingLabel}: ${formatTime(startHour)} - ${formatTime(endHour)} Uhr`;
+      const format = (h) => `${Math.floor(h)}:${Math.round((h % 1) * 60).toString().padStart(2, '0')}`;
+      serviceWindowText = `${format(startHour)} - ${format(endHour)} ${state.language === "de" ? "Uhr" : ""}`;
     }
 
     renderedCanteensCount++;
 
     const statusBadgeClass = isCanteenOpen 
-      ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" 
+      ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" 
       : (opensLater 
-        ? "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" 
-        : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800");
+        ? "bg-sky-50 text-sky-800 border-sky-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" 
+        : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800");
     const statusText = isCanteenOpen 
       ? t.open 
       : (opensLater ? t.opensLater : t.closed);
 
     let canteenSection = `
-      <div class="canteen-card w-full bg-white dark:bg-[#122338] rounded-3xl p-6 border border-black/[0.08] dark:border-white/[0.08] shadow-md flex flex-col gap-4 hover:shadow-lg transition-all duration-300">
+      <div class="canteen-card w-full bg-white dark:bg-[#122338] rounded-3xl p-6 border border-slate-200/80 dark:border-white/[0.08] shadow-[0_4px_20px_-4px_rgba(0,39,62,0.06)] hover:shadow-[0_8px_30px_-4px_rgba(0,39,62,0.1)] flex flex-col gap-4 transition-all duration-300">
         <!-- Canteen Header -->
         <header class="flex flex-col gap-2">
           <div class="flex justify-between items-start gap-2">
             <div class="min-w-0">
               <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${canteen.name}</h2>
-              <p class="font-body-md text-body-md text-on-surface-variant dark:text-slate-300">${canteen.strasse}, ${canteen.plz} ${canteen.ort}</p>
+              <p class="font-body-md text-body-md text-slate-600 dark:text-slate-300">${canteen.strasse}, ${canteen.plz} ${canteen.ort}</p>
             </div>
             ${isViewingToday ? `
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass} flex-shrink-0">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusBadgeClass} flex-shrink-0">
               ${statusText}
             </span>
             ` : ""}
           </div>
-          <div class="flex items-center gap-1 text-on-surface-variant dark:text-slate-300 font-body-sm text-[12px] opacity-85">
+          <div class="flex items-center gap-1 text-slate-600 dark:text-slate-300 font-body-sm text-[12px] opacity-90">
             ${getIconHTML('schedule', 'text-[16px]')}
             <span>${serviceWindowText}</span>
           </div>
@@ -2098,19 +2092,15 @@ function renderCanteenMenu() {
       let dishCounter = "";
       const dishInfo = customFields["dish_info"] || "";
       if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
-        // Extract time pattern like "11.30 - 14.15" or "11:30 - 14:30"
         const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
         if (timeMatch) {
           servingTime = timeMatch[1].replace(/\./g, ":");
         }
-        // Extract counter/station name: everything before the time pattern
-        // Remove trailing "Uhr", "Ampelcounter", and clean up dashes
         let counterPart = dishInfo;
         if (timeMatch) {
           counterPart = dishInfo.substring(0, dishInfo.indexOf(timeMatch[0]));
         }
         counterPart = counterPart.replace(/\s*-\s*$/, "").replace(/Uhr.*$/i, "").trim();
-        // Only use counter if it's not just a number or empty
         if (counterPart && !/^\d+$/.test(counterPart) && counterPart.length > 1) {
           dishCounter = counterPart;
         }
@@ -2128,9 +2118,7 @@ function renderCanteenMenu() {
         const endHourMatch = endStr.match(/(\d{2})[.:](\d{2})/);
         if (endHourMatch) {
           const dishEndHour = parseInt(endHourMatch[1]) + parseInt(endHourMatch[2])/60;
-          if (currentHour > dishEndHour) {
-            return;
-          }
+          if (currentHour > dishEndHour) return;
         }
       }
 
@@ -2138,14 +2126,14 @@ function renderCanteenMenu() {
       let dietBadge = "";
       if (dietType === "vegan") {
         dietBadge = `
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 border border-green-200 text-[#2e7d32] font-label-sm text-[11px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-label-sm text-[11px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900 font-medium">
             ${getIconHTML('eco', 'text-[14px]')}
             ${t.vegan}
           </span>
         `;
       } else if (dietType === "vegetarian") {
         dietBadge = `
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-50 border border-yellow-200 text-[#f57f17] font-label-sm text-[11px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900 font-medium">
             ${getIconHTML('nutrition', 'text-[14px]')}
             ${t.vegetarian}
           </span>
@@ -2158,7 +2146,7 @@ function renderCanteenMenu() {
         if (dishAllergens.length === 0) {
           const label = state.language === "en" ? "No allergen info – please ask staff" : "Keine Allergen-Info – bitte Personal fragen";
           undeclaredBadge = `
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
               ${getIconHTML('warning', 'text-[14px]')}
               ${label}
             </span>
@@ -2171,10 +2159,10 @@ function renderCanteenMenu() {
       if (allCodes.length > 0) {
         const label = state.language === "en" ? "Allergens:" : "Allergene:";
         allergenIcons = `
-          <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-on-surface-variant dark:text-slate-300 font-body-sm opacity-75 hover:opacity-100 hover:text-[#143d59] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
-            <span class="font-semibold">${label}</span>
-            ${allCodes.slice(0, 3).map(c => `<span class="bg-gray-200/60 dark:bg-slate-700/80 dark:text-slate-200 px-1 rounded text-[10px] border border-black/[0.08] dark:border-white/[0.1]">${escapeHtml(c)}</span>`).join("")}
-            ${allCodes.length > 3 ? `<span class="text-xs font-bold text-[#143d59] dark:text-price-badge">+${allCodes.length - 3}</span>` : ""}
+          <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-body-sm opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
+            <span class="font-semibold text-slate-700 dark:text-slate-300">${label}</span>
+            ${allCodes.slice(0, 3).map(c => `<span class="bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 px-1.5 py-0.5 rounded text-[10px] border border-slate-300/60 dark:border-white/[0.1] font-medium">${escapeHtml(c)}</span>`).join("")}
+            ${allCodes.length > 3 ? `<span class="text-xs font-bold text-primary dark:text-price-badge">+${allCodes.length - 3}</span>` : ""}
           </div>
         `;
       }
@@ -2184,13 +2172,13 @@ function renderCanteenMenu() {
         servingMetaHTML = `
           <div class="flex flex-wrap items-center gap-2 text-[12px] font-label-sm text-primary-container/80 dark:text-slate-300 mt-1">
             ${locationBadge ? `
-              <span class="inline-flex items-center gap-1 bg-white/50 dark:bg-slate-800/80 border border-white/60 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-on-surface-variant dark:text-slate-200">
+              <span class="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-slate-700 dark:text-slate-200 font-medium">
                 ${getIconHTML('location_on', 'text-[14px]')}
                 ${escapeHtml(locationBadge)}
               </span>
             ` : ""}
             ${servingTime ? `
-              <span class="inline-flex items-center gap-1 bg-white/50 dark:bg-slate-800/80 border border-white/60 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-on-surface-variant dark:text-slate-200">
+              <span class="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-slate-700 dark:text-slate-200 font-medium">
                 ${getIconHTML('alarm', 'text-[14px]')}
                 ${escapeHtml(servingTime)}
               </span>
@@ -2199,12 +2187,10 @@ function renderCanteenMenu() {
         `;
       }
 
-      // --- Smart Dish Title: prefer CUSTOM_DPNAME when more descriptive ---
       const stripAllergenCodes = (text) => text.replace(/\s*\([^)]*\)\s*/g, " ").trim();
       const dpNameSuffixes = /\s+(Abendessen|TK|Eigenproduktion|Eigenprodukt|Neu|trocken|Vegan|vegan)\s*$/gi;
       const cleanDPName = (raw) => {
         let cleaned = raw;
-        // Iteratively remove known suffixes
         let prev = "";
         while (cleaned !== prev) {
           prev = cleaned;
@@ -2217,18 +2203,15 @@ function renderCanteenMenu() {
       const cleanedDPName = cleanDPName(rawDPName);
       const baseName = state.language === "en" && dish.name_en ? dish.name_en : dish.name_de;
 
-      // Use CUSTOM_DPNAME if it's meaningfully different and more descriptive than name_de
       let mealName = baseName;
       if (cleanedDPName && cleanedDPName.toLowerCase() !== (dish.name_de || "").toLowerCase()) {
         const dpLower = cleanedDPName.toLowerCase();
         const nameLower = (dish.name_de || "").toLowerCase();
-        // Only use DPNAME if name_de doesn't already contain its content
         if (!nameLower.includes(dpLower)) {
           mealName = state.language === "en" && dish.name_en ? dish.name_en : cleanedDPName;
         }
       }
 
-      // --- Extract dish components (dish_ger_2 to dish_ger_5 / dish_2_eng to dish_5_eng) ---
       let dishComponents = [];
       for (let i = 1; i <= 5; i++) {
         const fieldDe = customFields[`dish_ger_${i}`] || "";
@@ -2238,7 +2221,6 @@ function renderCanteenMenu() {
           dishComponents.push(stripAllergenCodes(raw));
         }
       }
-      // Remove the first component if it matches the title (avoid duplication)
       if (dishComponents.length > 0) {
         const firstClean = dishComponents[0].toLowerCase();
         const titleClean = mealName.toLowerCase().replace(/\s*\([^)]*\)/g, "").trim();
@@ -2246,10 +2228,7 @@ function renderCanteenMenu() {
           dishComponents.shift();
         }
       }
-      const componentsText = dishComponents.length > 0 
-        ? dishComponents.join(" · ") 
-        : "";
-
+      const componentsText = dishComponents.join(" · ");
       const mealDesc = state.language === "en" && dish.description_en ? dish.description_en : dish.description_de;
 
       const escapedMealName = escapeHtml(mealName);
@@ -2259,7 +2238,7 @@ function renderCanteenMenu() {
 
       const shareBtn = `
         <button 
-          class="share-btn p-1.5 rounded-full text-on-surface-variant dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center justify-center active:scale-95"
+          class="share-btn p-1.5 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors flex items-center justify-center active:scale-95"
           data-dish-name="${escapeHtml(mealName)}"
           data-dish-price="${studentPrice || ''}"
           data-canteen-name="${escapeHtml(canteen.name)}"
@@ -2272,57 +2251,46 @@ function renderCanteenMenu() {
         </button>
       `;
 
-      let thumbnailHTML = "";
       let rightColumnHTML = "";
       if (dish.image_url) {
         const escapedImageUrl = escapeHtml(dish.image_url);
         rightColumnHTML = `
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
-            <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-black/5 shadow-sm">
+            <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-sm">
               <img src="${escapedImageUrl}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${escapedMealName}" onerror="this.closest('.dish-right-col').style.display='none'"/>
             </div>
-            <div class="bg-price-badge/95 backdrop-blur-md shadow-sm rounded-full px-2.5 py-0.5 border border-white/20">
-              <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${escapedStudentPrice}</span>
+            <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20">
+              <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
             </div>
           </div>
         `;
       }
 
       const priceBadgeInline = !dish.image_url ? `
-        <div class="bg-price-badge/95 backdrop-blur-md shadow-sm rounded-full px-2.5 py-0.5 border border-white/20 flex-shrink-0 ml-auto">
-          <span class="font-label-md text-label-md text-text-heading font-extrabold tracking-wide">${escapedStudentPrice}</span>
+        <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0 ml-auto">
+          <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
         </div>
       ` : "";
 
       canteenSection += `
-        <article class="bg-slate-50 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-slate-100/50 dark:hover:bg-[#1f3754] transition-colors duration-200 border border-black/[0.04] dark:border-white/[0.08] shadow-sm">
-          <!-- Main layout: Content left, optional thumbnail+price right -->
+        <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border border-slate-200/70 dark:border-white/[0.08] shadow-sm hover:shadow-md">
           <div class="flex justify-between items-start gap-3">
             <div class="flex-1 flex flex-col gap-2.5 min-w-0">
-              <!-- Header Row: Brand, Sub-Tag, Price (only if no image) -->
               <div class="flex items-center gap-1.5 flex-wrap w-full">
                 ${brandBadgeHTML}
                 ${subTagHTML}
                 ${priceBadgeInline}
               </div>
-
-              <!-- Title & Description -->
               <div class="min-w-0">
                 <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
-                ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-on-surface-variant dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${escapedComponentsText}</p>` : ""}
-                ${escapedMealDesc ? `<p class="font-body-md text-body-md text-on-surface-variant dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
+                ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${escapedComponentsText}</p>` : ""}
+                ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
               </div>
-
-              <!-- Serving Meta -->
               ${servingMetaHTML}
             </div>
-
-            <!-- Thumbnail + Price column -->
             ${rightColumnHTML ? `<div class="dish-right-col">${rightColumnHTML}</div>` : ""}
           </div>
-
-          <!-- Card Footer -->
-          <div class="flex items-center justify-between mt-1 pt-2 border-t border-black/5 dark:border-white/5">
+          <div class="flex items-center justify-between mt-1 pt-2 border-t border-slate-200/70 dark:border-white/5">
             <div class="flex gap-1.5 flex-wrap">
               ${dietBadge}
               ${undeclaredBadge}
@@ -2343,7 +2311,6 @@ function renderCanteenMenu() {
 
     // Distribute to columns
     if (numCols > 1) {
-      // Estimate height: 150px base + 120px per dish + 80px extra if it has images
       let estHeight = 150 + dishes.length * 120;
       dishes.forEach(d => {
         if (d.image_url) estHeight += 80;
