@@ -89,12 +89,8 @@ function checkAllergenPrompt() {
     </div>
   `;
 
-  const appContainer = document.getElementById('app-container');
-  if (appContainer) {
-    appContainer.appendChild(modal);
-  } else {
-    document.body.appendChild(modal);
-  }
+  document.body.appendChild(modal);
+  document.body.classList.add('overflow-hidden');
 
   // Dismiss listeners
   document.getElementById('allergen-prompt-no-btn').addEventListener('click', () => {
@@ -110,6 +106,7 @@ function checkAllergenPrompt() {
   });
 
   function closeModal() {
+    document.body.classList.remove('overflow-hidden');
     modal.classList.remove('animate-fade-in');
     modal.classList.add('animate-fade-out');
     const innerDiv = modal.querySelector('div');
@@ -937,6 +934,7 @@ function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
   state.isSettingsMenu = isSettingsMenu;
   const onboarding = document.getElementById("onboarding");
   onboarding.classList.remove("hidden");
+  document.body.classList.add("overflow-hidden");
   
   if (!onboardingInitialized) {
     initOnboardingUI();
@@ -992,6 +990,7 @@ function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
 function hideOnboarding() {
   state.isSettingsMenu = false;
   document.getElementById("onboarding").classList.add("hidden");
+  document.body.classList.remove("overflow-hidden");
 }
 
 window.resetApp = function() {
@@ -2617,6 +2616,7 @@ window.showAllergens = function(dishId) {
 
   const modal = document.getElementById("allergens-modal");
   modal.classList.remove("hidden");
+  document.body.classList.add("overflow-hidden");
   
   const modalBox = modal.querySelector(".animate-zoom-in") || modal.firstElementChild;
   modalBox.classList.remove("animate-zoom-out");
@@ -2628,6 +2628,7 @@ window.closeAllergensModal = function() {
   const modalBox = modal.querySelector(".animate-zoom-in") || modal.firstElementChild;
   modalBox.classList.remove("animate-zoom-in");
   modalBox.classList.add("animate-zoom-out");
+  document.body.classList.remove("overflow-hidden");
   setTimeout(() => {
     modal.classList.add("hidden");
   }, 180);
