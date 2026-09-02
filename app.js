@@ -1754,6 +1754,75 @@ function getDishDietType(dish) {
   return "all";
 }
 
+function classifyDish(dish) {
+  const customFields = {};
+  (dish.custom_fields || []).forEach(f => {
+    if (f) customFields[f.field_id] = f.value;
+  });
+
+  const rawType = (customFields["menu_type"] || "").trim();
+  const typeLower = rawType.toLowerCase();
+  const catNameDe = (dish.category && dish.category.name_de) ? dish.category.name_de.toLowerCase() : "";
+  const name = (dish.name_de || "").toLowerCase();
+  const dpName = (customFields["CUSTOM_DPNAME"] || "").toLowerCase();
+  const location = (customFields["location"] || "").toLowerCase();
+  const screenLocs = (dish.screens || []).map(s => (s.location || "").toLowerCase()).join(" ");
+  const price = typeof dish.price === "number" ? dish.price : parseFloat(customFields["price_1"] || "0");
+
+  // Buffet / Selbstbedienung (pay by weight / buffet counter)
+  const isBuffet = !!customFields["preis_gramm"] ||
+                   name.includes("salatbuffet") || dpName.includes("salatbuffet") ||
+                   name.includes("selbstbedienung") || dpName.includes("selbstbedienung") ||
+                   location.includes("bistro") || screenLocs.includes("warmausgabe");
+
+  if (isBuffet) {
+    return "buffet";
+  }
+
+  // Soups & Stews are main dishes / social meals (e.g. Eintöpfe, Cremesuppen)
+  const isSoup = name.includes("suppe") || dpName.includes("suppe") ||
+                 name.includes("eintopf") || dpName.includes("eintopf");
+
+  // Desserts & Fruit & Sweet dishes (Milchreis, Grütze, Pudding, etc.)
+  const dessertKeywords = ["dessert", "pudding", "quark", "joghurt", "grütze", "creme", "mousse", "apfel", "banane", "nektarine", "obst", "wassermelone", "kirschen", "kompott", "pfirsich", "milchreis"];
+  if (!isSoup && (catNameDe.includes("dessert") || catNameDe.includes("nachspeise") || dessertKeywords.some(k => name.includes(k) || dpName.includes(k)))) {
+    return "dessert";
+  }
+
+  // Explicit side dish categorization
+  if (typeLower === "beilagen" || typeLower === "xbeilagen" || typeLower === "beilage" || catNameDe.includes("beilage") || catNameDe.includes("gemüse")) {
+    if (price < 2.5) {
+      return "side";
+    }
+  }
+
+  // Side dish keywords (if price is low: <= 1.20€)
+  const sideKeywords = ["pommes", "kartoffel", "reis", "spätzle", "schupfnudeln", "gemüse", "blumenkohl", "brokkoli", "broccoli", "erbsen", "möhren", "karotten", "bohnen", "röstitaler", "leipzigerallerlei", "balkangemüse", "kaisergemüse", "sommergemüse", "beilagensalat", "salat", "sauce"];
+  const hasSideKeyword = sideKeywords.some(k => name.includes(k) || dpName.includes(k));
+
+  if (hasSideKeyword && price <= 1.20) {
+    return "side";
+  }
+
+  // Main dish lines
+  const mainLines = ["heimspiel", "worldwide", "querbeet", "meisterwerk", "streetfood", "sozialgericht", "aktion", "fleisch", "fisch"];
+  const isMainLine = mainLines.some(l => typeLower.includes(l));
+
+  if (isMainLine && !hasSideKeyword) {
+    return "main";
+  }
+
+  if (isSoup) {
+    return "main";
+  }
+
+  if (price >= 1.4) {
+    return "main";
+  }
+
+  return "side";
+}
+
 function getBrandAndSubTag(dish) {
   const customFields = {};
   (dish.custom_fields || []).forEach(f => {
@@ -1762,6 +1831,7 @@ function getBrandAndSubTag(dish) {
 
   const rawType = customFields["menu_type"] || "";
   const category = dish.category || null;
+  const classification = classifyDish(dish);
 
   // Split rawType into brand and suffix
   let brand = "";
@@ -1780,22 +1850,22 @@ function getBrandAndSubTag(dish) {
         .trim();
     } else if (firstWord === "SOZIALGERICHT") {
       brand = "SOZIALGERICHT";
+    } else if (classification === "buffet") {
+      brand = "BUFFET";
+    } else if (classification === "side" || firstWord.includes("BEILAGE")) {
+      brand = "BEILAGE";
+    } else if (classification === "dessert") {
+      brand = "DESSERT";
     } else {
-      const catNameDe = (category && category.name_de) ? category.name_de.toLowerCase() : "";
-      if (catNameDe.includes("beilage") || catNameDe.includes("gemüse") || rawType.toLowerCase().includes("beilage")) {
-        brand = "BEILAGE";
-      } else if (catNameDe.includes("dessert") || catNameDe.includes("nachspeise") || catNameDe.includes("dessert")) {
-        brand = "DESSERT";
-      } else {
-        brand = rawType.toUpperCase();
-      }
+      brand = rawType.toUpperCase();
     }
   } else {
-    const catNameDe = (category && category.name_de) ? category.name_de.toLowerCase() : "";
-    if (catNameDe.includes("beilage") || catNameDe.includes("gemüse")) {
-      brand = "BEILAGE";
-    } else if (catNameDe.includes("dessert") || catNameDe.includes("nachspeise")) {
+    if (classification === "buffet") {
+      brand = "BUFFET";
+    } else if (classification === "dessert") {
       brand = "DESSERT";
+    } else if (classification === "side") {
+      brand = "BEILAGE";
     } else {
       brand = "GERICHT";
     }
@@ -1836,13 +1906,18 @@ function getBrandAndSubTag(dish) {
       brandIcon = "volunteer_activism";
       brandColor = "bg-blue-50 text-blue-900 border-blue-200/90 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900";
       break;
+    case "BUFFET":
+      brandName = state.language === "de" ? "Buffet" : "Buffet";
+      brandIcon = "scale";
+      brandColor = "bg-amber-50 text-amber-900 border-amber-200/90 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
+      break;
     case "BEILAGE":
       brandName = state.language === "de" ? "Beilage" : "Side";
       brandIcon = "grain";
       brandColor = "bg-slate-100 text-slate-800 border-slate-200/90 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
       break;
     case "DESSERT":
-      brandName = "Dessert";
+      brandName = state.language === "de" ? "Dessert & Obst" : "Dessert & Fruit";
       brandIcon = "icecream";
       brandColor = "bg-pink-50 text-pink-900 border-pink-200/90 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-900";
       break;
@@ -1897,6 +1972,353 @@ function getDateHeaderHTML() {
       <div>
         <span class="text-[10px] font-bold text-slate-500 dark:text-gray-400/60 uppercase tracking-widest block leading-none mb-1">${prefix}</span>
         <h2 class="text-base md:text-lg font-headline font-extrabold text-text-heading dark:text-white leading-tight">${formattedDate}</h2>
+      </div>
+    </div>
+  `;
+}
+
+function renderSectionHeader(title, count, iconName) {
+  return `
+    <div class="flex items-center justify-between gap-2 pt-3 pb-1.5 border-b border-slate-200/80 dark:border-white/10 mt-1 mb-2">
+      <div class="flex items-center gap-2">
+        <span class="text-primary-container dark:text-[#a6cbed] flex items-center justify-center">${getIconHTML(iconName, 'text-[18px]')}</span>
+        <h3 class="font-headline text-[15px] font-bold text-text-heading dark:text-slate-100 tracking-tight">${escapeHtml(title)}</h3>
+      </div>
+      <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200/80 dark:border-white/10">${count}</span>
+    </div>
+  `;
+}
+
+function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false) {
+  const customFields = {};
+  (dish.custom_fields || []).forEach(f => {
+    if (f) customFields[f.field_id] = f.value;
+  });
+
+  let studentPrice = dish.price 
+    ? `${dish.price.toFixed(2).replace(".", ",")} €` 
+    : (customFields["price_1"] ? `${parseFloat(customFields["price_1"]).toFixed(2).replace(".", ",")} €` : "—");
+
+  if (isBuffet || customFields["preis_gramm"]) {
+    const grammUnit = t.per100g || "je 100g";
+    studentPrice = `${studentPrice} / ${grammUnit}`;
+  }
+
+  const { brandBadgeHTML, subTagHTML } = getBrandAndSubTag(dish);
+
+  const dishCanteenScreens = (dish.screens || [])
+    .filter(s => s && s.location && canteen.screen_locations.includes(s.location))
+    .map(s => {
+      return s.location.replace("MZS - ", "").replace("Mensa Deutz - ", "").replace("Mensa Südstadt - ", "").trim();
+    });
+  
+  let servingTime = "";
+  let dishCounter = "";
+  const dishInfo = customFields["dish_info"] || "";
+  if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
+    const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
+    if (timeMatch) {
+      servingTime = timeMatch[1].replace(/\./g, ":");
+    }
+    let counterPart = dishInfo;
+    if (timeMatch) {
+      counterPart = dishInfo.substring(0, dishInfo.indexOf(timeMatch[0]));
+    }
+    counterPart = counterPart.replace(/\s*-\s*$/, "").replace(/Uhr.*$/i, "").trim();
+    if (counterPart && !/^\d+$/.test(counterPart) && counterPart.length > 1) {
+      dishCounter = counterPart;
+    }
+  }
+
+  let locationBadge = "";
+  if (dishCounter) {
+    locationBadge = dishCounter;
+  } else if (dishCanteenScreens.length > 0) {
+    locationBadge = dishCanteenScreens[0];
+  }
+
+  const dietType = getDishDietType(dish);
+  let dietBadge = "";
+  if (dietType === "vegan") {
+    dietBadge = `
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-label-sm text-[11px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900 font-medium">
+        ${getIconHTML('eco', 'text-[14px]')}
+        ${t.vegan}
+      </span>
+    `;
+  } else if (dietType === "vegetarian") {
+    dietBadge = `
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900 font-medium">
+        ${getIconHTML('nutrition', 'text-[14px]')}
+        ${t.vegetarian}
+      </span>
+    `;
+  }
+
+  let undeclaredBadge = "";
+  if (state.allergies && state.allergies.length > 0) {
+    const dishAllergens = getDishAllergens(dish);
+    if (dishAllergens.length === 0) {
+      const label = state.language === "en" ? "No allergen info – please ask staff" : "Keine Allergen-Info – bitte Personal fragen";
+      undeclaredBadge = `
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
+          ${getIconHTML('warning', 'text-[14px]')}
+          ${label}
+        </span>
+      `;
+    }
+  }
+
+  const allCodes = getDishAllergens(dish);
+  let allergenIcons = "";
+  if (allCodes.length > 0) {
+    const label = state.language === "en" ? "Allergens:" : "Allergene:";
+    allergenIcons = `
+      <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-body-sm opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
+        <span class="font-semibold text-slate-700 dark:text-slate-300">${label}</span>
+        ${allCodes.slice(0, 3).map(c => `<span class="bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 px-1.5 py-0.5 rounded text-[10px] border border-slate-300/60 dark:border-white/[0.1] font-medium">${escapeHtml(c)}</span>`).join("")}
+        ${allCodes.length > 3 ? `<span class="text-xs font-bold text-primary dark:text-price-badge">+${allCodes.length - 3}</span>` : ""}
+      </div>
+    `;
+  }
+
+  let servingMetaHTML = "";
+  if (locationBadge || servingTime) {
+    servingMetaHTML = `
+      <div class="flex flex-wrap items-center gap-2 text-[12px] font-label-sm text-primary-container/80 dark:text-slate-300 mt-1">
+        ${locationBadge ? `
+          <span class="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-slate-700 dark:text-slate-200 font-medium">
+            ${getIconHTML('location_on', 'text-[14px]')}
+            ${escapeHtml(locationBadge)}
+          </span>
+        ` : ""}
+        ${servingTime ? `
+          <span class="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-slate-700 dark:text-slate-200 font-medium">
+            ${getIconHTML('alarm', 'text-[14px]')}
+            ${escapeHtml(servingTime)}
+          </span>
+        ` : ""}
+      </div>
+    `;
+  }
+
+  const stripAllergenCodes = (text) => text.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+  const dpNameSuffixes = /\s+(Abendessen|TK|Eigenproduktion|Eigenprodukt|Neu|trocken|Vegan|vegan)\s*$/gi;
+  const cleanDPName = (raw) => {
+    let cleaned = raw;
+    let prev = "";
+    while (cleaned !== prev) {
+      prev = cleaned;
+      cleaned = cleaned.replace(dpNameSuffixes, "").trim();
+    }
+    return cleaned;
+  };
+
+  const rawDPName = customFields["CUSTOM_DPNAME"] || "";
+  const cleanedDPName = cleanDPName(rawDPName);
+  const baseName = state.language === "en" && dish.name_en ? dish.name_en : dish.name_de;
+
+  let mealName = baseName;
+  if (cleanedDPName && cleanedDPName.toLowerCase() !== (dish.name_de || "").toLowerCase()) {
+    const dpLower = cleanedDPName.toLowerCase();
+    const nameLower = (dish.name_de || "").toLowerCase();
+    if (!nameLower.includes(dpLower)) {
+      mealName = state.language === "en" && dish.name_en ? dish.name_en : cleanedDPName;
+    }
+  }
+
+  let dishComponents = [];
+  for (let i = 1; i <= 5; i++) {
+    const fieldDe = customFields[`dish_ger_${i}`] || "";
+    const fieldEn = customFields[`dish_${i}_eng`] || "";
+    const raw = state.language === "en" && fieldEn ? fieldEn : fieldDe;
+    if (raw) {
+      dishComponents.push(stripAllergenCodes(raw));
+    }
+  }
+  if (dishComponents.length > 0) {
+    const firstClean = dishComponents[0].toLowerCase();
+    const titleClean = mealName.toLowerCase().replace(/\s*\([^)]*\)/g, "").trim();
+    if (firstClean === titleClean || titleClean.includes(firstClean) || firstClean.includes(titleClean)) {
+      dishComponents.shift();
+    }
+  }
+  const componentsText = dishComponents.join(" · ");
+  const mealDesc = state.language === "en" && dish.description_en ? dish.description_en : dish.description_de;
+
+  const escapedMealName = escapeHtml(mealName);
+  const escapedComponentsText = escapeHtml(componentsText);
+  const escapedMealDesc = escapeHtml(mealDesc);
+  const escapedStudentPrice = escapeHtml(studentPrice);
+
+  const shareBtn = `
+    <button 
+      class="share-btn p-1.5 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors flex items-center justify-center active:scale-95"
+      data-dish-name="${escapeHtml(mealName)}"
+      data-dish-price="${studentPrice || ''}"
+      data-canteen-name="${escapeHtml(canteen.name)}"
+      aria-label="Teilen"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+      </svg>
+    </button>
+  `;
+
+  let rightColumnHTML = "";
+  if (dish.image_url) {
+    const escapedImageUrl = escapeHtml(dish.image_url);
+    rightColumnHTML = `
+      <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
+        <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-sm">
+          <img src="${escapedImageUrl}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${escapedMealName}" onerror="this.closest('.dish-right-col').style.display='none'"/>
+        </div>
+        <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20">
+          <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  const priceBadgeInline = !dish.image_url ? `
+    <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0 ml-auto">
+      <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
+    </div>
+  ` : "";
+
+  return `
+    <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border border-slate-200/70 dark:border-white/[0.08] shadow-sm hover:shadow-md">
+      <div class="flex justify-between items-start gap-3">
+        <div class="flex-1 flex flex-col gap-2.5 min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap w-full">
+            ${brandBadgeHTML}
+            ${subTagHTML}
+            ${priceBadgeInline}
+          </div>
+          <div class="min-w-0">
+            <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
+            ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${escapedComponentsText}</p>` : ""}
+            ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
+          </div>
+          ${servingMetaHTML}
+        </div>
+        ${rightColumnHTML ? `<div class="dish-right-col">${rightColumnHTML}</div>` : ""}
+      </div>
+      <div class="flex items-center justify-between mt-1 pt-2 border-t border-slate-200/70 dark:border-white/5">
+        <div class="flex gap-1.5 flex-wrap">
+          ${dietBadge}
+          ${undeclaredBadge}
+        </div>
+        <div class="flex items-center gap-1.5 ml-auto">
+          ${shareBtn}
+          ${allergenIcons}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false) {
+  const customFields = {};
+  (dish.custom_fields || []).forEach(f => {
+    if (f) customFields[f.field_id] = f.value;
+  });
+
+  let rawPrice = dish.price 
+    ? `${dish.price.toFixed(2).replace(".", ",")} €` 
+    : (customFields["price_1"] ? `${parseFloat(customFields["price_1"]).toFixed(2).replace(".", ",")} €` : "—");
+
+  if (isBuffet || customFields["preis_gramm"]) {
+    const grammUnit = t.per100g || "je 100g";
+    rawPrice = `${rawPrice} / ${grammUnit}`;
+  }
+
+  const dpNameSuffixes = /\s+(Abendessen|TK|Eigenproduktion|Eigenprodukt|Neu|trocken|Vegan|vegan)\s*$/gi;
+  const cleanDPName = (raw) => {
+    let cleaned = raw;
+    let prev = "";
+    while (cleaned !== prev) {
+      prev = cleaned;
+      cleaned = cleaned.replace(dpNameSuffixes, "").trim();
+    }
+    return cleaned;
+  };
+
+  const rawDPName = customFields["CUSTOM_DPNAME"] || "";
+  const cleanedDPName = cleanDPName(rawDPName);
+  const baseName = state.language === "en" && dish.name_en ? dish.name_en : dish.name_de;
+
+  let mealName = baseName;
+  if (cleanedDPName && cleanedDPName.toLowerCase() !== (dish.name_de || "").toLowerCase()) {
+    const dpLower = cleanedDPName.toLowerCase();
+    const nameLower = (dish.name_de || "").toLowerCase();
+    if (!nameLower.includes(dpLower)) {
+      mealName = state.language === "en" && dish.name_en ? dish.name_en : cleanedDPName;
+    }
+  }
+
+  const dietType = getDishDietType(dish);
+  let dietBadge = "";
+  if (dietType === "vegan") {
+    dietBadge = `
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900 font-medium">
+        ${getIconHTML('eco', 'text-[12px]')}
+        ${t.vegan}
+      </span>
+    `;
+  } else if (dietType === "vegetarian") {
+    dietBadge = `
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900 font-medium">
+        ${getIconHTML('nutrition', 'text-[12px]')}
+        ${t.vegetarian}
+      </span>
+    `;
+  }
+
+  let undeclaredBadge = "";
+  if (state.allergies && state.allergies.length > 0) {
+    const dishAllergens = getDishAllergens(dish);
+    if (dishAllergens.length === 0) {
+      const label = state.language === "en" ? "No allergen info" : "Keine Allergen-Info";
+      undeclaredBadge = `
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
+          ${getIconHTML('warning', 'text-[12px]')}
+          ${label}
+        </span>
+      `;
+    }
+  }
+
+  const allCodes = getDishAllergens(dish);
+  let allergenIcons = "";
+  if (allCodes.length > 0) {
+    allergenIcons = `
+      <div onclick="showAllergens('${dish.id}')" class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto" title="Allergene anzeigen">
+        <span class="font-medium">${state.language === "en" ? "Allergens:" : "Allergene:"}</span>
+        ${allCodes.slice(0, 2).map(c => `<span class="bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 px-1 py-0.2 rounded text-[9px] border border-slate-300/60 dark:border-white/[0.1] font-medium">${escapeHtml(c)}</span>`).join("")}
+        ${allCodes.length > 2 ? `<span class="font-bold text-primary dark:text-price-badge text-[10px]">+${allCodes.length - 2}</span>` : ""}
+      </div>
+    `;
+  }
+
+  const escapedMealName = escapeHtml(mealName);
+  const escapedPrice = escapeHtml(rawPrice);
+
+  return `
+    <div class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-3 border border-slate-200/70 dark:border-white/[0.08] flex flex-col justify-between gap-2 hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 shadow-sm hover:shadow-md">
+      <div class="flex justify-between items-start gap-2">
+        <h4 class="font-headline text-[13px] sm:text-[14px] text-text-heading dark:text-white font-bold leading-snug line-clamp-2">${escapedMealName}</h4>
+        <div class="bg-price-badge shadow-sm rounded-full px-2 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0">
+          <span class="font-label-sm text-[11px] text-primary font-extrabold tracking-wide">${escapedPrice}</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5 text-[11px]">
+        <div class="flex gap-1 flex-wrap items-center">
+          ${dietBadge}
+          ${undeclaredBadge}
+        </div>
+        ${allergenIcons}
       </div>
     </div>
   `;
@@ -2070,6 +2492,44 @@ function renderCanteenMenu() {
       serviceWindowText = `${format(startHour)} - ${format(endHour)} ${state.language === "de" ? "Uhr" : ""}`;
     }
 
+    // Filter dishes by serving time if viewing today
+    const availableDishes = dishes.filter(dish => {
+      const customFields = {};
+      (dish.custom_fields || []).forEach(f => {
+        if (f) customFields[f.field_id] = f.value;
+      });
+      const dishInfo = customFields["dish_info"] || "";
+      if (isViewingToday && dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
+        const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
+        if (timeMatch) {
+          const servingTime = timeMatch[1].replace(/\./g, ":");
+          const endStr = servingTime.split("-")[1].trim();
+          const endHourMatch = endStr.match(/(\d{2})[.:](\d{2})/);
+          if (endHourMatch) {
+            const dishEndHour = parseInt(endHourMatch[1]) + parseInt(endHourMatch[2])/60;
+            if (currentHour > dishEndHour) return false;
+          }
+        }
+      }
+      return true;
+    });
+
+    if (availableDishes.length === 0) return;
+
+    // Group into Baukasten modules
+    const mains = [];
+    const buffets = [];
+    const sides = [];
+    const desserts = [];
+
+    availableDishes.forEach(dish => {
+      const cat = classifyDish(dish);
+      if (cat === "main") mains.push(dish);
+      else if (cat === "buffet") buffets.push(dish);
+      else if (cat === "side") sides.push(dish);
+      else if (cat === "dessert") desserts.push(dish);
+    });
+
     renderedCanteensCount++;
 
     const statusBadgeClass = isCanteenOpen 
@@ -2080,6 +2540,56 @@ function renderCanteenMenu() {
     const statusText = isCanteenOpen 
       ? t.open 
       : (opensLater ? t.opensLater : t.closed);
+
+    let dishesHTML = "";
+
+    // 1. Hauptgerichte
+    if (mains.length > 0) {
+      dishesHTML += `
+        <div class="flex flex-col gap-2.5">
+          ${renderSectionHeader(t.sectionMain || "Hauptgerichte", mains.length, "dinner_dining")}
+          <div class="flex flex-col gap-gutter-card">
+            ${mains.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, false)).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Buffet & Selbstbedienung
+    if (buffets.length > 0) {
+      dishesHTML += `
+        <div class="flex flex-col gap-2.5 mt-2">
+          ${renderSectionHeader(t.sectionBuffet || "Buffet & Selbstbedienung", buffets.length, "scale")}
+          <div class="flex flex-col gap-gutter-card">
+            ${buffets.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, true)).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    // 3. Beilagen & Gemüse
+    if (sides.length > 0) {
+      dishesHTML += `
+        <div class="flex flex-col gap-2.5 mt-2">
+          ${renderSectionHeader(t.sectionSides || "Beilagen & Gemüse", sides.length, "grain")}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            ${sides.map(dish => renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, false)).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    // 4. Dessert & Obst
+    if (desserts.length > 0) {
+      dishesHTML += `
+        <div class="flex flex-col gap-2.5 mt-2">
+          ${renderSectionHeader(t.sectionDessert || "Dessert & Obst", desserts.length, "icecream")}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            ${desserts.map(dish => renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, false)).join("")}
+          </div>
+        </div>
+      `;
+    }
 
     let canteenSection = `
       <div class="canteen-card w-full bg-white dark:bg-[#122338] rounded-3xl p-6 border border-slate-200/80 dark:border-white/[0.08] shadow-[0_4px_20px_-4px_rgba(0,39,62,0.06)] hover:shadow-[0_8px_30px_-4px_rgba(0,39,62,0.1)] flex flex-col gap-4 transition-all duration-300">
@@ -2102,253 +2612,17 @@ function renderCanteenMenu() {
           </div>
         </header>
 
-        <!-- Dishes Container -->
-        <div class="flex flex-col gap-gutter-card">
-    `;
-
-    dishes.forEach(dish => {
-      const customFields = {};
-      (dish.custom_fields || []).forEach(f => {
-        if (f) customFields[f.field_id] = f.value;
-      });
-
-      const studentPrice = dish.price 
-        ? `${dish.price.toFixed(2).replace(".", ",")} €` 
-        : (customFields["price_1"] ? `${parseFloat(customFields["price_1"]).toFixed(2).replace(".", ",")} €` : "—");
-
-      const { brandBadgeHTML, subTagHTML } = getBrandAndSubTag(dish);
-
-      const dishCanteenScreens = (dish.screens || [])
-        .filter(s => s && s.location && canteen.screen_locations.includes(s.location))
-        .map(s => {
-          return s.location.replace("MZS - ", "").replace("Mensa Deutz - ", "").replace("Mensa Südstadt - ", "").trim();
-        });
-      
-      let servingTime = "";
-      let dishCounter = "";
-      const dishInfo = customFields["dish_info"] || "";
-      if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
-        const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
-        if (timeMatch) {
-          servingTime = timeMatch[1].replace(/\./g, ":");
-        }
-        let counterPart = dishInfo;
-        if (timeMatch) {
-          counterPart = dishInfo.substring(0, dishInfo.indexOf(timeMatch[0]));
-        }
-        counterPart = counterPart.replace(/\s*-\s*$/, "").replace(/Uhr.*$/i, "").trim();
-        if (counterPart && !/^\d+$/.test(counterPart) && counterPart.length > 1) {
-          dishCounter = counterPart;
-        }
-      }
-
-      let locationBadge = "";
-      if (dishCounter) {
-        locationBadge = dishCounter;
-      } else if (dishCanteenScreens.length > 0) {
-        locationBadge = dishCanteenScreens[0];
-      }
-
-      if (isViewingToday && servingTime) {
-        const endStr = servingTime.split("-")[1].trim();
-        const endHourMatch = endStr.match(/(\d{2})[.:](\d{2})/);
-        if (endHourMatch) {
-          const dishEndHour = parseInt(endHourMatch[1]) + parseInt(endHourMatch[2])/60;
-          if (currentHour > dishEndHour) return;
-        }
-      }
-
-      const dietType = getDishDietType(dish);
-      let dietBadge = "";
-      if (dietType === "vegan") {
-        dietBadge = `
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-label-sm text-[11px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900 font-medium">
-            ${getIconHTML('eco', 'text-[14px]')}
-            ${t.vegan}
-          </span>
-        `;
-      } else if (dietType === "vegetarian") {
-        dietBadge = `
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900 font-medium">
-            ${getIconHTML('nutrition', 'text-[14px]')}
-            ${t.vegetarian}
-          </span>
-        `;
-      }
-
-      let undeclaredBadge = "";
-      if (state.allergies && state.allergies.length > 0) {
-        const dishAllergens = getDishAllergens(dish);
-        if (dishAllergens.length === 0) {
-          const label = state.language === "en" ? "No allergen info – please ask staff" : "Keine Allergen-Info – bitte Personal fragen";
-          undeclaredBadge = `
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
-              ${getIconHTML('warning', 'text-[14px]')}
-              ${label}
-            </span>
-          `;
-        }
-      }
-
-      const allCodes = getDishAllergens(dish);
-      let allergenIcons = "";
-      if (allCodes.length > 0) {
-        const label = state.language === "en" ? "Allergens:" : "Allergene:";
-        allergenIcons = `
-          <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-body-sm opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
-            <span class="font-semibold text-slate-700 dark:text-slate-300">${label}</span>
-            ${allCodes.slice(0, 3).map(c => `<span class="bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 px-1.5 py-0.5 rounded text-[10px] border border-slate-300/60 dark:border-white/[0.1] font-medium">${escapeHtml(c)}</span>`).join("")}
-            ${allCodes.length > 3 ? `<span class="text-xs font-bold text-primary dark:text-price-badge">+${allCodes.length - 3}</span>` : ""}
-          </div>
-        `;
-      }
-
-      let servingMetaHTML = "";
-      if (locationBadge || servingTime) {
-        servingMetaHTML = `
-          <div class="flex flex-wrap items-center gap-2 text-[12px] font-label-sm text-primary-container/80 dark:text-slate-300 mt-1">
-            ${locationBadge ? `
-              <span class="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-slate-700 dark:text-slate-200 font-medium">
-                ${getIconHTML('location_on', 'text-[14px]')}
-                ${escapeHtml(locationBadge)}
-              </span>
-            ` : ""}
-            ${servingTime ? `
-              <span class="inline-flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/[0.08] shadow-sm px-2 py-0.5 rounded text-[11px] text-slate-700 dark:text-slate-200 font-medium">
-                ${getIconHTML('alarm', 'text-[14px]')}
-                ${escapeHtml(servingTime)}
-              </span>
-            ` : ""}
-          </div>
-        `;
-      }
-
-      const stripAllergenCodes = (text) => text.replace(/\s*\([^)]*\)\s*/g, " ").trim();
-      const dpNameSuffixes = /\s+(Abendessen|TK|Eigenproduktion|Eigenprodukt|Neu|trocken|Vegan|vegan)\s*$/gi;
-      const cleanDPName = (raw) => {
-        let cleaned = raw;
-        let prev = "";
-        while (cleaned !== prev) {
-          prev = cleaned;
-          cleaned = cleaned.replace(dpNameSuffixes, "").trim();
-        }
-        return cleaned;
-      };
-
-      const rawDPName = customFields["CUSTOM_DPNAME"] || "";
-      const cleanedDPName = cleanDPName(rawDPName);
-      const baseName = state.language === "en" && dish.name_en ? dish.name_en : dish.name_de;
-
-      let mealName = baseName;
-      if (cleanedDPName && cleanedDPName.toLowerCase() !== (dish.name_de || "").toLowerCase()) {
-        const dpLower = cleanedDPName.toLowerCase();
-        const nameLower = (dish.name_de || "").toLowerCase();
-        if (!nameLower.includes(dpLower)) {
-          mealName = state.language === "en" && dish.name_en ? dish.name_en : cleanedDPName;
-        }
-      }
-
-      let dishComponents = [];
-      for (let i = 1; i <= 5; i++) {
-        const fieldDe = customFields[`dish_ger_${i}`] || "";
-        const fieldEn = customFields[`dish_${i}_eng`] || "";
-        const raw = state.language === "en" && fieldEn ? fieldEn : fieldDe;
-        if (raw) {
-          dishComponents.push(stripAllergenCodes(raw));
-        }
-      }
-      if (dishComponents.length > 0) {
-        const firstClean = dishComponents[0].toLowerCase();
-        const titleClean = mealName.toLowerCase().replace(/\s*\([^)]*\)/g, "").trim();
-        if (firstClean === titleClean || titleClean.includes(firstClean) || firstClean.includes(titleClean)) {
-          dishComponents.shift();
-        }
-      }
-      const componentsText = dishComponents.join(" · ");
-      const mealDesc = state.language === "en" && dish.description_en ? dish.description_en : dish.description_de;
-
-      const escapedMealName = escapeHtml(mealName);
-      const escapedComponentsText = escapeHtml(componentsText);
-      const escapedMealDesc = escapeHtml(mealDesc);
-      const escapedStudentPrice = escapeHtml(studentPrice);
-
-      const shareBtn = `
-        <button 
-          class="share-btn p-1.5 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors flex items-center justify-center active:scale-95"
-          data-dish-name="${escapeHtml(mealName)}"
-          data-dish-price="${studentPrice || ''}"
-          data-canteen-name="${escapeHtml(canteen.name)}"
-          aria-label="Teilen"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-        </button>
-      `;
-
-      let rightColumnHTML = "";
-      if (dish.image_url) {
-        const escapedImageUrl = escapeHtml(dish.image_url);
-        rightColumnHTML = `
-          <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
-            <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-sm">
-              <img src="${escapedImageUrl}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${escapedMealName}" onerror="this.closest('.dish-right-col').style.display='none'"/>
-            </div>
-            <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20">
-              <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
-            </div>
-          </div>
-        `;
-      }
-
-      const priceBadgeInline = !dish.image_url ? `
-        <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0 ml-auto">
-          <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
-        </div>
-      ` : "";
-
-      canteenSection += `
-        <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border border-slate-200/70 dark:border-white/[0.08] shadow-sm hover:shadow-md">
-          <div class="flex justify-between items-start gap-3">
-            <div class="flex-1 flex flex-col gap-2.5 min-w-0">
-              <div class="flex items-center gap-1.5 flex-wrap w-full">
-                ${brandBadgeHTML}
-                ${subTagHTML}
-                ${priceBadgeInline}
-              </div>
-              <div class="min-w-0">
-                <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
-                ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${escapedComponentsText}</p>` : ""}
-                ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
-              </div>
-              ${servingMetaHTML}
-            </div>
-            ${rightColumnHTML ? `<div class="dish-right-col">${rightColumnHTML}</div>` : ""}
-          </div>
-          <div class="flex items-center justify-between mt-1 pt-2 border-t border-slate-200/70 dark:border-white/5">
-            <div class="flex gap-1.5 flex-wrap">
-              ${dietBadge}
-              ${undeclaredBadge}
-            </div>
-            <div class="flex items-center gap-1.5 ml-auto">
-              ${shareBtn}
-              ${allergenIcons}
-            </div>
-          </div>
-        </article>
-      `;
-    });
-
-    canteenSection += `
+        <!-- Modular Dishes Sections -->
+        <div class="flex flex-col gap-3">
+          ${dishesHTML}
         </div>
       </div>
     `;
 
     // Distribute to columns
     if (numCols > 1) {
-      let estHeight = 150 + dishes.length * 120;
-      dishes.forEach(d => {
+      let estHeight = 150 + mains.length * 140 + buffets.length * 140 + sides.length * 60 + desserts.length * 60;
+      mains.forEach(d => {
         if (d.image_url) estHeight += 80;
       });
 

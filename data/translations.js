@@ -49,7 +49,12 @@ const TRANSLATIONS = {
     allergenPromptTitle: "Allergene einstellen?",
     allergenPromptDesc: "Möchtest du Allergene und Unverträglichkeiten einrichten, um ungeeignete Gerichte automatisch auszublenden? Du kannst dies auch später in den Einstellungen ändern.",
     allergenPromptYes: "Ja, einrichten",
-    allergenPromptNo: "Nein, danke"
+    allergenPromptNo: "Nein, danke",
+    sectionMain: "Hauptgerichte",
+    sectionSides: "Beilagen & Gemüse",
+    sectionDessert: "Dessert & Obst",
+    sectionBuffet: "Buffet & Selbstbedienung",
+    per100g: "je 100g"
   },
   en: {
     title: "Mensaplan",
@@ -101,6 +106,11 @@ const TRANSLATIONS = {
     allergenPromptTitle: "Configure allergens?",
     allergenPromptDesc: "Would you like to set up allergens and intolerances to automatically hide unsuitable dishes? You can also change this later in settings.",
     allergenPromptYes: "Yes, configure",
-    allergenPromptNo: "No, thanks"
+    allergenPromptNo: "No, thanks",
+    sectionMain: "Main Dishes",
+    sectionSides: "Sides & Vegetables",
+    sectionDessert: "Dessert & Fruit",
+    sectionBuffet: "Buffet & Self-Service",
+    per100g: "per 100g"
   }
 };
