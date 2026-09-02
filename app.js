@@ -1701,7 +1701,6 @@ window.setDietFilter = function(dietVal) {
   renderCanteenMenu();
 };
 
-// 10. Core Data Parser & Matching
 function getCanteenKeyFromDish(dish, canteenKey, canteen) {
   const customFields = {};
   (dish.custom_fields || []).forEach(f => {
@@ -1713,23 +1712,28 @@ function getCanteenKeyFromDish(dish, canteenKey, canteen) {
     if (dishOrtId === canteen.ort_id) return true;
   }
   
-  const dishLocation = customFields["location"] || "";
+  const dishLocation = (customFields["location"] || "").toLowerCase();
   if (dishLocation && canteen.name) {
-    if (dishLocation.toLowerCase().includes(canteen.name.toLowerCase()) || 
-        canteen.name.toLowerCase().includes(dishLocation.toLowerCase())) {
+    if (dishLocation.includes(canteen.name.toLowerCase()) || 
+        canteen.name.toLowerCase().includes(dishLocation)) {
       return true;
     }
   }
 
-  const dishScreens = (dish.screens || []).map(s => s.location).filter(Boolean);
-  const canteenScreens = canteen.screen_locations || [];
+  const dishScreens = (dish.screens || []).map(s => (s.location || "").toLowerCase()).filter(Boolean);
+  const canteenScreens = (canteen.screen_locations || []).map(s => s.toLowerCase());
   
-  const overlap = dishScreens.some(screen => canteenScreens.includes(screen));
+  const overlap = dishScreens.some(screen => canteenScreens.some(cs => cs.includes(screen) || screen.includes(cs)));
   if (overlap) return true;
+
+  // Uni-Mensa Zülpicher Straße (ort_id 201) and Mensa Lindenthal (ort_id 231) share the central kitchen production
+  if (canteenKey === "unimensa" && (dishOrtId === "231" || dishLocation.includes("lindenthal"))) {
+    return true;
+  }
 
   // Fallback for central production dishes (Gemeinkostenstelle HSG / ort_id 9999)
   // which KStW cataloged centrally for the main Mensen (Zülpicher Straße / Lindenthal)
-  if ((dishOrtId === "9999" || dishLocation.toLowerCase().includes("gemeinkostenstelle")) && 
+  if ((dishOrtId === "9999" || dishLocation.includes("gemeinkostenstelle")) && 
       (canteenKey === "unimensa" || canteenKey === "robertkoch")) {
     return true;
   }
@@ -2393,6 +2397,16 @@ function renderCanteenMenu() {
 
     let dishes = (currentDayData.dishes || []).filter(dish => {
       return getCanteenKeyFromDish(dish, canteenKey, canteen);
+    });
+
+    // Deduplicate dishes by lowercase name to prevent duplicates from shared kitchen lines
+    const seenNames = new Set();
+    dishes = dishes.filter(dish => {
+      const nameKey = (dish.name_de || "").trim().toLowerCase();
+      if (!nameKey) return true;
+      if (seenNames.has(nameKey)) return false;
+      seenNames.add(nameKey);
+      return true;
     });
 
     // Apply Diet Filter
