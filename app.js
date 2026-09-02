@@ -1993,31 +1993,10 @@ function renderSectionHeader(title, count, iconName) {
   `;
 }
 
-function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false) {
-  const customFields = {};
-  (dish.custom_fields || []).forEach(f => {
-    if (f) customFields[f.field_id] = f.value;
-  });
-
-  let studentPrice = dish.price 
-    ? `${dish.price.toFixed(2).replace(".", ",")} €` 
-    : (customFields["price_1"] ? `${parseFloat(customFields["price_1"]).toFixed(2).replace(".", ",")} €` : "—");
-
-  if (isBuffet || customFields["preis_gramm"]) {
-    const grammUnit = t.per100g || "je 100g";
-    studentPrice = `${studentPrice} / ${grammUnit}`;
-  }
-
-  const { brandBadgeHTML, subTagHTML } = getBrandAndSubTag(dish);
-
-  const dishCanteenScreens = (dish.screens || [])
-    .filter(s => s && s.location && canteen.screen_locations.includes(s.location))
-    .map(s => {
-      return s.location.replace("MZS - ", "").replace("Mensa Deutz - ", "").replace("Mensa Südstadt - ", "").trim();
-    });
-  
+function getDishServingMeta(dish, canteen, canteenKey, customFields) {
   let servingTime = "";
   let dishCounter = "";
+
   const dishInfo = customFields["dish_info"] || "";
   if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
     const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
@@ -2034,12 +2013,63 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
     }
   }
 
-  let locationBadge = "";
-  if (dishCounter) {
-    locationBadge = dishCounter;
-  } else if (dishCanteenScreens.length > 0) {
-    locationBadge = dishCanteenScreens[0];
+  // If dishCounter is not in dish_info, check screens
+  if (!dishCounter) {
+    const screens = dish.screens || [];
+    for (const s of screens) {
+      const sLoc = s.location || "";
+      if (canteenKey === "unimensa") {
+        if (sLoc.includes("Ausgabe 4") || sLoc.toLowerCase().includes("vegan")) {
+          dishCounter = "EG Nord";
+          break;
+        } else if (sLoc.includes("Ausgabe 1") || sLoc.includes("Ausgabe 5") || sLoc.toLowerCase().includes("pasta")) {
+          dishCounter = "MG Nord";
+          break;
+        } else if (sLoc.includes("Ausgabe 3") || sLoc.toLowerCase().includes("beilage")) {
+          dishCounter = "EG Nord";
+          break;
+        }
+      }
+      if (canteen && canteen.screen_locations && canteen.screen_locations.includes(sLoc)) {
+        dishCounter = sLoc.replace("MZS - ", "").replace("Mensa Deutz - ", "").replace("Mensa Südstadt - ", "").replace("Mensa Lindenthal - ", "").trim();
+        break;
+      }
+    }
   }
+
+  // Fallback for Uni-Mensa if counter is still empty
+  if (canteenKey === "unimensa" && !dishCounter) {
+    const rawType = (customFields["menu_type"] || "").toLowerCase();
+    const name = (dish.name_de || "").toLowerCase();
+    if (name.includes("gnocchi") || name.includes("pasta") || name.includes("ravioli")) {
+      dishCounter = "MG Nord";
+    } else if (rawType.includes("vegan") || rawType.includes("vegetarisch") || rawType.includes("beilage")) {
+      dishCounter = "EG Nord";
+    }
+  }
+
+  return { dishCounter, servingTime };
+}
+
+function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false, canteenKey = "") {
+  const customFields = {};
+  (dish.custom_fields || []).forEach(f => {
+    if (f) customFields[f.field_id] = f.value;
+  });
+
+  let studentPrice = dish.price 
+    ? `${dish.price.toFixed(2).replace(".", ",")} €` 
+    : (customFields["price_1"] ? `${parseFloat(customFields["price_1"]).toFixed(2).replace(".", ",")} €` : "—");
+
+  if (isBuffet || customFields["preis_gramm"]) {
+    const grammUnit = t.per100g || "je 100g";
+    studentPrice = `${studentPrice} / ${grammUnit}`;
+  }
+
+  const { brandBadgeHTML, subTagHTML } = getBrandAndSubTag(dish);
+
+  const { dishCounter, servingTime } = getDishServingMeta(dish, canteen, canteenKey, customFields);
+  const locationBadge = dishCounter;
 
   const dietType = getDishDietType(dish);
   let dietBadge = "";
@@ -2223,7 +2253,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   `;
 }
 
-function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false) {
+function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false, canteenKey = "") {
   const customFields = {};
   (dish.custom_fields || []).forEach(f => {
     if (f) customFields[f.field_id] = f.value;
@@ -2261,6 +2291,8 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
       mealName = state.language === "en" && dish.name_en ? dish.name_en : cleanedDPName;
     }
   }
+
+  const { dishCounter } = getDishServingMeta(dish, canteen, canteenKey, customFields);
 
   const dietType = getDishDietType(dish);
   let dietBadge = "";
@@ -2319,6 +2351,7 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
       </div>
       <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5 text-[11px]">
         <div class="flex gap-1 flex-wrap items-center">
+          ${dishCounter ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 border border-slate-300/50 dark:border-white/10 text-[10px] text-slate-700 dark:text-slate-300 font-medium">${escapeHtml(dishCounter)}</span>` : ""}
           ${dietBadge}
           ${undeclaredBadge}
         </div>
@@ -2351,8 +2384,8 @@ function renderCanteenMenu() {
   if (!currentDayData) {
     feedContainer.innerHTML = `
       <div class="text-center py-20 text-on-surface-variant dark:text-slate-300">
-        ${getIconHTML('event_busy', 'text-[48px] text-slate-400 mb-2')}
-        <p class="font-label-lg text-label-lg">${t.noMenuForDate}</p>
+        ${getIconHTML('calendar_today', 'text-[48px] text-slate-400 mb-2')}
+        <p class="font-label-lg text-label-lg">${t.noDataForSelectedDay}</p>
       </div>
     `;
     removeSplash();
@@ -2563,7 +2596,7 @@ function renderCanteenMenu() {
         <div class="flex flex-col gap-2.5">
           ${renderSectionHeader(t.sectionMain || "Hauptgerichte", mains.length, "dinner_dining")}
           <div class="flex flex-col gap-gutter-card">
-            ${mains.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, false)).join("")}
+            ${mains.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, false, canteenKey)).join("")}
           </div>
         </div>
       `;
@@ -2575,7 +2608,7 @@ function renderCanteenMenu() {
         <div class="flex flex-col gap-2.5 mt-2">
           ${renderSectionHeader(t.sectionBuffet || "Buffet & Selbstbedienung", buffets.length, "scale")}
           <div class="flex flex-col gap-gutter-card">
-            ${buffets.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, true)).join("")}
+            ${buffets.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, true, canteenKey)).join("")}
           </div>
         </div>
       `;
@@ -2587,7 +2620,7 @@ function renderCanteenMenu() {
         <div class="flex flex-col gap-2.5 mt-2">
           ${renderSectionHeader(t.sectionSides || "Beilagen & Gemüse", sides.length, "grain")}
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            ${sides.map(dish => renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, false)).join("")}
+            ${sides.map(dish => renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, false, canteenKey)).join("")}
           </div>
         </div>
       `;
@@ -2599,7 +2632,7 @@ function renderCanteenMenu() {
         <div class="flex flex-col gap-2.5 mt-2">
           ${renderSectionHeader(t.sectionDessert || "Dessert & Obst", desserts.length, "icecream")}
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            ${desserts.map(dish => renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, false)).join("")}
+            ${desserts.map(dish => renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, false, canteenKey)).join("")}
           </div>
         </div>
       `;
