@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v39';
+const CACHE_NAME = 'kstw-mensa-v42';
 const API_CACHE_NAME = 'kstw-api-v1';
 const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
 const STATIC_ASSETS = [
@@ -19,7 +19,6 @@ const STATIC_ASSETS = [
 
 // Install Service Worker and cache static shell assets
 self.addEventListener('install', event => {
-  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(async cache => {
       console.log('Service Worker: Caching App Shell...');

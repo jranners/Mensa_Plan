@@ -1758,6 +1758,19 @@ function getDishDietType(dish) {
   return "all";
 }
 
+function isSoupOrStew(dish) {
+  const customFields = {};
+  (dish.custom_fields || []).forEach(f => {
+    if (f) customFields[f.field_id] = f.value;
+  });
+  const name = (dish.name_de || "").toLowerCase();
+  const nameEn = (dish.name_en || "").toLowerCase();
+  const dpName = (customFields["CUSTOM_DPNAME"] || "").toLowerCase();
+
+  const soupKeywords = ["suppe", "soup", "eintopf", "stew", "brühe", "bouillon", "minestrone", "feuertopf"];
+  return soupKeywords.some(k => name.includes(k) || nameEn.includes(k) || dpName.includes(k));
+}
+
 function classifyDish(dish) {
   const customFields = {};
   (dish.custom_fields || []).forEach(f => {
@@ -1784,8 +1797,7 @@ function classifyDish(dish) {
   }
 
   // Soups & Stews are main dishes / social meals (e.g. Eintöpfe, Cremesuppen)
-  const isSoup = name.includes("suppe") || dpName.includes("suppe") ||
-                 name.includes("eintopf") || dpName.includes("eintopf");
+  const isSoup = isSoupOrStew(dish);
 
   // Desserts & Fruit & Sweet dishes (Milchreis, Grütze, Pudding, etc.)
   const dessertKeywords = ["dessert", "pudding", "quark", "joghurt", "grütze", "creme", "mousse", "apfel", "banane", "nektarine", "obst", "wassermelone", "kirschen", "kompott", "pfirsich", "milchreis"];
@@ -1808,8 +1820,14 @@ function classifyDish(dish) {
     return "side";
   }
 
+  // Meisterwerk / Premium Action lines (Pizza, Flammkuchen, Burger, Pasta Mista)
+  const isMeisterwerkLine = typeLower.includes("meisterwerk") || typeLower.includes("aktion");
+  if (isMeisterwerkLine && !hasSideKeyword && price >= 1.40) {
+    return "meisterwerk";
+  }
+
   // Main dish lines
-  const mainLines = ["heimspiel", "worldwide", "querbeet", "meisterwerk", "streetfood", "sozialgericht", "aktion", "fleisch", "fisch"];
+  const mainLines = ["heimspiel", "worldwide", "querbeet", "streetfood", "sozialgericht", "fleisch", "fisch"];
   const isMainLine = mainLines.some(l => typeLower.includes(l));
 
   if (isMainLine && !hasSideKeyword) {
@@ -1852,8 +1870,17 @@ function getBrandAndSubTag(dish) {
         .replace(/\bVEGAN\b/gi, "")
         .replace(/\bST\.?\b/gi, "")
         .trim();
+    } else if (firstWord === "AKTION") {
+      brand = "MEISTERWERK";
+      const remaining = parts.slice(1).join(" ");
+      subTagText = remaining
+        .replace(/\bVEGAN\b/gi, "")
+        .replace(/\bST\.?\b/gi, "")
+        .trim();
     } else if (firstWord === "SOZIALGERICHT") {
       brand = "SOZIALGERICHT";
+    } else if (classification === "meisterwerk") {
+      brand = "MEISTERWERK";
     } else if (classification === "buffet") {
       brand = "BUFFET";
     } else if (classification === "side" || firstWord.includes("BEILAGE")) {
@@ -1864,7 +1891,9 @@ function getBrandAndSubTag(dish) {
       brand = rawType.toUpperCase();
     }
   } else {
-    if (classification === "buffet") {
+    if (classification === "meisterwerk") {
+      brand = "MEISTERWERK";
+    } else if (classification === "buffet") {
       brand = "BUFFET";
     } else if (classification === "dessert") {
       brand = "DESSERT";
@@ -1898,7 +1927,7 @@ function getBrandAndSubTag(dish) {
     case "MEISTERWERK":
       brandName = "Meisterwerk";
       brandIcon = "workspace_premium";
-      brandColor = "bg-purple-50 text-purple-900 border-purple-200/90 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900";
+      brandColor = "bg-amber-50 text-amber-900 border-amber-300/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700/60";
       break;
     case "STREETFOOD":
       brandName = "Streetfood";
@@ -2051,7 +2080,7 @@ function getDishServingMeta(dish, canteen, canteenKey, customFields) {
   return { dishCounter, servingTime };
 }
 
-function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false, canteenKey = "") {
+function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false, canteenKey = "", isMeisterwerk = false) {
   const customFields = {};
   (dish.custom_fields || []).forEach(f => {
     if (f) customFields[f.field_id] = f.value;
@@ -2221,8 +2250,12 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
     </div>
   ` : "";
 
+  const cardBorderClass = isMeisterwerk 
+    ? "border-amber-300/90 dark:border-amber-500/40 shadow-[0_2px_14px_-2px_rgba(232,185,35,0.18)]" 
+    : "border-slate-200/70 dark:border-white/[0.08] shadow-sm hover:shadow-md";
+
   return `
-    <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border border-slate-200/70 dark:border-white/[0.08] shadow-sm hover:shadow-md">
+    <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border ${cardBorderClass}">
       <div class="flex justify-between items-start gap-3">
         <div class="flex-1 flex flex-col gap-2.5 min-w-0">
           <div class="flex items-center gap-1.5 flex-wrap w-full">
@@ -2565,6 +2598,7 @@ function renderCanteenMenu() {
 
     // Group into Baukasten modules
     const mains = [];
+    const meisterwerke = [];
     const buffets = [];
     const sides = [];
     const desserts = [];
@@ -2572,9 +2606,18 @@ function renderCanteenMenu() {
     availableDishes.forEach(dish => {
       const cat = classifyDish(dish);
       if (cat === "main") mains.push(dish);
+      else if (cat === "meisterwerk") meisterwerke.push(dish);
       else if (cat === "buffet") buffets.push(dish);
       else if (cat === "side") sides.push(dish);
       else if (cat === "dessert") desserts.push(dish);
+    });
+
+    // Sort mains: Proper main courses first, soups & stews below
+    mains.sort((a, b) => {
+      const aSoup = isSoupOrStew(a) ? 1 : 0;
+      const bSoup = isSoupOrStew(b) ? 1 : 0;
+      if (aSoup !== bSoup) return aSoup - bSoup;
+      return 0;
     });
 
     renderedCanteensCount++;
@@ -2590,25 +2633,37 @@ function renderCanteenMenu() {
 
     let dishesHTML = "";
 
-    // 1. Hauptgerichte
+    // 1. Hauptgerichte (klassisches Mensa-Essen)
     if (mains.length > 0) {
       dishesHTML += `
         <div class="flex flex-col gap-2.5">
           ${renderSectionHeader(t.sectionMain || "Hauptgerichte", mains.length, "dinner_dining")}
           <div class="flex flex-col gap-gutter-card">
-            ${mains.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, false, canteenKey)).join("")}
+            ${mains.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, false, canteenKey, false)).join("")}
           </div>
         </div>
       `;
     }
 
-    // 2. Buffet & Selbstbedienung
+    // 2. Meisterwerk (Aktionen, Pizza, Grill, Pasta Mista)
+    if (meisterwerke.length > 0) {
+      dishesHTML += `
+        <div class="flex flex-col gap-2.5 mt-2">
+          ${renderSectionHeader(t.sectionMeisterwerk || "Meisterwerk", meisterwerke.length, "workspace_premium")}
+          <div class="flex flex-col gap-gutter-card">
+            ${meisterwerke.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, false, canteenKey, true)).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    // 3. Buffet & Selbstbedienung
     if (buffets.length > 0) {
       dishesHTML += `
         <div class="flex flex-col gap-2.5 mt-2">
           ${renderSectionHeader(t.sectionBuffet || "Buffet & Selbstbedienung", buffets.length, "scale")}
           <div class="flex flex-col gap-gutter-card">
-            ${buffets.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, true, canteenKey)).join("")}
+            ${buffets.map(dish => renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, true, canteenKey, false)).join("")}
           </div>
         </div>
       `;
@@ -2668,8 +2723,8 @@ function renderCanteenMenu() {
 
     // Distribute to columns
     if (numCols > 1) {
-      let estHeight = 150 + mains.length * 140 + buffets.length * 140 + sides.length * 60 + desserts.length * 60;
-      mains.forEach(d => {
+      let estHeight = 150 + mains.length * 140 + meisterwerke.length * 140 + buffets.length * 140 + sides.length * 60 + desserts.length * 60;
+      [...mains, ...meisterwerke].forEach(d => {
         if (d.image_url) estHeight += 80;
       });
 
@@ -2773,29 +2828,33 @@ function showUpdateDialog(worker) {
   const modal = document.createElement('div');
   modal.id = 'update-modal';
   // Use z-[100] to sit above everything (safe area, header, etc.)
-  modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-fade-in';
+  modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-fade-in backdrop-blur-sm';
   
+  let countdown = 5;
+  let hasTriggeredRestart = false;
+
   modal.innerHTML = `
-    <div class="w-full max-w-sm bg-white dark:bg-[#0b1926] border border-black/[0.08] dark:border-white/[0.08] rounded-2xl p-6 shadow-xl flex flex-col gap-4 animate-zoom-in">
+    <div class="w-full max-w-sm bg-white dark:bg-[#0b1926] border border-black/[0.08] dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl flex flex-col gap-4 animate-zoom-in">
       <div class="flex items-center gap-3">
-        <div class="h-12 w-12 rounded-xl bg-[#143d59]/10 dark:bg-price-badge/10 flex items-center justify-center text-[#143d59] dark:text-price-badge flex-shrink-0">
+        <div class="h-12 w-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:bg-amber-400/20 dark:text-amber-400 flex items-center justify-center flex-shrink-0 shadow-inner">
           ${getIconHTML('update', 'text-[28px]')}
         </div>
-        <div>
-          <h3 class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.updateAvailableTitle}</h3>
-          <p class="text-[12px] text-on-surface-variant dark:text-slate-400">${t.updateAvailableDesc}</p>
+        <div class="min-w-0">
+          <h3 class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.updateAvailableTitle || "Update verfügbar!"}</h3>
+          <p class="text-[12px] text-slate-500 dark:text-slate-400 font-medium">${t.updateAvailableDesc || "Neue Version ist bereit."}</p>
         </div>
       </div>
       <p class="text-sm text-text-main dark:text-slate-200 leading-relaxed">
-        ${t.updatePrompt}
+        ${t.updatePrompt || "Ein neues Update für den Mensaplan ist verfügbar. Die App wird aktualisiert, um die neuesten Gerichte und Funktionen zu laden."}
       </p>
-      <div class="flex gap-3 mt-2">
-        <button id="update-later-btn" class="flex-1 h-11 border border-outline/20 dark:border-white/[0.08] hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-transform font-label-md text-label-md rounded-xl text-on-surface-variant dark:text-slate-300 font-semibold">
-          ${t.updateLater}
+      <div class="flex flex-col gap-2.5 mt-1">
+        <button id="update-now-btn" class="w-full h-12 bg-price-badge text-primary hover:opacity-95 active:scale-[0.98] transition-all font-label-md text-label-md rounded-2xl font-bold shadow-md flex items-center justify-center gap-2 select-none cursor-pointer">
+          <span id="update-btn-label">${t.updateRestart || "App neu starten"}</span>
+          <span id="update-countdown-badge" class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">5s</span>
         </button>
-        <button id="update-now-btn" class="flex-1 h-11 bg-price-badge text-primary hover:opacity-90 active:scale-95 transition-transform font-label-md text-label-md rounded-xl font-bold shadow-sm">
-          ${t.updateRestart}
-        </button>
+        <p id="update-auto-text" class="text-[11px] text-center text-slate-500 dark:text-slate-400">
+          ${(t.updateAutoRestart || "Automatischer Neustart in {n}s").replace("{n}", "5")}
+        </p>
       </div>
     </div>
   `;
@@ -2808,21 +2867,56 @@ function showUpdateDialog(worker) {
     document.body.appendChild(modal);
   }
 
-  // Dismiss listeners
-  document.getElementById('update-later-btn').addEventListener('click', () => {
-    modal.classList.remove('animate-fade-in');
-    modal.classList.add('animate-fade-out');
-    const innerDiv = modal.querySelector('div');
-    if (innerDiv) {
-      innerDiv.classList.remove('animate-zoom-in');
-      innerDiv.classList.add('animate-zoom-out');
-    }
-    setTimeout(() => modal.remove(), 200);
-  });
+  function triggerRestart() {
+    if (hasTriggeredRestart) return;
+    hasTriggeredRestart = true;
+    clearInterval(timerInterval);
+    clearTimeout(autoTimer);
 
-  document.getElementById('update-now-btn').addEventListener('click', () => {
-    worker.postMessage({ action: 'skipWaiting' });
-  });
+    const btn = document.getElementById('update-now-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add('opacity-80', 'pointer-events-none');
+      btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-primary inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>${t.offlineBannerUpdating || "Wird aktualisiert..."}`;
+    }
+
+    if (worker) {
+      worker.postMessage({ action: 'skipWaiting' });
+    }
+
+    // Safety fallback: reload page after 800ms if controllerchange did not trigger
+    setTimeout(() => {
+      localStorage.setItem("kstw_updated_successfully", "true");
+      const cleanUrl = window.location.origin + window.location.pathname + '?u=' + Date.now();
+      window.location.replace(cleanUrl);
+    }, 800);
+  }
+
+  // Countdown handler
+  const timerInterval = setInterval(() => {
+    countdown--;
+    const badge = document.getElementById('update-countdown-badge');
+    const autoText = document.getElementById('update-auto-text');
+    if (badge) badge.textContent = `${countdown}s`;
+    if (autoText) autoText.textContent = (t.updateAutoRestart || "Automatischer Neustart in {n}s").replace("{n}", countdown);
+
+    if (countdown <= 0) {
+      clearInterval(timerInterval);
+    }
+  }, 1000);
+
+  // Auto-restart after 5 seconds
+  const autoTimer = setTimeout(() => {
+    triggerRestart();
+  }, 5000);
+
+  // Click handler for manual immediate restart
+  const restartBtn = document.getElementById('update-now-btn');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => {
+      triggerRestart();
+    });
+  }
 }
 
 function checkUpdatedToast() {
