@@ -216,7 +216,7 @@
                             <div class="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed flex gap-2">
                                 <span class="flex-shrink-0 mt-0.5" id="allergen-warning-icon"></span>
                                 <p id="onboarding-allergen-warning">
-                                    Gerichte ohne explizite Allergenangaben werden zur Sicherheit ebenfalls ausgeblendet. Bitte frage im Zweifel immer das Personal.
+                                    Gerichte ohne Allergenangaben werden mit einem Warnhinweis angezeigt und nicht ausgeblendet. Angaben ohne Gewähr – im Zweifel immer das Personal fragen.
                                 </p>
                             </div>
                         </div>
@@ -282,6 +282,10 @@
             <div id="allergens-modal-list" class="flex flex-col gap-2 max-h-[60vh] overflow-y-auto pr-1 hide-scrollbar">
                 <!-- Allergen details will be loaded dynamically -->
             </div>
+            <!-- Modal Disclaimer Footer -->
+            <p id="allergens-modal-disclaimer" class="text-[11px] text-on-surface-variant dark:text-slate-400 pt-2 border-t border-black/[0.06] dark:border-white/[0.08] text-center leading-relaxed">
+                Angaben ohne Gewähr – im Zweifel immer das Personal fragen.
+            </p>
         </div>
     </div>
 

@@ -2,6 +2,16 @@ import { SVG_ICONS } from './data/icons.js';
 import { CANTEENS } from './data/canteens.js';
 import { TRANSLATIONS } from './data/translations.js';
 import { STANDARD_ALLERGENS } from './data/allergens.js';
+import {
+  ALLERGEN_GROUPS,
+  isValidAllergenCode,
+  parseDishAllergens,
+  getDishAllergens,
+  evaluateDishAllergies,
+  shouldExcludeDish
+} from './src/lib/allergens.js';
+import { getDishDietType } from './src/lib/diet.js';
+import { getCustomFields, stripAllergenCodes, cleanDPName, isPureDessert } from './src/lib/dish.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 function getLocalIsoDate(date = new Date()) {
@@ -345,256 +355,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 })();
 
 // 6. Onboarding & Preferences Management
-const ALLERGEN_GROUPS = {
-  "gluten": {
-    de: "Gluten",
-    en: "Gluten",
-    codes: ["11", "11w", "11a", "11r", "11b", "11g", "11c", "11h", "11d", "11k"]
-  },
-  "crustaceans": {
-    de: "Krebstiere",
-    en: "Crustaceans",
-    codes: ["12"]
-  },
-  "eggs": {
-    de: "Eier",
-    en: "Eggs",
-    codes: ["13"]
-  },
-  "fish": {
-    de: "Fisch",
-    en: "Fish",
-    codes: ["14"]
-  },
-  "peanuts": {
-    de: "Erdnüsse",
-    en: "Peanuts",
-    codes: ["15"]
-  },
-  "soy": {
-    de: "Soja",
-    en: "Soy",
-    codes: ["16"]
-  },
-  "milk": {
-    de: "Milch & Laktose",
-    en: "Milk & Lactose",
-    codes: ["17", "18"]
-  },
-  "nuts": {
-    de: "Schalenfrüchte (Nüsse)",
-    en: "Nuts (Tree nuts)",
-    codes: ["19", "19a", "19m", "19b", "19h", "19c", "19d", "19w", "19e", "19p", "19pe", "19f", "19g", "19pi", "19mac"]
-  },
-  "celery": {
-    de: "Sellerie",
-    en: "Celery",
-    codes: ["20"]
-  },
-  "mustard": {
-    de: "Senf",
-    en: "Mustard",
-    codes: ["21"]
-  },
-  "sesame": {
-    de: "Sesamsamen",
-    en: "Sesame",
-    codes: ["22"]
-  },
-  "sulfites": {
-    de: "Sulfite / Schwefeldioxid",
-    en: "Sulfites / Sulfur dioxide",
-    codes: ["23", "5"]
-  },
-  "lupins": {
-    de: "Lupinen",
-    en: "Lupins",
-    codes: ["24"]
-  },
-  "molluscs": {
-    de: "Weichtiere",
-    en: "Molluscs",
-    codes: ["25"]
-  },
-  "gelatin": {
-    de: "Gelatine",
-    en: "Gelatin",
-    codes: ["27"]
-  },
-  "alcohol": {
-    de: "Alkohol",
-    en: "Alcohol",
-    codes: ["26", "32"]
-  }
-};
 
-const ALLERGEN_CODE_REGEX = /^(?:[1-9]|[12][0-9]|3[0-2])(?:[a-z]{1,3})?$/i;
-
-function isValidAllergenCode(code) {
-  if (!code || typeof code !== "string") return false;
-  const cleaned = code.trim();
-  if (!ALLERGEN_CODE_REGEX.test(cleaned)) return false;
-  const lower = cleaned.toLowerCase();
-  // Exclude weight unit grams like 3g, 5g, 10g, 15g, 20g, 25g (only 11g and 19g are valid allergen subcodes ending in g)
-  if (lower.endsWith("g") && lower !== "11g" && lower !== "19g") return false;
-  return true;
-}
-
-function getDishAllergens(dish) {
-  const customFields = {};
-  (dish.custom_fields || []).forEach(f => {
-    if (f) customFields[f.field_id] = f.value;
-  });
-
-  // 1) Extrahiere Codes aus custom_fields["allergens_numbers"]
-  const officialCodes = (customFields["allergens_numbers"] || "")
-    .split(",")
-    .map(c => c.trim())
-    .filter(Boolean);
-
-  const mergedCodesSet = new Set();
-
-  officialCodes.forEach(code => {
-    if (isValidAllergenCode(code)) {
-      mergedCodesSet.add(code.toLowerCase());
-    }
-  });
-
-  // Prüfe, ob das Gericht selbst ein reines Dessert ist
-  const category = dish.category || null;
-  const catNameDe = (category && category.name_de) ? category.name_de.toLowerCase() : "";
-  const rawType = (customFields["menu_type"] || "").toLowerCase();
-  const dishNameDe = (dish.name_de || "").toLowerCase();
-  const isPureDessert = catNameDe.includes("dessert") || 
-                        catNameDe.includes("nachspeise") || 
-                        rawType.includes("dessert") || 
-                        /^(?:dessert|nachspeise)\b/i.test(dishNameDe.trim());
-
-  // 2) Extrahiere Codes aus dish.name_de, dish.name_en und dish_ger_1 bis dish_ger_5
-  [dish.name_de, dish.name_en].forEach(nameStr => {
-    if (nameStr) {
-      const matches = nameStr.matchAll(/\(([^)]+)\)/g);
-      for (const m of matches) {
-        m[1].split(",").forEach(c => {
-          const cleaned = c.trim();
-          if (isValidAllergenCode(cleaned)) {
-            mergedCodesSet.add(cleaned.toLowerCase());
-          }
-        });
-      }
-    }
-  });
-
-  for (let i = 1; i <= 5; i++) {
-    const partText = customFields[`dish_ger_${i}`] || "";
-    if (partText) {
-      // 5) Wenn Komponente ein generisches Dessert ist und Gericht selbst KEIN reines Dessert ist:
-      const isGenericDessertComponent = !isPureDessert && (/^dessert\b/i.test(partText.trim()) || /(?:nachspeise|dessert)/i.test(partText));
-      if (!isGenericDessertComponent) {
-        const matches = partText.matchAll(/\(([^)]+)\)/g);
-        for (const m of matches) {
-          m[1].split(",").forEach(c => {
-            const cleaned = c.trim();
-            if (isValidAllergenCode(cleaned)) {
-              mergedCodesSet.add(cleaned.toLowerCase());
-            }
-          });
-        }
-      }
-    }
-  }
-
-  // Diet-Erkennung
-  const foodIcon = (customFields["food_icon"] || "").toUpperCase();
-  const isVegan = foodIcon.includes("VGN") || 
-                  getDishDietType(dish) === "vegan" || 
-                  dishNameDe.includes("vegan");
-  const isVegetarian = isVegan || 
-                       foodIcon.includes("VGT") || 
-                       foodIcon.includes("VG") || 
-                       getDishDietType(dish) === "vegetarian" || 
-                       dishNameDe.includes("vegetarisch");
-
-  // 3) Wenn ein Gericht VEGAN ist:
-  // Entferne ALLE nicht-veganen Codes: 12, 13, 14, 17, 18, 25, 27, 28, 29, 30
-  if (isVegan) {
-    const NON_VEGAN_CODES = ["12", "13", "14", "17", "18", "25", "27", "28", "29", "30"];
-    NON_VEGAN_CODES.forEach(code => mergedCodesSet.delete(code));
-  } else if (isVegetarian) {
-    // 4) Wenn ein Gericht VEGETARISCH ist:
-    // Entferne ALLE Fleisch-/Fisch-/Gelatine-Codes: 12, 14, 25, 27, 28, 29, 30
-    const NON_VEG_CODES = ["12", "14", "25", "27", "28", "29", "30"];
-    NON_VEG_CODES.forEach(code => mergedCodesSet.delete(code));
-  }
-
-  // 5) Wenn eine Komponente ein generisches Dessert ist und das Gericht selbst KEIN reines Dessert ist:
-  // Dessen Dessert-Allergene (1, 3, 11h, 11w, 17, 18, 27) dürfen das Hauptgericht nicht kontaminieren
-  let hasGenericDessertComp = false;
-  for (let i = 1; i <= 5; i++) {
-    const pText = customFields[`dish_ger_${i}`] || "";
-    if (!isPureDessert && (/^dessert\b/i.test(pText.trim()) || /(?:nachspeise|dessert)/i.test(pText))) {
-      hasGenericDessertComp = true;
-      break;
-    }
-  }
-
-  if (hasGenericDessertComp && !isPureDessert) {
-    const mainComponentsCodes = new Set();
-    [dish.name_de, dish.name_en].forEach(nameStr => {
-      if (nameStr) {
-        const matches = nameStr.matchAll(/\(([^)]+)\)/g);
-        for (const m of matches) {
-          m[1].split(",").forEach(c => {
-            if (isValidAllergenCode(c.trim())) mainComponentsCodes.add(c.trim().toLowerCase());
-          });
-        }
-      }
-    });
-    for (let i = 1; i <= 5; i++) {
-      const partText = customFields[`dish_ger_${i}`] || "";
-      if (partText && !(/^dessert\b/i.test(partText.trim()) || /(?:nachspeise|dessert)/i.test(partText))) {
-        const matches = partText.matchAll(/\(([^)]+)\)/g);
-        for (const m of matches) {
-          m[1].split(",").forEach(c => {
-            if (isValidAllergenCode(c.trim())) mainComponentsCodes.add(c.trim().toLowerCase());
-          });
-        }
-      }
-    }
-    if (mainComponentsCodes.size > 0) {
-      const DESSERT_CODES = ["1", "3", "11h", "11w", "17", "18", "27"];
-      DESSERT_CODES.forEach(dCode => {
-        if (!mainComponentsCodes.has(dCode)) {
-          mergedCodesSet.delete(dCode);
-        }
-      });
-    }
-  }
-
-  return [...mergedCodesSet];
-}
-
-function shouldExcludeDish(dish, selectedAllergyGroups) {
-  if (!selectedAllergyGroups || selectedAllergyGroups.length === 0) return false;
-  
-  const dishAllergens = getDishAllergens(dish);
-  
-  // If the dish has absolutely no allergen declarations, we do NOT exclude it.
-  // We keep it visible but display a warning badge (the user requested this).
-  if (dishAllergens.length === 0) return false;
-  
-  // Get all codes that are excluded
-  const excludedCodes = new Set();
-  selectedAllergyGroups.forEach(groupKey => {
-    const group = ALLERGEN_GROUPS[groupKey];
-    if (group) {
-      group.codes.forEach(code => excludedCodes.add(code.toLowerCase()));
-    }
-  });
-  
-  // Check if the dish contains any excluded codes
-  return dishAllergens.some(code => excludedCodes.has(code.toLowerCase()));
-}
 
 function hasPreferences() {
   return localStorage.getItem("kstw_prefs_saved") === "true";
@@ -1745,22 +1506,6 @@ function getCanteenKeyFromDish(dish, canteenKey, canteen) {
   return false;
 }
 
-function getDishDietType(dish) {
-  const customFields = {};
-  (dish.custom_fields || []).forEach(f => {
-    if (f) customFields[f.field_id] = f.value;
-  });
-  
-  const icon = customFields["food_icon"] || "";
-  if (icon.includes("VGN")) return "vegan";
-  if (icon.includes("VGT") || icon.includes("VGN")) return "vegetarian";
-  
-  const name = (dish.name_de || "").toLowerCase();
-  if (name.includes("(vegan)") || name.includes(" vegan")) return "vegan";
-  if (name.includes("(vegetarisch)") || name.includes(" vegetarisch")) return "vegetarian";
-  
-  return "all";
-}
 
 function isSoupOrStew(dish) {
   const customFields = {};
@@ -2122,18 +1867,35 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
     `;
   }
 
+  const allergyEval = evaluateDishAllergies(dish, state.allergies || []);
+
   let undeclaredBadge = "";
   if (state.allergies && state.allergies.length > 0) {
-    const dishAllergens = getDishAllergens(dish);
-    if (dishAllergens.length === 0) {
-      const label = state.language === "en" ? "No allergen info – please ask staff" : "Keine Allergen-Info – bitte Personal fragen";
+    if (allergyEval.hasNoInfo) {
       undeclaredBadge = `
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
           ${getIconHTML('warning', 'text-[14px]')}
-          ${label}
+          ${t.noAllergenInfoBadge}
+        </span>
+      `;
+    } else if (allergyEval.uncertainBy.length > 0) {
+      undeclaredBadge = `
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
+          ${getIconHTML('warning', 'text-[14px]')}
+          ${t.uncertainDessertBadge}
         </span>
       `;
     }
+  }
+
+  let conflictBadge = "";
+  if (allergyEval.dietConflict) {
+    conflictBadge = `
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 font-label-sm text-[11px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium">
+        ${getIconHTML('warning', 'text-[14px]')}
+        ${t.conflictBadge}
+      </span>
+    `;
   }
 
   const allCodes = getDishAllergens(dish);
@@ -2168,18 +1930,6 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
       </div>
     `;
   }
-
-  const stripAllergenCodes = (text) => text.replace(/\s*\([^)]*\)\s*/g, " ").trim();
-  const dpNameSuffixes = /\s+(Abendessen|TK|Eigenproduktion|Eigenprodukt|Neu|trocken|Vegan|vegan)\s*$/gi;
-  const cleanDPName = (raw) => {
-    let cleaned = raw;
-    let prev = "";
-    while (cleaned !== prev) {
-      prev = cleaned;
-      cleaned = cleaned.replace(dpNameSuffixes, "").trim();
-    }
-    return cleaned;
-  };
 
   const rawDPName = customFields["CUSTOM_DPNAME"] || "";
   const cleanedDPName = cleanDPName(rawDPName);
@@ -2280,6 +2030,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
         <div class="flex gap-1.5 flex-wrap">
           ${dietBadge}
           ${undeclaredBadge}
+          ${conflictBadge}
         </div>
         <div class="flex items-center gap-1.5 ml-auto">
           ${shareBtn}
@@ -2304,17 +2055,6 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
     const grammUnit = t.per100g || "je 100g";
     rawPrice = `${rawPrice} / ${grammUnit}`;
   }
-
-  const dpNameSuffixes = /\s+(Abendessen|TK|Eigenproduktion|Eigenprodukt|Neu|trocken|Vegan|vegan)\s*$/gi;
-  const cleanDPName = (raw) => {
-    let cleaned = raw;
-    let prev = "";
-    while (cleaned !== prev) {
-      prev = cleaned;
-      cleaned = cleaned.replace(dpNameSuffixes, "").trim();
-    }
-    return cleaned;
-  };
 
   const rawDPName = customFields["CUSTOM_DPNAME"] || "";
   const cleanedDPName = cleanDPName(rawDPName);
@@ -2349,18 +2089,35 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
     `;
   }
 
+  const allergyEval = evaluateDishAllergies(dish, state.allergies || []);
+
   let undeclaredBadge = "";
   if (state.allergies && state.allergies.length > 0) {
-    const dishAllergens = getDishAllergens(dish);
-    if (dishAllergens.length === 0) {
-      const label = state.language === "en" ? "No allergen info" : "Keine Allergen-Info";
+    if (allergyEval.hasNoInfo) {
       undeclaredBadge = `
         <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
           ${getIconHTML('warning', 'text-[12px]')}
-          ${label}
+          ${t.noAllergenInfoBadge}
+        </span>
+      `;
+    } else if (allergyEval.uncertainBy.length > 0) {
+      undeclaredBadge = `
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
+          ${getIconHTML('warning', 'text-[12px]')}
+          ${t.uncertainDessertBadge}
         </span>
       `;
     }
+  }
+
+  let conflictBadge = "";
+  if (allergyEval.dietConflict) {
+    conflictBadge = `
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[10px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium">
+        ${getIconHTML('warning', 'text-[12px]')}
+        ${t.conflictBadge}
+      </span>
+    `;
   }
 
   const allCodes = getDishAllergens(dish);
@@ -2391,6 +2148,7 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
           ${dishCounter ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 border border-slate-300/50 dark:border-white/10 text-[10px] text-slate-700 dark:text-slate-300 font-medium">${escapeHtml(dishCounter)}</span>` : ""}
           ${dietBadge}
           ${undeclaredBadge}
+          ${conflictBadge}
         </div>
         ${allergenIcons}
       </div>
@@ -2976,18 +2734,26 @@ function showSuccessToast() {
 // 12. Standard Allergens Fallback Map
 
 
-function findDishById(dishId) {
+function findDishById(dishId, preferredDate = state.activeDate) {
+  if (preferredDate) {
+    const day = state.menuData.find(d => d.date === preferredDate);
+    if (day) {
+      const dish = (day.dishes || []).find(d => String(d.id) === String(dishId));
+      if (dish) return dish;
+    }
+  }
   for (const day of state.menuData) {
-    const dish = (day.dishes || []).find(d => d.id === dishId);
+    const dish = (day.dishes || []).find(d => String(d.id) === String(dishId));
     if (dish) return dish;
   }
   return null;
 }
 
 window.showAllergens = function(dishId) {
-  const dish = findDishById(dishId);
+  const dish = findDishById(dishId, state.activeDate);
   if (!dish) return;
 
+  const t = TRANSLATIONS[state.language] || TRANSLATIONS.de;
   const customFields = {};
   (dish.custom_fields || []).forEach(f => {
     if (f) customFields[f.field_id] = f.value;
@@ -3014,20 +2780,38 @@ window.showAllergens = function(dishId) {
           nameEn = val.substring(pipeIdx + 1).trim();
         }
         if (isValidAllergenCode(code)) {
-          allergenMap[code] = { de: nameDe, en: nameEn };
+          allergenMap[code.toLowerCase()] = { de: nameDe, en: nameEn };
         }
       }
     });
   }
 
   const title = state.language === "en" ? "Allergens & Additives" : "Allergene & Zusatzstoffe";
-  document.getElementById("allergens-modal-title").textContent = title;
+  const titleEl = document.getElementById("allergens-modal-title");
+  if (titleEl) titleEl.textContent = title;
   
+  const disclaimerEl = document.getElementById("allergens-modal-disclaimer");
+  if (disclaimerEl) disclaimerEl.textContent = t.allergenDisclaimer;
+
   const listContainer = document.getElementById("allergens-modal-list");
   listContainer.innerHTML = "";
+
+  const evalResult = evaluateDishAllergies(dish, state.allergies || []);
+  if (evalResult.dietConflict) {
+    const conflictText = state.language === "en"
+      ? `Declared as ${evalResult.dietConflict.type}, but contains animal products according to allergen codes (${evalResult.dietConflict.codes.join(", ")})!`
+      : `Deklariert als ${evalResult.dietConflict.type}, enthält jedoch laut Allergenliste tierische Bestandteile (${evalResult.dietConflict.codes.join(", ")})!`;
+    listContainer.innerHTML += `
+      <div class="flex items-start gap-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300 text-xs font-medium mb-1">
+        ${getIconHTML('warning', 'text-sm flex-shrink-0 mt-0.5')}
+        <span>${escapeHtml(conflictText)}</span>
+      </div>
+    `;
+  }
   
   codes.forEach(code => {
-    const info = allergenMap[code] || STANDARD_ALLERGENS[code] || { de: code, en: code };
+    const lowerCode = code.toLowerCase();
+    const info = allergenMap[lowerCode] || allergenMap[code] || STANDARD_ALLERGENS[code] || STANDARD_ALLERGENS[lowerCode] || { de: code, en: code };
     const name = state.language === "en" ? info.en : info.de;
     
     listContainer.innerHTML += `
