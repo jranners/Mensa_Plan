@@ -1,5 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v49';
-const API_CACHE_NAME = 'kstw-api-v1';
+const CACHE_NAME = 'kstw-mensa-v50';
 const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
 const STATIC_ASSETS = [
   './',
@@ -22,7 +21,9 @@ const STATIC_ASSETS = [
   './src/lib/html.js',
   './src/lib/dates.js',
   './src/lib/lifecycle.js',
-  './src/lib/storage.js'
+  './src/lib/storage.js',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 // Install Service Worker and cache static shell assets
@@ -32,33 +33,29 @@ self.addEventListener('install', event => {
       console.log('Service Worker: Caching App Shell...');
       
       const cachePromises = STATIC_ASSETS.map(async asset => {
-        try {
-          const cleanRequest = asset instanceof Request ? asset : new Request(asset);
-          
-          // Only apply cache busting to local assets (same origin)
-          let fetchRequest = cleanRequest;
-          const isLocal = cleanRequest.url.includes(self.location.origin);
-          
-          if (isLocal) {
-            const separator = cleanRequest.url.includes('?') ? '&' : '?';
-            const cacheBustUrl = cleanRequest.url + separator + '_cb=' + Date.now();
-            fetchRequest = new Request(cacheBustUrl, {
-              method: cleanRequest.method,
-              headers: cleanRequest.headers,
-              mode: cleanRequest.mode === 'navigate' ? 'cors' : cleanRequest.mode,
-              credentials: cleanRequest.credentials,
-              redirect: cleanRequest.redirect
-            });
-          }
-          
-          const response = await fetch(fetchRequest);
-          if (response.ok || response.type === 'opaque') {
-            await cache.put(cleanRequest, response);
-          } else {
-            console.warn(`Service Worker: Failed to cache ${cleanRequest.url} - status ${response.status}`);
-          }
-        } catch (err) {
-          console.error(`Service Worker: Error caching asset:`, asset, err);
+        const cleanRequest = asset instanceof Request ? asset : new Request(asset);
+        
+        // Only apply cache busting to local assets (same origin)
+        let fetchRequest = cleanRequest;
+        const isLocal = cleanRequest.url.includes(self.location.origin);
+        
+        if (isLocal) {
+          const separator = cleanRequest.url.includes('?') ? '&' : '?';
+          const cacheBustUrl = cleanRequest.url + separator + '_cb=' + Date.now();
+          fetchRequest = new Request(cacheBustUrl, {
+            method: cleanRequest.method,
+            headers: cleanRequest.headers,
+            mode: cleanRequest.mode === 'navigate' ? 'cors' : cleanRequest.mode,
+            credentials: cleanRequest.credentials,
+            redirect: cleanRequest.redirect
+          });
+        }
+        
+        const response = await fetch(fetchRequest);
+        if (response.ok || response.type === 'opaque') {
+          await cache.put(cleanRequest, response);
+        } else {
+          throw new Error(`Failed to cache ${cleanRequest.url} - status ${response.status}`);
         }
       });
       
@@ -74,7 +71,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cache => {
-          if (cache !== CACHE_NAME && cache !== API_CACHE_NAME) {
+          if (cache !== CACHE_NAME) {
             console.log('Service Worker: Clearing Old Cache...', cache);
             return caches.delete(cache);
           }
@@ -118,26 +115,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Strategie A: API-Calls → Stale-While-Revalidate
-  if (url.hostname === API_HOST) {
-    event.respondWith(
-      caches.open(API_CACHE_NAME).then(async cache => {
-        const cached = await cache.match(event.request);
-        const networkFetch = fetch(event.request).then(response => {
-          if (response.ok) {
-            cache.put(event.request, response.clone());
-          }
-          return response;
-        }).catch(() => cached); // Offline-Fallback: cached zurückgeben
-
-        // Sofort cached zurückgeben (wenn vorhanden), Netz läuft im Hintergrund
-        return cached || networkFetch;
-      })
-    );
-    return;
-  }
-
-  // Strategie B: Statische Assets (App Shell) → Cache-First
+  // Strategie 2: Statische Assets (App Shell) → Cache-First
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
       if (cachedResponse) return cachedResponse;

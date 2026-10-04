@@ -2651,17 +2651,22 @@ function registerSW() {
     }
 
     // Handle controller change (reloading the page once skipWaiting has activated the new service worker)
-    let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing && wasControlled) {
-        refreshing = true;
-        localStorage.setItem("kstw_updated_successfully", "true");
-        // Force the browser to bypass memory and HTTP cache by reloading with a cache-busting query param
-        const cleanUrl = window.location.origin + window.location.pathname + '?u=' + Date.now();
-        window.location.replace(cleanUrl);
+      if (wasControlled) {
+        reloadWithCacheBust();
       }
     });
   }
+}
+
+let appReloading = false;
+
+function reloadWithCacheBust() {
+  if (appReloading) return;
+  appReloading = true;
+  localStorage.setItem("kstw_updated_successfully", "true");
+  const cleanUrl = window.location.origin + window.location.pathname + '?u=' + Date.now();
+  window.location.replace(cleanUrl);
 }
 
 function showUpdateDialog(worker) {
@@ -2675,6 +2680,7 @@ function showUpdateDialog(worker) {
   
   let countdown = 5;
   let hasTriggeredRestart = false;
+  let fallbackTimer = null;
 
   modal.innerHTML = `
     <div class="w-full max-w-sm bg-white dark:bg-[#0b1926] border border-black/[0.08] dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl flex flex-col gap-4 animate-zoom-in">
@@ -2694,6 +2700,9 @@ function showUpdateDialog(worker) {
         <button id="update-now-btn" class="w-full h-12 bg-price-badge text-primary hover:opacity-95 active:scale-[0.98] transition-all font-label-md text-label-md rounded-2xl font-bold shadow-md flex items-center justify-center gap-2 select-none cursor-pointer">
           <span id="update-btn-label">${t.updateRestart || "App neu starten"}</span>
           <span id="update-countdown-badge" class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">5s</span>
+        </button>
+        <button id="update-later-btn" class="w-full h-10 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium text-sm rounded-xl transition-colors select-none cursor-pointer">
+          ${t.updateLater || "Später"}
         </button>
         <p id="update-auto-text" class="text-[11px] text-center text-slate-500 dark:text-slate-400">
           ${(t.updateAutoRestart || "Automatischer Neustart in {n}s").replace("{n}", "5")}
@@ -2723,16 +2732,19 @@ function showUpdateDialog(worker) {
       btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-primary inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>${t.offlineBannerUpdating || "Wird aktualisiert..."}`;
     }
 
+    const laterBtn = document.getElementById('update-later-btn');
+    if (laterBtn) {
+      laterBtn.remove();
+    }
+
     if (worker) {
       worker.postMessage({ action: 'skipWaiting' });
     }
 
-    // Safety fallback: reload page after 800ms if controllerchange did not trigger
-    setTimeout(() => {
-      localStorage.setItem("kstw_updated_successfully", "true");
-      const cleanUrl = window.location.origin + window.location.pathname + '?u=' + Date.now();
-      window.location.replace(cleanUrl);
-    }, 800);
+    // Safety fallback: if controllerchange doesn't fire within 2500ms, force reload
+    fallbackTimer = setTimeout(() => {
+      reloadWithCacheBust();
+    }, 2500);
   }
 
   // Countdown handler
@@ -2760,9 +2772,34 @@ function showUpdateDialog(worker) {
       triggerRestart();
     });
   }
+
+  // Click handler for "Später" dismissal
+  const laterBtn = document.getElementById('update-later-btn');
+  if (laterBtn) {
+    laterBtn.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      clearTimeout(autoTimer);
+      clearTimeout(fallbackTimer);
+      modal.remove();
+    });
+  }
+}
+
+function cleanUpdateUrlParam() {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('u')) {
+      url.searchParams.delete('u');
+      const cleanUrl = url.pathname + (url.search ? url.search : '') + url.hash;
+      window.history.replaceState(null, '', cleanUrl);
+    }
+  } catch (e) {
+    // ignore
+  }
 }
 
 function checkUpdatedToast() {
+  cleanUpdateUrlParam();
   if (localStorage.getItem("kstw_updated_successfully") === "true") {
     localStorage.removeItem("kstw_updated_successfully");
     // Wait for the app to finish rendering and load before showing the toast

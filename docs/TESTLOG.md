@@ -90,4 +90,29 @@
 - **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v49` aktualisiert.
 - **Offene Probleme**: Keine.
 
+## Paket L4: Service Worker Bereinigung & Update-Dialog
+- **Geprüft**:
+  - `sw.js`:
+    - `CACHE_NAME` auf `kstw-mensa-v50` erhöht.
+    - Format `const CACHE_NAME = 'kstw-mensa-v50';` entspricht exakt dem Regex aus `scripts/update-key.js`.
+    - Toter Code entfernt: `API_CACHE_NAME` und „Strategie A“ (Stale-While-Revalidate für Supabase POST) eliminiert.
+    - `activate`-Handler löscht alle Alt-Caches (`cache !== CACHE_NAME`).
+    - Fehlerbehandlung in `install`: wirft nun Fehler bei fehlenden Assets (`throw new Error(...)`), sodass die Installation fehlschlägt und ein vorheriger funktionierender Service Worker aktiv bleibt.
+    - PWA-Icons (`./icons/icon-192.png`, `./icons/icon-512.png`) zu `STATIC_ASSETS` hinzugefügt.
+  - 4 neue Unit-Tests in `tests/sw.test.js`:
+    - Validierung des Scraper-Regex für `CACHE_NAME`.
+    - Überprüfung der Existenz aller in `STATIC_ASSETS` aufgeführten Dateien auf der Festplatte.
+    - Bestätigung der Icon-Präsenz in `STATIC_ASSETS`.
+    - Bestätigung der Entfernung von totem API-Cache-Code.
+  - Integration in `app.js`:
+    - Reentrancy-Guard (`appReloading`) für `reloadWithCacheBust()`, verhindert doppelten Reload zwischen `controllerchange` und Fallback-Timer.
+    - Update-Dialog: Button „Später“ hinzugefügt, stoppt Countdown/Auto-Reload und schließt den Dialog.
+    - `cleanUpdateUrlParam`: entfernt den Cache-Bust-Parameter `?u=` nach dem Neuladen via `window.history.replaceState`.
+  - `node --check app.js`, `node --check sw.js`.
+  - `npm test` (53/53 Vitest Tests bestanden).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v50` aktualisiert.
+- **Offene Probleme**: Keine.
+
+
 
