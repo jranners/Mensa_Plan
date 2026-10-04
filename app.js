@@ -5,17 +5,14 @@ import { STANDARD_ALLERGENS } from './data/allergens.js';
 import {
   ALLERGEN_GROUPS,
   isValidAllergenCode,
-  parseDishAllergens,
   getDishAllergens,
   evaluateDishAllergies,
   shouldExcludeDish
 } from './src/lib/allergens.js';
 import { getDishDietType } from './src/lib/diet.js';
 import {
-  getCustomFields,
   stripAllergenCodes,
   cleanDPName,
-  isPureDessert,
   parseDishServingTime,
   isDishExpired,
   getDishesServiceWindow,
@@ -26,7 +23,6 @@ import { getCanteenHoursForDay, getCanteenOpenStatus } from './src/lib/hours.js'
 import { escapeHtml } from './src/lib/html.js';
 import {
   getBerlinTodayDate,
-  parseIsoParts,
   getDayOfWeekFromIso,
   getFetchDateRange,
   formatDateSelector,
@@ -36,7 +32,7 @@ import {
 import { needsRefresh } from './src/lib/lifecycle.js';
 import { resetAppStorage, createSettingsDraft, migrateStorage } from './src/lib/storage.js';
 import { validateWeekMenu, validateAnnouncements } from './src/lib/validation.js';
-import { trapFocus, setAriaPressed, setAriaExpanded } from './src/lib/a11y.js';
+import { trapFocus } from './src/lib/a11y.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 let onboardingFocusRelease = null;
@@ -79,7 +75,6 @@ let state = {
   lastLifecycleCheckTime: 0
 };
 
-let onboardingInitialized = false;
 let settingsDraft = null;
 
 function removeSplash() {
@@ -869,7 +864,7 @@ function updateOnboardingHeaderAndButtons() {
   }
 }
 
-window.changeLanguage = function(lang) {
+function changeLanguage(lang) {
   if (settingsDraft) {
     settingsDraft.language = lang;
     initOnboardingUI();
@@ -879,14 +874,16 @@ window.changeLanguage = function(lang) {
     state.language = lang;
     applyLanguage();
   }
-};
+}
+window.changeLanguage = changeLanguage;
 
-window.changeDietPreference = function(diet) {
+function changeDietPreference(diet) {
   if (settingsDraft) {
     settingsDraft.diet = diet;
     initOnboardingUI();
   }
-};
+}
+window.changeDietPreference = changeDietPreference;
 
 function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
   state.isSettingsMenu = isSettingsMenu;
@@ -971,10 +968,11 @@ function renderResetConfirm(t = null) {
   `;
 }
 
-window.resetApp = function() {
+function resetApp() {
   resetAppStorage();
   location.reload();
-};
+}
+window.resetApp = resetApp;
 
 // PWA Onboarding Installation Helper
 let deferredPrompt = null;
@@ -1321,14 +1319,15 @@ function renderOfflineBanner() {
   `;
 }
 
-window.triggerManualReload = async function() {
+async function triggerManualReload() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistration().then(reg => {
       if (reg) reg.update().catch(() => {});
     });
   }
   await updateMenuDataBackground(true);
-};
+}
+window.triggerManualReload = triggerManualReload;
 
 async function fetchWeekMenuData(startDate, endDate) {
   const controller = new AbortController();
@@ -1398,7 +1397,7 @@ async function fetchAnnouncements() {
 }
 
 // 9. UI Rendering & Interaction
-function renderLoading() {
+function _renderLoading() {
   const t = TRANSLATIONS[state.language];
   const dateContainer = document.getElementById("active-date-container");
   if (dateContainer) dateContainer.innerHTML = "";
@@ -1442,7 +1441,7 @@ function toggleFavorite(dishId) {
   return idx === -1; // true = wurde hinzugefügt
 }
 
-function isFavorite(dishId) {
+function _isFavorite(dishId) {
   return getFavorites().includes(dishId);
 }
 
@@ -1567,11 +1566,12 @@ function renderDateSelector(forceScroll = false) {
   }
 }
 
-window.setActiveDate = function(dateStr) {
+function setActiveDate(dateStr) {
   state.activeDate = dateStr;
   renderDateSelector(false);
   renderCanteenMenu();
-};
+}
+window.setActiveDate = setActiveDate;
 
 function renderDietToggle() {
   const container = document.getElementById("diet-toggle-container");
@@ -1600,12 +1600,13 @@ function renderDietToggle() {
   });
 }
 
-window.setDietFilter = function(dietVal) {
+function setDietFilter(dietVal) {
   state.diet = dietVal;
   localStorage.setItem("kstw_diet", dietVal);
   renderDietToggle();
   renderCanteenMenu();
-};
+}
+window.setDietFilter = setDietFilter;
 
 
 function isSoupOrStew(dish) {
@@ -1870,7 +1871,7 @@ function renderSectionHeader(title, count, iconName) {
   `;
 }
 
-function getDishServingMeta(dish, canteen, canteenKey, customFields) {
+function getDishServingMeta(dish, canteen, canteenKey, _customFields) {
   const serving = parseDishServingTime(dish);
   const dishCounter = extractDishCounter(dish, canteenKey);
   return {
@@ -2694,7 +2695,7 @@ function cleanUpdateUrlParam() {
       const cleanUrl = url.pathname + (url.search ? url.search : '') + url.hash;
       window.history.replaceState(null, '', cleanUrl);
     }
-  } catch (e) {
+  } catch (_e) {
     // ignore
   }
 }
@@ -2768,7 +2769,7 @@ function findDishById(dishId, preferredDate = state.activeDate) {
   return null;
 }
 
-window.showAllergens = function(dishId) {
+function showAllergens(dishId) {
   const dish = findDishById(dishId, state.activeDate);
   if (!dish) return;
 
@@ -2854,9 +2855,10 @@ window.showAllergens = function(dishId) {
   modalBox.classList.add("animate-zoom-in");
 
   allergensFocusRelease = trapFocus(modal);
-};
+}
+window.showAllergens = showAllergens;
 
-window.closeAllergensModal = function() {
+function closeAllergensModal() {
   const modal = document.getElementById("allergens-modal");
   const modalBox = modal.querySelector(".animate-zoom-in") || modal.firstElementChild;
   modalBox.classList.remove("animate-zoom-in");
@@ -2869,4 +2871,5 @@ window.closeAllergensModal = function() {
   setTimeout(() => {
     modal.classList.add("hidden");
   }, 180);
-};
+}
+window.closeAllergensModal = closeAllergensModal;

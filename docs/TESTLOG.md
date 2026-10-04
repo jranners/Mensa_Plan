@@ -209,3 +209,22 @@
     - `.DS_Store` geprüft: ist in `.gitignore` hinterlegt und nicht im git index getrackt.
 - **Ergebnis**: Alle Tests und Skripte bestanden (`npm test`, `npm run check:sw`, `npm run test:rpc`).
 - **Offene Probleme**: Keine.
+
+## Paket T3: Code-Qualität & Linting mit ESLint (04.10.2026)
+- **Geprüft**:
+  - Konfiguration `eslint.config.mjs` (Flat Config mit `@eslint/js`, `globals`):
+    - Regeln: `no-undef: 'error'`, `no-unused-vars: ['warn', ...]`, `eqeqeq: ['error', 'smart']`.
+    - Trennung von ES-Modulen (`**/*.mjs`, `app.js`, `src/**/*.js`), CommonJS (`tailwind.config.js`, `scripts/**/*.js`), Service-Worker-Globals (`sw.js`) und Node-Globals für Tests und CI-Skripte.
+    - Bereinigung von ungenutzten Modulimporten und Variablen in `app.js`.
+    - Umstellung von globalen `window.*`-Zuweisungen auf echte lexikalische Modul-Funktionen (`setActiveDate`, `changeLanguage`, `changeDietPreference`, `resetApp`, `triggerManualReload`, `setDietFilter`, `showAllergens`, `closeAllergensModal`) mit Rückwärtskompatibilitäts-Export.
+    - npm-Skript `"lint": "eslint ."` hinzugefügt.
+  - `sw.js`: `CACHE_NAME` auf `kstw-mensa-v54` erhöht (da `app.js` modifiziert wurde).
+  - Validierung:
+    - `node --check app.js` & `node --check sw.js`.
+    - `npm run check:sw` (Erfolgreich: v53 -> v54 erkannt).
+    - `npm run lint` (0 Fehler, 0 Warnungen über das gesamte Projekt).
+    - `npm test` (90/90 Vitest Tests bestanden).
+    - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests und Linter bestanden, Service Worker auf `kstw-mensa-v54` aktualisiert.
+- **Offene Probleme**: Keine.
+

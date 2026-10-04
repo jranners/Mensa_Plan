@@ -46,8 +46,8 @@ Stand: 04.10.2026. Dieses Dokument ist für einen Coding-Agenten gedacht. Jeder 
 - [ ] `app.js` hat über 3000 Zeilen. Aufteilen in ES-Module (api, cache, filters, i18n, render, settings, favorites, sw-update), kleiner Build mit esbuild oder Vite.
 - [ ] Event-Listener werden nie entfernt (24 `addEventListener`, 0 `removeEventListener`). Prüfen, ob Re-Renders Handler doppelt binden, auf Event Delegation umstellen.
 - [ ] `console.*` (ca. 14 Stellen) hinter ein Debug-Flag legen.
-- [ ] Tests fehlen im Repo, obwohl `debug-report.md` "11/11 bestanden" nennt. Vitest einführen für `getDishAllergens`, `shouldExcludeDish`, Datum, Öffnungszeiten, Diät-Filter, Mensa-Zuordnung.
-- [ ] Linting (ESLint) und Formatierung (Prettier) ergänzen.
+- [x] Tests fehlen im Repo, obwohl `debug-report.md` "11/11 bestanden" nennt. Vitest einführen für `getDishAllergens`, `shouldExcludeDish`, Datum, Öffnungszeiten, Diät-Filter, Mensa-Zuordnung. *(Erledigt: 90 Unit-Tests in 13 Suiten für alle Logikbereiche, läuft mit `npm test`).*
+- [x] Linting (ESLint) und Formatierung (Prettier) ergänzen. *(Erledigt: ESLint mit Flat Config `eslint.config.mjs` und `npm run lint` eingerichtet; Prettier bewusst ausgelassen, um git blame zu wahren).*
 
 ## Infrastruktur und Repo-Hygiene
 

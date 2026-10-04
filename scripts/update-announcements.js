@@ -24,7 +24,7 @@ async function run() {
     if (fs.existsSync(outputPath)) {
       try {
         existingAnnouncements = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-      } catch (e) {
+      } catch (_e) {
         existingAnnouncements = [];
       }
     }
