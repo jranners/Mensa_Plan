@@ -29,3 +29,14 @@
   - `npm run build:css` (Tailwind Build erfolgreich).
 - **Ergebnis**: Alle Tests bestanden, CSP gehärtet, Service Worker auf `kstw-mensa-v45` aktualisiert.
 - **Offene Probleme**: Keine.
+
+## Paket S4: Escape vereinheitlichen & XSS-Audit (04.10.2026)
+- **Geprüft**:
+  - `escapeHtml` und `escapeHTML` vereinheitlicht in `src/lib/html.js`.
+  - `tests/html.test.js` mit 4 Vitest-Tests für Sonderzeichen, Null, Undefined, Zahlen und leere Strings.
+  - Audit aller `innerHTML`-Stellen in `app.js` (u.a. Escaping von Mensa-Daten, Preisen, Titeln und Ankündigungen).
+  - `node --check` auf `src/lib/html.js`, `app.js`, `sw.js`.
+  - `npm test` (24/24 Vitest Tests bestanden).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v46` aktualisiert.
+- **Offene Probleme**: Keine.

@@ -12,6 +12,7 @@ import {
 } from './src/lib/allergens.js';
 import { getDishDietType } from './src/lib/diet.js';
 import { getCustomFields, stripAllergenCodes, cleanDPName, isPureDessert } from './src/lib/dish.js';
+import { escapeHtml } from './src/lib/html.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 function getLocalIsoDate(date = new Date()) {
@@ -501,16 +502,6 @@ function loadAnnouncementsCache() {
     console.error("Failed to load announcements cache:", err);
   }
   return false;
-}
-
-function escapeHtml(str) {
-  if (typeof str !== "string") return str;
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 function formatCacheTime(timestamp) {
@@ -1348,13 +1339,6 @@ function renderError() {
   removeSplash();
 }
 
-function escapeHTML(str) {
-  if (!str) return "";
-  return str.replace(/[&<>'"]/g, 
-    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-  );
-}
-
 function renderAnnouncements() {
   const container = document.getElementById("announcement-banner-container");
   if (!container) return;
@@ -1400,8 +1384,8 @@ function renderAnnouncements() {
           ${getIconHTML(iconName, `text-[20px] ${iconColor}`)}
         </div>
         <div class="flex-1">
-          <h4 class="font-bold mb-1">${escapeHTML(announce.topic)}</h4>
-          <p class="leading-relaxed">${escapeHTML(announce.content)}</p>
+          <h4 class="font-bold mb-1">${escapeHtml(announce.topic)}</h4>
+          <p class="leading-relaxed">${escapeHtml(announce.content)}</p>
           ${dateStr}
         </div>
       </div>
@@ -2508,8 +2492,8 @@ function renderCanteenMenu() {
         <header class="flex flex-col gap-2">
           <div class="flex justify-between items-start gap-2">
             <div class="min-w-0">
-              <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${canteen.name}</h2>
-              <p class="font-body-md text-body-md text-slate-600 dark:text-slate-300">${canteen.strasse}, ${canteen.plz} ${canteen.ort}</p>
+              <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${escapeHtml(canteen.name)}</h2>
+              <p class="font-body-md text-body-md text-slate-600 dark:text-slate-300">${escapeHtml(canteen.strasse)}, ${escapeHtml(canteen.plz)} ${escapeHtml(canteen.ort)}</p>
             </div>
             ${isViewingToday ? `
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusBadgeClass} flex-shrink-0">

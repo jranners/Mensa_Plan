@@ -16,7 +16,7 @@ Stand: 04.10.2026. Dieses Dokument ist für einen Coding-Agenten gedacht. Jeder 
 - [x] Dauerhafter Hinweis "Angaben ohne Gewähr, im Zweifel Personal fragen" bei Allergen-Infos ergänzen: Eingebunden im Onboarding und im `#allergens-modal` mit zweisprachigem Footer.
 - [x] Inline-Handler mit API-Daten: Alle Inline-Handler (`onclick=`, `onerror=`) durch semantische Buttons mit `data-action` und `data-dish-id` ersetzt. Zentraler delegierter Event-Listener auf `document` bindet alle Aktionen.
 - [x] CSP in `index.html` enthält `script-src 'self' 'unsafe-inline'`: Inline-Theme-Skript nach `theme-init.js` ausgelagert, alle Inline-Handler eliminiert, `'unsafe-inline'` aus `script-src` der CSP gestrichen.
-- [ ] Zwei Escape-Funktionen `escapeHtml` und `escapeHTML` mit unterschiedlichem Verhalten. Zu einer zusammenführen und alle `innerHTML`-Stellen (ca. 46) prüfen, ob API- oder Scraper-Daten ungeescapt landen.
+- [x] Zwei Escape-Funktionen `escapeHtml` und `escapeHTML` mit unterschiedlichem Verhalten: Zu einem getesteten Modul `src/lib/html.js` vereinheitlicht. Alle `innerHTML`-Stellen auditiert und gegen XSS abgesichert.
 - [ ] Ankündigungen laufen nach 24 Stunden ab, gerechnet ab `dateFetched` (Scrape-Zeitpunkt). Eine Schließungsmeldung für nächste Woche verschwindet dadurch zu früh. Scraper soll echtes Datum oder Gültigkeit der Meldung liefern, Frontend darauf prüfen.
 
 ## Wahrscheinliche Bugs
