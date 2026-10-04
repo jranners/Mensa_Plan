@@ -1,0 +1,86 @@
+# Mensa Plan PWA – Analyse, Bugs und Feature-Ideen
+
+Stand: 04.10.2026. Dieses Dokument ist für einen Coding-Agenten gedacht. Jeder Punkt ist eine eigenständige Checkbox und kann einzeln gelöscht oder bearbeitet werden. Es gibt bewusst keine Nummerierung.
+
+## Hinweise für den Agenten
+
+- Vor dem Fixen jeden Punkt im Code verifizieren. Die Analyse basiert auf `app.js` (fast vollständig gelesen) und `sw.js` (vollständig). Nicht gelesen: `styles.css`, `input.css`, `tailwind.config.js`, `icons.js`, `canteens.js`, `translations.js`, `allergens.js`, `manifest.json`, `scripts/*`, Workflow.
+- Projektregel aus `.agents/AGENTS.md`: Bei jeder Code-Änderung `CACHE_NAME` in `sw.js` erhöhen (aktuell `kstw-mensa-v42`).
+- Projektregel: Gerichte ohne Allergen-Angaben nie verstecken, sondern mit Warnbadge anzeigen. Der Allergenfilter schließt nur Gerichte aus, die einen gewählten Code positiv enthalten.
+- Architektur: reine Client-PWA (Vanilla JS, Tailwind), Supabase-RPC `public_get_week_menu` (POST), `data/announcements.json` per GitHub Action, `localStorage` für Prefs und Cache.
+
+## Kritisch: Sicherheit und Korrektheit
+
+- [ ] Allergenfilter rechnet auf bereinigten Codes: `getDishAllergens` löscht bei veganen Gerichten die Codes 12, 13, 14, 17, 18, 25, 27, 28, 29, 30, bei vegetarischen Gerichten 12, 14, 25, 27, 28, 29, 30. Bei Kombigerichten werden Dessert-Allergene (1, 3, 11h, 11w, 17, 18, 27) entfernt, wenn sie nicht in den Hauptkomponenten vorkommen. `shouldExcludeDish` nutzt diese bereinigten Codes. Ist ein Label falsch (z. B. Ei in einem als vegan markierten Gericht), wird ein allergischer Nutzer nicht gewarnt. Fix: Filter auf rohen Codes, Bereinigung nur für die Anzeige, Widersprüche als Warnung zeigen. --> Fraglich ob das aus dem missverständnis der API folgt, also ob die Kritik daraus entsteht das der Bugbewerter Agent nicht die API kennt!
+- [ ] Onboarding-Text in `index.html` widerspricht dem Code: Dort steht, Gerichte ohne Allergenangaben würden "zur Sicherheit ausgeblendet". Tatsächlich werden sie mit Warnbadge angezeigt. Text korrigieren (DE und EN).
+- [ ] Dauerhafter Hinweis "Angaben ohne Gewähr, im Zweifel Personal fragen" bei Allergen-Infos ergänzen.
+- [ ] Inline-Handler mit API-Daten: `onclick="showAllergens('${dish.id}')"` interpoliert die ID ungeescapt (Zeilen ca. 2140 und 2366). Ersetzen durch `data-dish-id` plus delegierten Listener. Weitere Inline-Handler (`changeLanguage`, `changeDietPreference`, `resetApp`, `triggerManualReload`) ebenfalls ersetzen.
+- [ ] CSP in `index.html` enthält `script-src 'self' 'unsafe-inline'`. Nach Entfernen der Inline-Handler und Inline-Skripte `unsafe-inline` streichen.
+- [ ] Zwei Escape-Funktionen `escapeHtml` und `escapeHTML` mit unterschiedlichem Verhalten. Zu einer zusammenführen und alle `innerHTML`-Stellen (ca. 46) prüfen, ob API- oder Scraper-Daten ungeescapt landen.
+- [ ] Ankündigungen laufen nach 24 Stunden ab, gerechnet ab `dateFetched` (Scrape-Zeitpunkt). Eine Schließungsmeldung für nächste Woche verschwindet dadurch zu früh. Scraper soll echtes Datum oder Gültigkeit der Meldung liefern, Frontend darauf prüfen.
+
+## Wahrscheinliche Bugs
+
+- [ ] Kein Refresh beim Zurückkehren in die App: Es gibt keinen `visibilitychange`-Handler, der Cache-Alter wird nur beim Start geprüft (älter als 60 Minuten). Eine im Hintergrund gehaltene PWA zeigt am nächsten Tag altes Datum, falschen Öffnungsstatus und abgelaufene Gerichte. Beim Sichtbarwerden Datum und Cache neu prüfen.
+- [ ] Ungespeicherte Einstellungen wirken trotzdem: Checkbox-Handler schreiben `state.selectedCanteens` und `state.allergies` sofort, ebenso `changeDietPreference` für die Diät. Gespeichert wird erst per Button. Wer das Fenster mit X schließt, behält die Änderungen bis zum Reload im Speicher. Verifizieren und Zustand beim Schließen zurücksetzen oder bewusst sofort speichern.
+- [ ] Menü-Abruf ist ein POST, der Service Worker bricht bei `method !== 'GET'` ab. Der Block "Strategie A" (Stale-While-Revalidate für Supabase) und `API_CACHE_NAME` sind toter Code. Offline funktioniert nur der `localStorage`-Cache. Entweder entfernen oder Cache in IndexedDB lösen.
+- [ ] Service-Worker-Installation: Schlägt ein Asset fehl, wird nur gewarnt und die Installation läuft mit teilweisem Cache weiter. Icons `icons/icon-192.png` und `icons/icon-512.png` fehlen in `STATIC_ASSETS`.
+- [ ] Update-Dialog: Automatisches Neuladen nach 5 Sekunden mit zwei Auslösern (Fallback-Reload nach 800 ms und `controllerchange`), kein "Später"-Button. Doppelten Reload vermeiden und Abbruch ermöglichen.
+- [ ] Mensa-Zuordnung: `getCanteenKeyFromDish` vergleicht Orts- und Screen-Namen per `includes` in beide Richtungen. Kurze oder leere Strings können mehrere Mensen treffen. Sonderregel für Lindenthal (ortid 231) in der Uni-Mensa kann Gerichte doppelt anzeigen, wenn beide Mensen gewählt sind. Prüfen und deduplizieren.
+- [ ] Theken-Heuristik: Die Theke (EG Nord, MG Nord, MG Süd) wird teils aus Stichwörtern im Gerichtsnamen abgeleitet und doppelt im Code implementiert. Bei Änderungen zeigt die App falsche Orte als Fakt. Nur API-Felder verwenden oder als "vermutlich" kennzeichnen.
+- [ ] Öffnungszeiten werden aus Freitext `info.kurz` per String-Suche ("Mo - Fr", Standardende 14:30) geparst. Fragil bei jedem Formatwechsel. Strukturierte Daten in `canteens.js` pflegen.
+- [ ] Pull-to-Refresh: `startY` wird in `touchend` nur zurückgesetzt, wenn tatsächlich gezogen wurde. Veralteter Wert kann später falschen Pull auslösen. Indikatortext "Aktualisieren..." ist fest deutsch.
+- [ ] `resetApp` ruft `localStorage.clear()` auf. Löscht auch Favoriten und Theme, der Service Worker bleibt bestehen. Gezielt nur `kstw_*`-Schlüssel löschen und optional SW-Caches leeren.
+- [ ] Fehlende Übersetzungen: Viele Texte haben Fallbacks wie `t.updateAvailableTitle || '...'`, also fehlen wohl Schlüssel in `translations.js`. Englische Nutzer sehen dann Deutsch. `alert()`-Aufrufe im Onboarding sind zudem nur zweisprachig hartcodiert. Durch Toasts ersetzen.
+- [ ] Barrierefreiheit: Keine ARIA-Rollen in den gelesenen Templates, Modals ohne Fokus-Trap und Escape-Handler, klickbare `div`s (Allergene) per Tastatur nicht erreichbar. Auf `button` umstellen, `role="dialog"` und `aria-modal` setzen, Kontraste in Light und Dark prüfen.
+- [ ] Zeitzone: `getLocalIsoDate` nutzt den Offset des Geräts. `new Date('YYYY-MM-DD')` wird als UTC geparst und `getDay()` lokal ausgewertet. Auf `Europe/Berlin` per `Intl.DateTimeFormat` fest umstellen und Datum aus Y-M-D-Teilen bauen.
+- [ ] Antwort des Menü-Abrufs wird nicht validiert (Array, erwartete Felder). Ändert der Betreiber das Schema, entsteht ein stiller Render-Fehler. Schema-Check mit klarer Fehlermeldung ergänzen.
+- [ ] `localStorage`-Schlüssel (`kstw_lang`, `kstw_diet`, `kstw_canteens`, `kstw_allergies`, `kstw_prefs_saved`, `kstw_menu_cache`, `kstw_menu_cache_time`, `kstw_announcements_cache`, `kstw_theme`, `kstw_allergen_prompt_shown`, `kstw_updated_successfully`) haben keine Schema-Version. Versionsfeld und Migration ergänzen.
+
+## Wartbarkeit und Code-Qualität
+
+- [ ] Logik zur Wahl des aktiven Datums steht dreimal im Code (`fetchAndRender` zweimal, `updateMenuDataBackground` einmal). In eine Funktion auslagern.
+- [ ] Montags-Berechnung der Woche steht mehrfach im Code. In Hilfsfunktion auslagern, Sonntag und Monatsgrenzen testen.
+- [ ] Parsing von `dish_info` (Zeit und Theke), `cleanDPName` und der Aufbau von `customFields` kommen mehrfach vor. Zentralisieren.
+- [ ] `getDishAllergens` läuft pro Gericht mit mehreren Regex bei jedem Render, auch für jeden Tag im Datumsselektor. Ergebnis pro Gericht-ID cachen.
+- [ ] `app.js` hat über 3000 Zeilen. Aufteilen in ES-Module (api, cache, filters, i18n, render, settings, favorites, sw-update), kleiner Build mit esbuild oder Vite.
+- [ ] Event-Listener werden nie entfernt (24 `addEventListener`, 0 `removeEventListener`). Prüfen, ob Re-Renders Handler doppelt binden, auf Event Delegation umstellen.
+- [ ] `console.*` (ca. 14 Stellen) hinter ein Debug-Flag legen.
+- [ ] Tests fehlen im Repo, obwohl `debug-report.md` "11/11 bestanden" nennt. Vitest einführen für `getDishAllergens`, `shouldExcludeDish`, Datum, Öffnungszeiten, Diät-Filter, Mensa-Zuordnung.
+- [ ] Linting (ESLint) und Formatierung (Prettier) ergänzen.
+
+## Infrastruktur und Repo-Hygiene
+
+- [ ] SW-Version wird manuell hochgezählt und zusätzlich von der Action committet (`sw.js` im `git add`). Risiko für Vergessen und Merge-Konflikte. Version automatisch aus einem Hash der Assets setzen.
+- [ ] Bot-Commits alle 30 Minuten (Mo-Fr) auf `main` verschmutzen die Historie. Daten in eigenen Branch (z. B. `data`) oder nach `gh-pages` schreiben.
+- [ ] `continue-on-error: true` verschluckt Scraper-Fehler. Monitoring ergänzen (Issue anlegen oder Benachrichtigung, wenn der Key-Scraper mehrfach scheitert).
+- [ ] Geplante GitHub-Workflows werden in öffentlichen Repos nach 60 Tagen ohne Repo-Aktivität deaktiviert. Prüfen, ob die Bot-Commits das verhindern.
+- [ ] Key-Scraper liest den Key aus Web-Assets des Betreibers (CloudMensa). Format hat sich bereits geändert. Rechtliche und betriebliche Abhängigkeit bewusst entscheiden, ggf. beim KStW anfragen.
+- [ ] `debug-report.md` und `feedback.md` liegen im Root und werden mit ausgeliefert. Nach `docs/` verschieben.
+- [ ] README enthält lokalen Pfad `/Users/julius/Desktop/...` und beschreibt neuere Features nicht (Meisterwerk-Sektion, Baukasten-Layout, Theken-Badges, Update-Dialog). Aktualisieren.
+- [ ] `.DS_Store` aus dem Tracking entfernen und in `.gitignore` aufnehmen.
+- [ ] `Dockerfile` und `docker-compose.yml` passen nicht zu GitHub Pages. Dokumentieren oder entfernen.
+- [ ] Datenschutzerklärung (nur `localStorage`, keine Tracker) und Impressum ergänzen, falls öffentlich verbreitet.
+
+## Feature-Ideen mit vorhandenen Daten
+
+Laut Code liefert die API pro Gericht unter anderem `food_icon`, `menu_type`, `allergens_names`, `dish_ger_1` bis `dish_ger_5`, `price_1`, `preis_gramm`, Kategorie, Screens und Ort. Vor der Umsetzung die echte RPC-Antwort einmal komplett dumpen und auf weitere Felder prüfen (Nährwerte, CO2, Bilder, Bewertungen, weitere Preise).
+
+- [ ] Transparenz beim Allergenfilter: Anzahl ausgeblendeter Gerichte anzeigen, mit Umschalter zum Einblenden.
+- [ ] Favoriten nach normalisiertem Gerichtsnamen speichern (statt `dish.id`, wahrscheinlich pro Tag neu). Button ist aktuell deaktiviert. Lieblingsgericht soll nochmal Speziell gehighlighted werden so das man dirket sieht das es das GEricht gibt
+- [ ] Buffet-Preisrechner mit `preis_gramm` (Gewicht eingeben, Preis sehen).
+- [ ] Tarif-Umschalter (Studi, Mitarbeitende, Gäste), sofern weitere Preisfelder in der Antwort vorhanden sind.
+- [ ] Status "Jetzt geöffnet" und "schließt in X Minuten" pro Mensa und Theke aus strukturierten Zeiten.
+- [ ] Deep-Links mit `?date=...&canteen=...&dish=...` statt `window.location.href` beim Teilen. `?view=today|settings` existiert bereits.
+- [ ] Statt dem Einstellungs-Icon oben rechts, sollte dort wie in anderen Apps die Drei-Striche des Hamburger-Menü-Icons sein. Wenn man dort drauf drückt, kommt ein Menü (in modernem Design und passend zu dem wie die App jetzt schon aussieht (mit Dark & White Modes, etc.)). Im Menü soll dann die Einstellungen öffnenbar sein und das Statistik-Menü (nächster Punkt) 
+- [ ] Tägliche Snapshots der Menüs als JSON-Archiv (Action). Daraus Statistiken: Häufigkeit von Gerichten, veganer Anteil, Preisentwicklung. 
+
+
+## Vorgeschlagene Reihenfolge (nur als Orientierung, kann gelöscht werden)
+
+- Zuerst Sicherheit: Allergenfilter, Onboarding-Text, Inline-Handler und CSP.
+- Danach App-Lebenszyklus: `visibilitychange`, Einstellungslogik, Datumswahl zentralisieren, Zeitzone.
+- Danach Tests mit Vitest für die reine Logik.
+- Danach Pipeline-Stabilität: Scraper-Monitoring, Daten-Branch, automatische SW-Version.
+- Danach Modularisierung und Doku.
+- Zuletzt Features.
