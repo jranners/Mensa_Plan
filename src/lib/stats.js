@@ -177,5 +177,17 @@ export function computeLiveMenuStats(menuData) {
     });
   });
 
-  return live;
+  const topDishes = Object.entries(live.dishCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+
+  const avgPrice = live.priceCount > 0 ? live.priceSum / live.priceCount : null;
+
+  return {
+    ...live,
+    meatCount: live.otherCount,
+    avgPrice,
+    topDishes
+  };
 }

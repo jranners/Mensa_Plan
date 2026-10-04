@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v56';
+const CACHE_NAME = 'kstw-mensa-v57';
 const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
 const STATIC_ASSETS = [
   './',
