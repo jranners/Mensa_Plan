@@ -42,11 +42,11 @@ Stand: 04.10.2026. Dieses Dokument ist für einen Coding-Agenten gedacht. Jeder 
 - [x] Logik zur Wahl des aktiven Datums steht dreimal im Code: In zentrale Funktion `pickActiveDate` in `src/lib/dates.js` ausgelagert, getestet und eingebunden.
 - [x] Montags-Berechnung der Woche steht mehrfach im Code: In Hilfsfunktion `getFetchDateRange` in `src/lib/dates.js` ausgelagert. Sonntag, Monatsgrenzen und 14-Tage-Spanne mit Vitest getestet.
 - [x] Parsing von `dish_info` (Zeit und Theke), `cleanDPName` und der Aufbau von `customFields` kommen mehrfach vor: In `src/lib/dish.js` (`getCustomFields`, `cleanDPName`, `parseDishServingTime`, `isDishExpired`, `getDishesServiceWindow`, `extractDishCounter`) zentralisiert, aus `app.js` importiert und mit 7 Vitest-Tests abgesichert.
-- [ ] `getDishAllergens` läuft pro Gericht mit mehreren Regex bei jedem Render, auch für jeden Tag im Datumsselektor. Ergebnis pro Gericht-ID cachen.
+- [x] `getDishAllergens` läuft pro Gericht mit mehreren Regex bei jedem Render, auch für jeden Tag im Datumsselektor. Ergebnis pro Gericht-ID cachen. *(Erledigt: `WeakMap`-Cache `dishAllergenCache` in `src/lib/allergens.js` cacht geparste Allergene pro Gerichts-Objekt).*
 - [ ] `app.js` hat über 3000 Zeilen. Aufteilen in ES-Module (api, cache, filters, i18n, render, settings, favorites, sw-update), kleiner Build mit esbuild oder Vite.
-- [ ] Event-Listener werden nie entfernt (24 `addEventListener`, 0 `removeEventListener`). Prüfen, ob Re-Renders Handler doppelt binden, auf Event Delegation umstellen.
+- [x] Event-Listener werden nie entfernt (24 `addEventListener`, 0 `removeEventListener`). Prüfen, ob Re-Renders Handler doppelt binden, auf Event Delegation umstellen. *(Erledigt: Dynamische Karten für Favoriten, Buffet-Rechner, Teilen, Text-Aufklappen und Filter auf Event-Delegation auf Dokumentebene umgestellt).*
 - [ ] `console.*` (ca. 14 Stellen) hinter ein Debug-Flag legen.
-- [x] Tests fehlen im Repo, obwohl `debug-report.md` "11/11 bestanden" nennt. Vitest einführen für `getDishAllergens`, `shouldExcludeDish`, Datum, Öffnungszeiten, Diät-Filter, Mensa-Zuordnung. *(Erledigt: 90 Unit-Tests in 13 Suiten für alle Logikbereiche, läuft mit `npm test`).*
+- [x] Tests fehlen im Repo, obwohl `debug-report.md` "11/11 bestanden" nennt. Vitest einführen für `getDishAllergens`, `shouldExcludeDish`, Datum, Öffnungszeiten, Diät-Filter, Mensa-Zuordnung. *(Erledigt: 104 Unit-Tests in 14 Suiten für alle Logikbereiche, läuft mit `npm test`).*
 - [x] Linting (ESLint) und Formatierung (Prettier) ergänzen. *(Erledigt: ESLint mit Flat Config `eslint.config.mjs` und `npm run lint` eingerichtet; Prettier bewusst ausgelassen, um git blame zu wahren).*
 
 ## Infrastruktur und Repo-Hygiene
@@ -66,14 +66,14 @@ Stand: 04.10.2026. Dieses Dokument ist für einen Coding-Agenten gedacht. Jeder 
 
 Laut Code liefert die API pro Gericht unter anderem `food_icon`, `menu_type`, `allergens_names`, `dish_ger_1` bis `dish_ger_5`, `price_1`, `preis_gramm`, Kategorie, Screens und Ort. Vor der Umsetzung die echte RPC-Antwort einmal komplett dumpen und auf weitere Felder prüfen (Nährwerte, CO2, Bilder, Bewertungen, weitere Preise).
 
-- [ ] Transparenz beim Allergenfilter: Anzahl ausgeblendeter Gerichte anzeigen, mit Umschalter zum Einblenden.
-- [ ] Favoriten nach normalisiertem Gerichtsnamen speichern (statt `dish.id`, wahrscheinlich pro Tag neu). Button ist aktuell deaktiviert. Lieblingsgericht soll nochmal Speziell gehighlighted werden so das man dirket sieht das es das GEricht gibt
-- [ ] Buffet-Preisrechner mit `preis_gramm` (Gewicht eingeben, Preis sehen).
-- [ ] Tarif-Umschalter (Studi, Mitarbeitende, Gäste), sofern weitere Preisfelder in der Antwort vorhanden sind.
-- [ ] Status "Jetzt geöffnet" und "schließt in X Minuten" pro Mensa und Theke aus strukturierten Zeiten.
-- [ ] Deep-Links mit `?date=...&canteen=...&dish=...` statt `window.location.href` beim Teilen. `?view=today|settings` existiert bereits.
-- [ ] Statt dem Einstellungs-Icon oben rechts, sollte dort wie in anderen Apps die Drei-Striche des Hamburger-Menü-Icons sein. Wenn man dort drauf drückt, kommt ein Menü (in modernem Design und passend zu dem wie die App jetzt schon aussieht (mit Dark & White Modes, etc.)). Im Menü soll dann die Einstellungen öffnenbar sein und das Statistik-Menü (nächster Punkt) 
-- [ ] Tägliche Snapshots der Menüs als JSON-Archiv (Action). Daraus Statistiken: Häufigkeit von Gerichten, veganer Anteil, Preisentwicklung. 
+- [x] Transparenz beim Allergenfilter: Anzahl ausgeblendeter Gerichte anzeigen, mit Umschalter zum Einblenden. *(Erledigt: Hinweiskarte bei vollständiger Filterung, Banner mit Ein-/Ausblenden und gestrichelter Markierung der gefilterten Speisen).*
+- [x] Favoriten nach normalisiertem Gerichtsnamen speichern (statt `dish.id`, wahrscheinlich pro Tag neu). Button ist aktuell deaktiviert. Lieblingsgericht soll nochmal Speziell gehighlighted werden so das man dirket sieht das es das GEricht gibt. *(Erledigt: `cleanDishNameForFavorite` in `src/lib/dish.js`, Persistenz in `src/lib/storage.js`, Stern im Datumsselektor, goldener Rahmen und Badge).*
+- [x] Buffet-Preisrechner mit `preis_gramm` (Gewicht eingeben, Preis sehen). *(Erledigt: Gramm-Input mit Schnellwahltasten 150g, 250g, 400g und Cent-genauer Berechnung).*
+- [x] Tarif-Umschalter (Studi, Mitarbeitende, Gäste), sofern weitere Preisfelder in der Antwort vorhanden sind. *(Erledigt: Umschalter für Studierende, Bedienstete, Gäste, Externe mit Fallback-Kette in `src/lib/dish.js` und Onboarding/Settings).*
+- [x] Status "Jetzt geöffnet" und "schließt in X Minuten" pro Mensa und Theke aus strukturierten Zeiten. *(Erledigt: Live-Berechnung mit `getCanteenOpenStatus` in `src/lib/hours.js`, Restminuten bis Schließung und Öffnungszeitpunkt).*
+- [x] Deep-Links mit `?date=...&canteen=...&dish=...` statt `window.location.href` beim Teilen. `?view=today|settings` existiert bereits. *(Erledigt: Teilen-Button erzeugt Deep-Link; beim Öffnen wird die Mensa aktiviert, das Gericht fokussiert, gescrollt und animiert).*
+- [x] Statt dem Einstellungs-Icon oben rechts, sollte dort wie in anderen Apps die Drei-Striche des Hamburger-Menü-Icons sein. Wenn man dort drauf drückt, kommt ein Menü (in modernem Design und passend zu dem wie die App jetzt schon aussieht (mit Dark & White Modes, etc.)). Im Menü soll dann die Einstellungen öffnenbar sein und das Statistik-Menü (nächster Punkt). *(Erledigt: Hamburger-Button `#menu-btn` und Menü-Dialog `#app-menu-modal` für Einstellungen, Heute-Sprung, Aktualisieren und App-Info/Datenschutz).*
+- [ ] Tägliche Snapshots der Menüs als JSON-Archiv (Action). Daraus Statistiken: Häufigkeit von Gerichten, veganer Anteil, Preisentwicklung. *(Wartet auf Entscheidung zu Daten-Branch & Archiv in Frage 5).* 
 
 
 ## Vorgeschlagene Reihenfolge (nur als Orientierung, kann gelöscht werden)

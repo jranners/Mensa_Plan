@@ -228,3 +228,39 @@
 - **Ergebnis**: Alle Tests und Linter bestanden, Service Worker auf `kstw-mensa-v54` aktualisiert.
 - **Offene Probleme**: Keine.
 
+## Pakete F1–F7: Features, Allergen-Transparenz, Favoriten, Buffet-Rechner, Preistarife & Hamburger-Menü (04.10.2026)
+- **Geprüft**:
+  - **F1: Allergen-Transparenz**:
+    - Ausgeblendete Gerichte werden in der Mensakarte im Zähler erfasst.
+    - Wenn alle Gerichte einer Mensa gefiltert wurden, verschwindet die Karte nicht stumm, sondern zeigt eine verständliche Information und einen Button zum Einblenden.
+    - Bei Einblendung werden gefilterte Speisen mit gestricheltem Rahmen (`border-dashed border-rose-300`) und Warnbadge („Ausgeblendet wegen Allergen-Filter“) dargestellt.
+  - **F2: Favoriten-System (★ Dish-Favoriten)**:
+    - Normalisierungsfunktion `cleanDishNameForFavorite` in `src/lib/dish.js` entfernt Allergenklammern `(17, 18)`, Kennzeichnungen `[TK]`, `[Eigenproduktion]`, `[Vegan]` und vereinheitlicht Leerzeichen/Groß-Kleinschreibung.
+    - Speicherung in `localStorage` unter Schlüssel `kstw_favorites_v2` (in Schemamigration und Schutzlisten aufgenommen).
+    - Favoriten-Gerichte erhalten einen goldenen Ring, Hervorhebung, Lieblingsgericht-Badge und einen Stern-Indikator im Datums-Segment-Selektor.
+  - **F3: Buffet-Preisrechner**:
+    - Erkennung von Buffet-Speisen über Kennzeichnung `preis_gramm` oder Preismuster pro 100g.
+    - Direkteingabe des Gewichts in Gramm oder Schnellwahltasten (150g, 250g, 400g).
+    - Live-Berechnung des Endpreises in Cent ohne Neurendern des gesamten Feeds.
+  - **F4: Preistarife (Studierende, Bedienstete, Gäste, Externe)**:
+    - `getDishPrice(dish, tariff)` wertet die entsprechenden Preisfelder (`price`, `price_2`, `price_3`, `price_4`) mit robuster Fallback-Kette aus.
+    - Tarif-Auswahl im Onboarding und in den Einstellungen (`#tariff-selector`).
+  - **F5: Live-Öffnungsstatus**:
+    - Berechnung über `getCanteenOpenStatus` in `src/lib/hours.js`.
+    - Dynamische Badges: „Jetzt geöffnet · schließt in X Min.“, „öffnet um HH:MM“, „Heute geschlossen“.
+  - **F6: Deep-Linking & Teilen**:
+    - Teilen erzeugt saubere URLs `?date=YYYY-MM-DD&canteen=<key>&dish=<cleanName>`.
+    - Beim Direktaufruf wird die entsprechende Mensa aktiviert, das Gericht fokussiert, mittig ins Sichtfeld gescrollt und pulsierend hervorgehoben.
+  - **F7: Hamburger-Menü**:
+    - Austausch des Zahnrad-Buttons im Header gegen modernes Hamburger-Menü `#menu-btn`.
+    - Menü-Modal `#app-menu-modal` mit Tastaturnavigation, Fokusfalle (`trapFocus`), Escape-Taste und Aktionen: Einstellungen & Mensen, Zu heute springen, Speiseplan aktualisieren, Über die App & Datenschutz.
+  - **Testing & Tooling**:
+    - 14 neue Unit-Tests in `tests/dish-features.test.js` hinzugefügt (Favoriten-Normalisierung, Buffet-Rechner, Preistarife, Speicher-Isolation).
+    - 104/104 Tests in Vitest bestanden (`npm test`).
+    - `npm run lint` mit 0 Fehlern und 0 Warnungen bestanden.
+    - `sw.js`: `CACHE_NAME` auf `kstw-mensa-v55` erhöht.
+    - `npm run check:sw` (Erfolgreich: v54 -> v55 verifiziert).
+    - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Feature-Pakete F1–F7 voll funktionsfähig, getestet und abgesichert.
+- **Offene Probleme**: Keine.
+

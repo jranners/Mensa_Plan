@@ -16,7 +16,13 @@ import {
   parseDishServingTime,
   isDishExpired,
   getDishesServiceWindow,
-  extractDishCounter
+  extractDishCounter,
+  cleanDishNameForFavorite,
+  getDishPrice,
+  formatPrice,
+  isBuffetDish,
+  getBuffetPricePer100g,
+  calculateBuffetPrice
 } from './src/lib/dish.js';
 import { getCanteenKeyFromDish } from './src/lib/canteen-match.js';
 import { getCanteenHoursForDay, getCanteenOpenStatus } from './src/lib/hours.js';
@@ -30,13 +36,23 @@ import {
   pickActiveDate
 } from './src/lib/dates.js';
 import { needsRefresh } from './src/lib/lifecycle.js';
-import { resetAppStorage, createSettingsDraft, migrateStorage } from './src/lib/storage.js';
+import {
+  resetAppStorage,
+  createSettingsDraft,
+  migrateStorage,
+  getFavoritesV2,
+  toggleFavoriteV2,
+  isFavoriteV2,
+  getTariff,
+  setTariff
+} from './src/lib/storage.js';
 import { validateWeekMenu, validateAnnouncements } from './src/lib/validation.js';
 import { trapFocus } from './src/lib/a11y.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 let onboardingFocusRelease = null;
 let allergensFocusRelease = null;
+let menuFocusRelease = null;
 
 function getLocalIsoDate(date = new Date()) {
   return getBerlinTodayDate(date);
@@ -71,6 +87,9 @@ let state = {
   isManualUpdating: false,
   lastCacheTime: null,
   allergies: [],
+  tariff: "student",
+  favorites: [],
+  hiddenAllergenRevealedCanteens: new Set(),
   lastRenderedDay: null,
   lastLifecycleCheckTime: 0
 };
@@ -225,27 +244,64 @@ window.addEventListener("DOMContentLoaded", async () => {
   registerSW();
   checkUpdatedToast();
 
-  if (hasPreferences()) {
+  // URL-Parameter und Deep-Links (F6) beim Start auswerten
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramDate = urlParams.get('date');
+  const paramCanteen = urlParams.get('canteen');
+  const paramDish = urlParams.get('dish');
+  const startView = urlParams.get('view');
+
+  const hasDeepLink = !!(paramDate || paramCanteen || paramDish);
+
+  if (paramCanteen && CANTEENS[paramCanteen]) {
+    if (!state.selectedCanteens.includes(paramCanteen)) {
+      state.selectedCanteens.push(paramCanteen);
+    }
+  }
+
+  if (paramDate && /^\d{4}-\d{2}-\d{2}$/.test(paramDate)) {
+    state.activeDate = paramDate;
+  } else if (startView === 'today') {
+    state.activeDate = getLocalIsoDate();
+  }
+
+  if (hasPreferences() || hasDeepLink) {
     hideOnboarding();
     await fetchAndRender();
     checkAllergenPrompt();
 
-    // URL-Parameter beim Start auswerten
-    const urlParams = new URLSearchParams(window.location.search);
-    const startView = urlParams.get('view');
-    if (startView === 'today') {
-      const todayIso = getLocalIsoDate();
-      setActiveDate(todayIso);
-    } else if (startView === 'settings') {
+    if (startView === 'settings') {
       showOnboarding(true);
+    }
+
+    if (paramDish) {
+      setTimeout(() => {
+        const selector = `[data-dish-clean-name="${CSS.escape(paramDish)}"]`;
+        const targetEl = document.querySelector(selector);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          targetEl.classList.add('ring-4', 'ring-primary-container', 'dark:ring-price-badge', 'animate-pulse');
+          setTimeout(() => {
+            targetEl.classList.remove('ring-4', 'ring-primary-container', 'dark:ring-price-badge', 'animate-pulse');
+          }, 3500);
+        }
+      }, 400);
     }
   } else {
     showOnboarding();
   }
 
   // Setup Global Event Listeners
-  document.getElementById("settings-btn").addEventListener("click", () => {
+  document.getElementById("settings-btn")?.addEventListener("click", () => {
     showOnboarding(true);
+  });
+  document.getElementById("menu-btn")?.addEventListener("click", () => {
+    showAppMenu();
+  });
+  document.getElementById("app-menu-modal")?.addEventListener("click", e => {
+    if (e.target.id === "app-menu-modal") {
+      hideAppMenu();
+    }
   });
 
   // Theme-Toggle Event Listener
@@ -269,7 +325,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (!btn) return;
     const shareTitle = btn.dataset.dishName || 'Mensaplan';
     const shareText = `${btn.dataset.dishName} – ${btn.dataset.dishPrice} | ${btn.dataset.canteenName}`;
-    const shareUrl = window.location.href;
+    const shareUrl = btn.dataset.shareUrl || window.location.href;
 
     if (navigator.share) {
       try {
@@ -288,18 +344,31 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Favorites Event Delegation
+  // Favorites Event Delegation (Normalized Dish Name)
   document.addEventListener('click', e => {
     const btn = e.target.closest('.fav-btn');
     if (!btn) return;
-    const dishId = btn.dataset.dishId;
-    const added = toggleFavorite(dishId);
-    const icon = btn.querySelector('.fav-icon');
-    if (icon) {
-      icon.setAttribute('fill', added ? '#ffd600' : 'none');
-      icon.setAttribute('stroke', added ? '#ffd600' : 'currentColor');
-    }
-    if ('vibrate' in navigator) navigator.vibrate(added ? [10] : [5]); // Haptic
+    const cleanName = btn.dataset.dishCleanName;
+    if (!cleanName) return;
+    const added = toggleFavoriteV2(cleanName);
+    state.favorites = getFavoritesV2();
+    renderCanteenMenu();
+    renderDateSelector(false);
+    if ('vibrate' in navigator) navigator.vibrate(added ? [10] : [5]);
+  });
+
+  // Buffet Live Calculator Input Delegation
+  document.addEventListener('input', e => {
+    const input = e.target.closest('[data-action="buffet-calc-input"]');
+    if (!input) return;
+    const container = input.closest('.buffet-calc-container');
+    if (!container) return;
+    const resultEl = container.querySelector('.buffet-calc-result');
+    if (!resultEl) return;
+    const pricePer100g = parseFloat(input.dataset.pricePer100g) || 1.10;
+    const grams = parseFloat(input.value) || 0;
+    const total = calculateBuffetPrice(pricePer100g, grams);
+    resultEl.textContent = formatPrice(total);
   });
 
   // Unified Data-Action Event Delegation
@@ -312,6 +381,26 @@ window.addEventListener("DOMContentLoaded", async () => {
       changeLanguage(actionEl.dataset.lang);
     } else if (action === 'change-diet-preference') {
       changeDietPreference(actionEl.dataset.diet);
+    } else if (action === 'change-tariff-preference') {
+      changeTariffPreference(actionEl.dataset.tariff);
+    } else if (action === 'toggle-revealed-allergens') {
+      const canteen = actionEl.dataset.canteen;
+      if (state.hiddenAllergenRevealedCanteens.has(canteen)) {
+        state.hiddenAllergenRevealedCanteens.delete(canteen);
+      } else {
+        state.hiddenAllergenRevealedCanteens.add(canteen);
+      }
+      renderCanteenMenu();
+    } else if (action === 'buffet-quick') {
+      const container = actionEl.closest('.buffet-calc-container');
+      if (container) {
+        const input = container.querySelector('.buffet-grams-input');
+        const grams = parseInt(actionEl.dataset.grams, 10);
+        if (input && !isNaN(grams)) {
+          input.value = grams;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
     } else if (action === 'reset-app-prompt' || action === 'reset-app') {
       renderResetConfirm();
     } else if (action === 'reset-app-cancel') {
@@ -328,6 +417,19 @@ window.addEventListener("DOMContentLoaded", async () => {
       showAllergens(actionEl.dataset.dishId);
     } else if (action === 'close-allergens-modal') {
       closeAllergensModal();
+    } else if (action === 'open-menu') {
+      showAppMenu();
+    } else if (action === 'close-menu') {
+      hideAppMenu();
+    } else if (action === 'menu-open-settings') {
+      hideAppMenu();
+      showOnboarding(true);
+    } else if (action === 'menu-jump-today') {
+      hideAppMenu();
+      setActiveDate(getLocalIsoDate());
+    } else if (action === 'menu-refresh') {
+      hideAppMenu();
+      triggerManualReload();
     } else if (action === 'toggle-clamp') {
       const isClamped = actionEl.classList.toggle('line-clamp-2');
       actionEl.setAttribute('aria-expanded', isClamped ? 'false' : 'true');
@@ -359,6 +461,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Keyboard navigation: Escape key closes active modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
+      const menuModal = document.getElementById('app-menu-modal');
+      if (menuModal && !menuModal.classList.contains('hidden')) {
+        hideAppMenu();
+        return;
+      }
       const allergensModal = document.getElementById('allergens-modal');
       if (allergensModal && !allergensModal.classList.contains('hidden')) {
         closeAllergensModal();
@@ -526,18 +633,23 @@ function loadPreferences() {
   } else {
     state.allergies = [];
   }
+
+  state.tariff = getTariff();
+  state.favorites = getFavoritesV2();
 }
 
-function savePreferences(language, canteens, diet, allergies = []) {
+function savePreferences(language, canteens, diet, allergies = [], tariff = 'student') {
   state.language = language;
   state.selectedCanteens = canteens;
   state.diet = diet;
   state.allergies = allergies;
+  state.tariff = tariff;
 
   localStorage.setItem("kstw_lang", language);
   localStorage.setItem("kstw_canteens", JSON.stringify(canteens));
   localStorage.setItem("kstw_diet", diet);
   localStorage.setItem("kstw_allergies", JSON.stringify(allergies));
+  setTariff(tariff);
   localStorage.setItem("kstw_prefs_saved", "true");
 }
 
@@ -641,6 +753,30 @@ function applyLanguage() {
   if (settingsBtn) {
     settingsBtn.setAttribute("aria-label", t.settingsAria || "Einstellungen öffnen");
   }
+  const menuBtn = document.getElementById("menu-btn");
+  if (menuBtn) {
+    menuBtn.setAttribute("aria-label", t.menuAria || "Hauptmenü öffnen");
+  }
+  const appMenuTitle = document.getElementById("app-menu-title");
+  if (appMenuTitle) {
+    appMenuTitle.textContent = t.menuTitle;
+  }
+  const menuItemSettingsTitle = document.getElementById("menu-item-settings-title");
+  if (menuItemSettingsTitle) {
+    menuItemSettingsTitle.textContent = t.menuSettings;
+  }
+  const menuItemTodayTitle = document.getElementById("menu-item-today-title");
+  if (menuItemTodayTitle) {
+    menuItemTodayTitle.textContent = t.menuToday;
+  }
+  const menuItemRefreshTitle = document.getElementById("menu-item-refresh-title");
+  if (menuItemRefreshTitle) {
+    menuItemRefreshTitle.textContent = t.menuRefresh;
+  }
+  const menuAboutText = document.getElementById("menu-about-text");
+  if (menuAboutText) {
+    menuAboutText.textContent = t.menuAboutText;
+  }
   const themeToggle = document.getElementById("theme-toggle");
   if (themeToggle) {
     themeToggle.setAttribute("aria-label", t.themeToggleAria || "Farbschema wechseln");
@@ -648,6 +784,10 @@ function applyLanguage() {
   const closeOnboarding = document.getElementById("close-onboarding-btn");
   if (closeOnboarding) {
     closeOnboarding.setAttribute("aria-label", t.close || "Schließen");
+  }
+  const closeMenuBtn = document.getElementById("close-menu-btn");
+  if (closeMenuBtn) {
+    closeMenuBtn.setAttribute("aria-label", t.close || "Schließen");
   }
   const closeAllergens = document.getElementById("close-allergens-modal-btn");
   if (closeAllergens) {
@@ -772,6 +912,29 @@ function initOnboardingUI() {
     `;
   });
 
+  // Render Tariff Preferences Selector
+  const tariffContainer = document.getElementById("tariff-selector");
+  if (tariffContainer) {
+    const tariffTitle = document.getElementById("onboarding-tariff-title");
+    if (tariffTitle) tariffTitle.textContent = t.tariffLabel;
+    const tariffOptions = [
+      { value: "student", label: t.tariffStudents },
+      { value: "employee", label: t.tariffEmployees },
+      { value: "guest", label: t.tariffGuests },
+      { value: "external", label: t.tariffExternal }
+    ];
+    tariffContainer.innerHTML = "";
+    tariffOptions.forEach(opt => {
+      const currentTariff = settingsDraft ? (settingsDraft.tariff || state.tariff) : state.tariff;
+      const isActive = currentTariff === opt.value;
+      tariffContainer.innerHTML += `
+        <button data-action="change-tariff-preference" data-tariff="${opt.value}" class="tariff-option-btn py-2 px-1 text-xs font-semibold text-center rounded transition-colors focus:outline-none ${isActive ? "bg-price-badge text-primary font-bold shadow-sm" : "text-on-surface-variant dark:text-slate-300 opacity-70 hover:opacity-100"}">
+          ${opt.label}
+        </button>
+      `;
+    });
+  }
+
   // Render Allergen Accordion labels & checkboxes
   document.getElementById("onboarding-allergen-icon").innerHTML = getIconHTML('warning', 'text-[18px]');
   document.getElementById("onboarding-allergen-title").textContent = t.allergenTitle;
@@ -834,7 +997,7 @@ function initOnboardingUI() {
       return;
     }
 
-    savePreferences(draft.language, draft.selectedCanteens, draft.diet, draft.allergies);
+    savePreferences(draft.language, draft.selectedCanteens, draft.diet, draft.allergies, draft.tariff);
     localStorage.setItem("kstw_allergen_prompt_shown", "true");
     applyLanguage();
     settingsDraft = null;
@@ -885,6 +1048,18 @@ function changeDietPreference(diet) {
 }
 window.changeDietPreference = changeDietPreference;
 
+function changeTariffPreference(tariff) {
+  if (settingsDraft) {
+    settingsDraft.tariff = tariff;
+    initOnboardingUI();
+  } else {
+    state.tariff = tariff;
+    setTariff(tariff);
+    renderCanteenMenu();
+  }
+}
+window.changeTariffPreference = changeTariffPreference;
+
 function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
   state.isSettingsMenu = isSettingsMenu;
   settingsDraft = createSettingsDraft(state);
@@ -930,6 +1105,25 @@ function hideOnboarding() {
   if (onboardingFocusRelease) {
     onboardingFocusRelease();
     onboardingFocusRelease = null;
+  }
+}
+
+function showAppMenu() {
+  const modal = document.getElementById("app-menu-modal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  document.body.classList.add("overflow-hidden");
+  menuFocusRelease = trapFocus(modal);
+}
+
+function hideAppMenu() {
+  const modal = document.getElementById("app-menu-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  document.body.classList.remove("overflow-hidden");
+  if (menuFocusRelease) {
+    menuFocusRelease();
+    menuFocusRelease = null;
   }
 }
 
@@ -1425,26 +1619,6 @@ function renderSkeletons(count = 3) {
   `).join('');
 }
 
-const FAVORITES_KEY = 'kstw_favorites';
-
-function getFavorites() {
-  try { return JSON.parse(localStorage.getItem(FAVORITES_KEY)) || []; }
-  catch { return []; }
-}
-
-function toggleFavorite(dishId) {
-  const favs = getFavorites();
-  const idx = favs.indexOf(dishId);
-  if (idx === -1) favs.push(dishId);
-  else favs.splice(idx, 1);
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs));
-  return idx === -1; // true = wurde hinzugefügt
-}
-
-function _isFavorite(dishId) {
-  return getFavorites().includes(dishId);
-}
-
 function renderError() {
   const t = TRANSLATIONS[state.language];
   const dateContainer = document.getElementById("active-date-container");
@@ -1544,6 +1718,8 @@ function renderDateSelector(forceScroll = false) {
   daysWithDishes.forEach(day => {
     const formatted = formatDateSelector(day.date, todayStr, state.language);
     const isActive = day.date === state.activeDate;
+    const hasFav = (day.dishes || []).some(d => isFavoriteV2(cleanDishNameForFavorite(d)));
+    const starHTML = hasFav ? ' <span class="text-amber-500 dark:text-amber-300 font-extrabold text-sm align-middle">★</span>' : '';
     
     const btnClass = isActive 
       ? "bg-price-badge text-primary shadow-sm font-bold scale-[1.02]" 
@@ -1551,7 +1727,7 @@ function renderDateSelector(forceScroll = false) {
       
     selectorContainer.innerHTML += `
       <button data-action="set-active-date" data-date="${escapeHtml(day.date)}" aria-pressed="${isActive ? 'true' : 'false'}" class="flex-shrink-0 px-4 py-2 rounded-lg font-label-md text-label-md transition-all duration-200 ${btnClass}">
-        ${escapeHtml(formatted)}
+        ${escapeHtml(formatted)}${starHTML}
       </button>
     `;
   });
@@ -1886,14 +2062,16 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
     if (f) customFields[f.field_id] = f.value;
   });
 
-  let studentPrice = dish.price 
-    ? `${dish.price.toFixed(2).replace(".", ",")} €` 
-    : (customFields["price_1"] ? `${parseFloat(customFields["price_1"]).toFixed(2).replace(".", ",")} €` : "—");
-
-  if (isBuffet || customFields["preis_gramm"]) {
+  const isBuffetMeal = isBuffet || isBuffetDish(dish);
+  const tariffPrice = getDishPrice(dish, state.tariff);
+  let displayPrice = tariffPrice != null ? formatPrice(tariffPrice) : "—";
+  if (isBuffetMeal) {
     const grammUnit = t.per100g || "je 100g";
-    studentPrice = `${studentPrice} / ${grammUnit}`;
+    displayPrice = `${displayPrice} / ${grammUnit}`;
   }
+
+  const cleanName = cleanDishNameForFavorite(dish);
+  const isFav = isFavoriteV2(cleanName);
 
   const { brandBadgeHTML, subTagHTML } = getBrandAndSubTag(dish);
 
@@ -2017,19 +2195,36 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   const escapedMealName = escapeHtml(mealName);
   const escapedComponentsText = escapeHtml(componentsText);
   const escapedMealDesc = escapeHtml(mealDesc);
-  const escapedStudentPrice = escapeHtml(studentPrice);
+  const escapedDisplayPrice = escapeHtml(displayPrice);
 
+  const shareUrl = `${window.location.origin}${window.location.pathname}?date=${state.activeDate}&canteen=${canteenKey}&dish=${encodeURIComponent(cleanName)}`;
   const shareBtn = `
     <button 
       class="share-btn p-1.5 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors flex items-center justify-center active:scale-95"
-      data-dish-name="${escapeHtml(mealName)}"
-      data-dish-price="${escapeHtml(studentPrice || '')}"
+      data-dish-name="${escapedMealName}"
+      data-dish-price="${escapedDisplayPrice}"
       data-canteen-name="${escapeHtml(canteen.name)}"
-      aria-label="Teilen"
+      data-share-url="${escapeHtml(shareUrl)}"
+      aria-label="${escapeHtml(t.shareDishAria)}"
+      title="${escapeHtml(t.shareDishAria)}"
     >
       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
         <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+      </svg>
+    </button>
+  `;
+
+  const favBtn = `
+    <button 
+      type="button" 
+      class="fav-btn p-1.5 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors flex items-center justify-center active:scale-95"
+      data-dish-clean-name="${escapeHtml(cleanName)}"
+      aria-label="${isFav ? escapeHtml(t.favoriteAriaAdded) : escapeHtml(t.favoriteAriaNotAdded)}"
+      title="${isFav ? escapeHtml(t.favoriteAriaAdded) : escapeHtml(t.favoriteAriaNotAdded)}"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="fav-icon w-4 h-4" fill="${isFav ? '#ffd600' : 'none'}" stroke="${isFav ? '#ffd600' : 'currentColor'}" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
       </svg>
     </button>
   `;
@@ -2043,7 +2238,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
           <img src="${escapedImageUrl}" class="dish-image-el w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${escapedMealName}"/>
         </div>
         <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20">
-          <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
+          <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedDisplayPrice}</span>
         </div>
       </div>
     `;
@@ -2051,16 +2246,80 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
 
   const priceBadgeInline = !dish.image_url ? `
     <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0 ml-auto">
-      <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
+      <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedDisplayPrice}</span>
     </div>
   ` : "";
 
-  const cardBorderClass = isMeisterwerk 
+  let buffetCalcHTML = "";
+  if (isBuffetMeal) {
+    const p100 = getBuffetPricePer100g(dish, state.tariff);
+    buffetCalcHTML = `
+      <div class="buffet-calc-container mt-2 pt-2 border-t border-slate-200/60 dark:border-white/10 flex flex-wrap items-center gap-2 text-xs text-slate-700 dark:text-slate-300 bg-amber-50/50 dark:bg-[#122338]/60 p-2.5 rounded-xl">
+        <span class="font-bold flex items-center gap-1 text-primary-container dark:text-price-badge">
+          ${getIconHTML('calculate', 'text-sm')}
+          ${escapeHtml(t.buffetCalculator)}:
+        </span>
+        <div class="flex items-center gap-1.5">
+          <input 
+            type="number" 
+            min="0" 
+            max="2000" 
+            step="50" 
+            value="250" 
+            data-action="buffet-calc-input" 
+            data-price-per-100g="${p100}" 
+            class="buffet-grams-input w-16 px-1.5 py-0.5 rounded text-center border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 font-bold text-xs focus:ring-1 focus:ring-primary-container"
+            aria-label="${escapeHtml(t.weightInGrams)}"
+          />
+          <span class="font-medium text-slate-500">g =</span>
+          <span class="buffet-calc-result font-extrabold text-primary-container dark:text-price-badge text-sm">
+            ${formatPrice(calculateBuffetPrice(p100, 250))}
+          </span>
+        </div>
+        <div class="flex items-center gap-1 ml-auto">
+          <button data-action="buffet-quick" data-grams="150" class="px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 text-[10px] font-semibold">150g</button>
+          <button data-action="buffet-quick" data-grams="250" class="px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 text-[10px] font-semibold">250g</button>
+          <button data-action="buffet-quick" data-grams="400" class="px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 text-[10px] font-semibold">400g</button>
+        </div>
+      </div>
+    `;
+  }
+
+  let favoriteBannerHTML = "";
+  if (isFav) {
+    favoriteBannerHTML = `
+      <div class="flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-800/60 mb-1 w-fit shadow-xs">
+        <span class="text-amber-500 font-extrabold text-sm">★</span>
+        <span>${escapeHtml(t.favoriteBadge)}</span>
+      </div>
+    `;
+  }
+
+  let allergenExcludedBannerHTML = "";
+  if (dish._isAllergenExcluded) {
+    allergenExcludedBannerHTML = `
+      <div class="flex items-center gap-1 text-xs font-semibold text-rose-800 dark:text-rose-300 bg-rose-100/90 dark:bg-rose-950/60 px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-900/60 mb-1 w-fit">
+        ${getIconHTML('warning', 'text-xs')}
+        <span>${escapeHtml(t.hiddenByAllergenFilter)}</span>
+      </div>
+    `;
+  }
+
+  let cardBorderClass = isMeisterwerk 
     ? "border-amber-300/90 dark:border-amber-500/40 shadow-[0_2px_14px_-2px_rgba(232,185,35,0.18)]" 
     : "border-slate-200/70 dark:border-white/[0.08] shadow-sm hover:shadow-md";
 
+  if (isFav) {
+    cardBorderClass += " ring-2 ring-amber-400 dark:ring-amber-500 shadow-md";
+  }
+  if (dish._isAllergenExcluded) {
+    cardBorderClass += " opacity-75 border-dashed border-rose-300 dark:border-rose-900/60";
+  }
+
   return `
-    <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border ${cardBorderClass}">
+    <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border ${cardBorderClass}" data-dish-clean-name="${escapeHtml(cleanName)}">
+      ${favoriteBannerHTML}
+      ${allergenExcludedBannerHTML}
       <div class="flex justify-between items-start gap-3">
         <div class="flex-1 flex flex-col gap-2.5 min-w-0">
           <div class="flex items-center gap-1.5 flex-wrap w-full">
@@ -2072,6 +2331,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
             <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
             ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" data-action="toggle-clamp" role="button" tabindex="0" aria-expanded="false">${escapedComponentsText}</p>` : ""}
             ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
+            ${buffetCalcHTML}
           </div>
           ${servingMetaHTML}
         </div>
@@ -2084,6 +2344,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
           ${conflictBadge}
         </div>
         <div class="flex items-center gap-1.5 ml-auto">
+          ${favBtn}
           ${shareBtn}
           ${allergenIcons}
         </div>
@@ -2098,14 +2359,17 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
     if (f) customFields[f.field_id] = f.value;
   });
 
-  let rawPrice = dish.price 
-    ? `${dish.price.toFixed(2).replace(".", ",")} €` 
-    : (customFields["price_1"] ? `${parseFloat(customFields["price_1"]).toFixed(2).replace(".", ",")} €` : "—");
+  const isBuffetMeal = isBuffet || isBuffetDish(dish);
+  const tariffPrice = getDishPrice(dish, state.tariff);
+  let rawPrice = tariffPrice != null ? formatPrice(tariffPrice) : "—";
 
-  if (isBuffet || customFields["preis_gramm"]) {
+  if (isBuffetMeal) {
     const grammUnit = t.per100g || "je 100g";
     rawPrice = `${rawPrice} / ${grammUnit}`;
   }
+
+  const cleanName = cleanDishNameForFavorite(dish);
+  const isFav = isFavoriteV2(cleanName);
 
   const rawDPName = customFields["CUSTOM_DPNAME"] || "";
   const cleanedDPName = cleanDPName(rawDPName);
@@ -2183,13 +2447,37 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
     `;
   }
 
+  const favBtn = `
+    <button 
+      type="button" 
+      class="fav-btn p-1 rounded-full text-slate-400 hover:text-amber-500 transition-colors active:scale-95" 
+      data-dish-clean-name="${escapeHtml(cleanName)}"
+      aria-label="${isFav ? escapeHtml(t.favoriteAriaAdded) : escapeHtml(t.favoriteAriaNotAdded)}"
+      title="${isFav ? escapeHtml(t.favoriteAriaAdded) : escapeHtml(t.favoriteAriaNotAdded)}"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="fav-icon w-3.5 h-3.5" fill="${isFav ? '#ffd600' : 'none'}" stroke="${isFav ? '#ffd600' : 'currentColor'}" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+      </svg>
+    </button>
+  `;
+
   const escapedMealName = escapeHtml(mealName);
   const escapedPrice = escapeHtml(rawPrice);
 
+  let cardClass = "bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-3 border border-slate-200/70 dark:border-white/[0.08] flex flex-col justify-between gap-2 hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 shadow-sm hover:shadow-md";
+  if (isFav) {
+    cardClass += " ring-2 ring-amber-400 dark:ring-amber-500 shadow-md";
+  }
+  if (dish._isAllergenExcluded) {
+    cardClass += " opacity-75 border-dashed border-rose-300 dark:border-rose-900/60";
+  }
+
   return `
-    <div class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-3 border border-slate-200/70 dark:border-white/[0.08] flex flex-col justify-between gap-2 hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 shadow-sm hover:shadow-md">
+    <div class="${cardClass}" data-dish-clean-name="${escapeHtml(cleanName)}">
       <div class="flex justify-between items-start gap-2">
-        <h4 class="font-headline text-[13px] sm:text-[14px] text-text-heading dark:text-white font-bold leading-snug line-clamp-2">${escapedMealName}</h4>
+        <h4 class="font-headline text-[13px] sm:text-[14px] text-text-heading dark:text-white font-bold leading-snug line-clamp-2">
+          ${isFav ? '<span class="text-amber-500 font-extrabold mr-1">★</span>' : ''}${escapedMealName}
+        </h4>
         <div class="bg-price-badge shadow-sm rounded-full px-2 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0">
           <span class="font-label-sm text-[11px] text-primary font-extrabold tracking-wide">${escapedPrice}</span>
         </div>
@@ -2201,7 +2489,10 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
           ${undeclaredBadge}
           ${conflictBadge}
         </div>
-        ${allergenIcons}
+        <div class="flex items-center gap-1 ml-auto">
+          ${favBtn}
+          ${allergenIcons}
+        </div>
       </div>
     </div>
   `;
@@ -2289,6 +2580,7 @@ function renderCanteenMenu() {
     });
 
     // Apply Diet Filter
+    // Apply Diet Filter
     if (state.diet !== "all") {
       dishes = dishes.filter(dish => {
         const dType = getDishDietType(dish);
@@ -2298,15 +2590,30 @@ function renderCanteenMenu() {
       });
     }
 
-    // Apply Allergy Filter
+    // Evaluate Allergy Filter & Transparency (F1)
+    let allergenExcludedCount = 0;
+    const isRevealed = state.hiddenAllergenRevealedCanteens.has(canteenKey);
+
     if (state.allergies && state.allergies.length > 0) {
-      dishes = dishes.filter(dish => !shouldExcludeDish(dish, state.allergies));
+      const excludedDishes = [];
+      const allowedDishes = [];
+      dishes.forEach(dish => {
+        if (shouldExcludeDish(dish, state.allergies)) {
+          excludedDishes.push({ ...dish, _isAllergenExcluded: true });
+        } else {
+          allowedDishes.push(dish);
+        }
+      });
+      allergenExcludedCount = excludedDishes.length;
+
+      if (isRevealed) {
+        dishes = [...allowedDishes, ...excludedDishes];
+      } else {
+        dishes = allowedDishes;
+      }
     }
 
-    if (dishes.length === 0) return;
-
-    // Determine opening hours and status
-    // Determine opening hours and status
+    // Determine opening hours and status (F5)
     const dayOfWeek = getDayOfWeekFromIso(state.activeDate);
     const dayHours = getCanteenHoursForDay(canteenKey, dayOfWeek, canteen, state.language);
     let startHour = dayHours.startHour;
@@ -2321,10 +2628,87 @@ function renderCanteenMenu() {
     }
 
     const openStatus = getCanteenOpenStatus({ isOpenToday: dayHours.isOpenToday, startHour, endHour }, currentHour);
-    const isCanteenOpen = isViewingToday ? openStatus.isOpen : true;
-    const opensLater = isViewingToday ? openStatus.opensLater : false;
-
     const serviceWindowText = serviceWindow ? serviceWindow.formatted : openingHoursText;
+
+    let statusBadgeClass = "bg-rose-50 text-rose-800 border-rose-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800";
+    let statusText = t.closed;
+
+    if (!dayHours.isOpenToday) {
+      statusText = t.closedToday || "Heute geschlossen";
+    } else if (openStatus.isOpen) {
+      if (openStatus.minutesUntilClose !== null && openStatus.minutesUntilClose <= 45 && openStatus.minutesUntilClose > 0) {
+        statusBadgeClass = "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
+        statusText = `${t.nowOpen} · ${t.closesIn.replace('{m}', openStatus.minutesUntilClose)}`;
+      } else {
+        statusBadgeClass = "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800";
+        statusText = t.nowOpen;
+      }
+    } else if (openStatus.opensLater) {
+      statusBadgeClass = "bg-sky-50 text-sky-800 border-sky-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800";
+      if (startHour != null && !isNaN(startHour)) {
+        const h = Math.floor(startHour).toString().padStart(2, "0");
+        const m = Math.round((startHour % 1) * 60).toString().padStart(2, "0");
+        statusText = t.opensAt.replace('{time}', `${h}:${m}`);
+      } else {
+        statusText = t.opensLater;
+      }
+    }
+
+    if (dishes.length === 0) {
+      // If all dishes were excluded by allergen filter, show canteen card with notification (F1)
+      if (allergenExcludedCount > 0) {
+        renderedCanteensCount++;
+        const canteenSection = `
+          <div class="canteen-card w-full bg-white dark:bg-[#122338] rounded-3xl p-6 border border-slate-200/80 dark:border-white/[0.08] shadow-[0_4px_20px_-4px_rgba(0,39,62,0.06)] flex flex-col gap-4">
+            <header class="flex flex-col gap-2">
+              <div class="flex justify-between items-start gap-2">
+                <div class="min-w-0">
+                  <h2 class="font-headline text-[18px] text-text-heading dark:text-white font-bold leading-tight">${escapeHtml(canteen.name)}</h2>
+                  <p class="font-body-md text-body-md text-slate-600 dark:text-slate-300">${escapeHtml(canteen.strasse)}, ${escapeHtml(canteen.plz)} ${escapeHtml(canteen.ort)}</p>
+                </div>
+                ${isViewingToday ? `
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusBadgeClass} flex-shrink-0">
+                  ${statusText}
+                </span>
+                ` : ""}
+              </div>
+              <div class="flex items-center gap-1 text-slate-600 dark:text-slate-300 font-body-sm text-[12px] opacity-90">
+                ${getIconHTML('schedule', 'text-[16px]')}
+                <span>${serviceWindowText}</span>
+              </div>
+            </header>
+            <div class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/10 flex flex-col items-center justify-center text-center gap-3">
+              <div class="text-amber-500">${getIconHTML('warning', 'text-2xl')}</div>
+              <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-xs leading-relaxed">
+                ${escapeHtml(t.allDishesHiddenByAllergens)}
+              </p>
+              <button type="button" data-action="toggle-revealed-allergens" data-canteen="${escapeHtml(canteenKey)}" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-bold hover:opacity-90 active:scale-95 transition-all shadow-sm">
+                ${escapeHtml(t.showHiddenDishes)}
+              </button>
+            </div>
+          </div>
+        `;
+
+        if (numCols > 1) {
+          let minColIdx = 0;
+          let minColHeight = colHeights[0];
+          for (let i = 1; i < numCols; i++) {
+            if (colHeights[i] < minColHeight) {
+              minColHeight = colHeights[i];
+              minColIdx = i;
+            }
+          }
+          const colContainer = document.getElementById(`canteen-col-${minColIdx}`);
+          if (colContainer) {
+            colContainer.innerHTML += canteenSection;
+            colHeights[minColIdx] += 180;
+          }
+        } else {
+          feedContainer.innerHTML += canteenSection;
+        }
+      }
+      return;
+    }
 
     // Filter dishes by serving time if viewing today
     const availableDishes = dishes.filter(dish => {
@@ -2360,14 +2744,20 @@ function renderCanteenMenu() {
 
     renderedCanteensCount++;
 
-    const statusBadgeClass = isCanteenOpen 
-      ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" 
-      : (opensLater 
-        ? "bg-sky-50 text-sky-800 border-sky-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" 
-        : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800");
-    const statusText = isCanteenOpen 
-      ? t.open 
-      : (opensLater ? t.opensLater : t.closed);
+    let transparencyBannerHTML = "";
+    if (allergenExcludedCount > 0) {
+      transparencyBannerHTML = `
+        <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-200 mb-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-amber-600 dark:text-amber-400 font-bold">ℹ</span>
+            <span class="truncate">${escapeHtml(t.allergensHiddenBanner.replace('{count}', allergenExcludedCount))}</span>
+          </div>
+          <button type="button" data-action="toggle-revealed-allergens" data-canteen="${escapeHtml(canteenKey)}" class="font-bold underline text-xs text-amber-800 dark:text-amber-300 hover:text-amber-950 dark:hover:text-amber-100 flex-shrink-0 cursor-pointer">
+            ${escapeHtml(isRevealed ? t.hideHiddenDishes : t.showHiddenDishes)}
+          </button>
+        </div>
+      `;
+    }
 
     let dishesHTML = "";
 
@@ -2454,6 +2844,7 @@ function renderCanteenMenu() {
 
         <!-- Modular Dishes Sections -->
         <div class="flex flex-col gap-3">
+          ${transparencyBannerHTML}
           ${dishesHTML}
         </div>
       </div>

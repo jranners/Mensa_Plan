@@ -199,3 +199,108 @@ export function extractDishCounter(dish, canteenKey = '') {
 
   return dishCounter;
 }
+
+/**
+ * Normalizes dish name for stable favorites storage across weekly menu updates.
+ * Strips allergen brackets, kitchen markers ([TK], [Eigenproduktion], etc.) and normalizes whitespace.
+ * @param {object|string} dish
+ * @returns {string}
+ */
+export function cleanDishNameForFavorite(dish) {
+  const raw = (dish && typeof dish === 'object') ? (dish.name_de || dish.name_en || '') : (typeof dish === 'string' ? dish : '');
+  if (!raw) return '';
+  return raw
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s*\[[^\]]*\]\s*/g, ' ')
+    .replace(/\s+(Abendessen|TK|Eigenproduktion|Eigenprodukt|Neu|trocken|Vegan|Vegetarisch)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Parses numeric price from string or number, supporting comma and dot decimals.
+ * @param {string|number|null} val
+ * @returns {number|null}
+ */
+export function parsePrice(val) {
+  if (val == null) return null;
+  if (typeof val === 'number') return isNaN(val) ? null : val;
+  const str = String(val).trim().replace(',', '.');
+  const num = parseFloat(str);
+  return isNaN(num) ? null : num;
+}
+
+/**
+ * Extracts tariff-specific price for a dish.
+ * - 'student' -> dish.price
+ * - 'employee' -> price_2
+ * - 'guest' -> price_3
+ * - 'external' -> price_4 (if > 0, else fallback to guest)
+ * @param {object} dish
+ * @param {'student'|'employee'|'guest'|'external'} [tariff='student']
+ * @returns {number|null}
+ */
+export function getDishPrice(dish, tariff = 'student') {
+  if (!dish) return null;
+  const cf = getCustomFields(dish);
+  if (tariff === 'employee') {
+    const p2 = parsePrice(cf['price_2']);
+    if (p2 != null && p2 > 0) return p2;
+  } else if (tariff === 'guest') {
+    const p3 = parsePrice(cf['price_3']);
+    if (p3 != null && p3 > 0) return p3;
+  } else if (tariff === 'external') {
+    const p4 = parsePrice(cf['price_4']);
+    if (p4 != null && p4 > 0) return p4;
+    const p3 = parsePrice(cf['price_3']);
+    if (p3 != null && p3 > 0) return p3;
+  }
+  return parsePrice(dish.price);
+}
+
+/**
+ * Formats a numeric price into localized euro string (e.g. 2.5 -> "2,50 €")
+ * @param {number|null} amount
+ * @returns {string}
+ */
+export function formatPrice(amount) {
+  if (amount == null || isNaN(amount)) return '';
+  return `${amount.toFixed(2).replace('.', ',')} €`;
+}
+
+/**
+ * Detects whether a dish is a buffet dish (sold by weight per 100g).
+ * @param {object} dish
+ * @returns {boolean}
+ */
+export function isBuffetDish(dish) {
+  if (!dish) return false;
+  const cf = getCustomFields(dish);
+  if (cf['preis_gramm'] && String(cf['preis_gramm']) === '100') return true;
+  const cat = (dish.category && dish.category.name_de) ? dish.category.name_de.toLowerCase() : '';
+  const name = (dish.name_de || '').toLowerCase();
+  return cat.includes('buffet') || name.includes('buffet');
+}
+
+/**
+ * Returns price per 100g for buffet dishes.
+ * @param {object} dish
+ * @param {'student'|'employee'|'guest'|'external'} [tariff='student']
+ * @returns {number}
+ */
+export function getBuffetPricePer100g(dish, tariff = 'student') {
+  const p = getDishPrice(dish, tariff);
+  return p != null ? p : 1.10;
+}
+
+/**
+ * Calculates total buffet cost for a given weight in grams.
+ * @param {number} pricePer100g
+ * @param {number} grams
+ * @returns {number}
+ */
+export function calculateBuffetPrice(pricePer100g, grams) {
+  if (!pricePer100g || !grams || grams <= 0) return 0;
+  return Math.round(pricePer100g * (grams / 100) * 100) / 100;
+}

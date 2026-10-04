@@ -79,7 +79,8 @@ describe('Storage Module & Scoped App Reset', () => {
       language: 'de',
       selectedCanteens: ['unimensa', 'bistro_uni'],
       diet: 'vegetarian',
-      allergies: ['11', '13']
+      allergies: ['11', '13'],
+      tariff: 'employee'
     };
 
     const draft = createSettingsDraft(state);
@@ -88,7 +89,8 @@ describe('Storage Module & Scoped App Reset', () => {
       language: 'de',
       selectedCanteens: ['unimensa', 'bistro_uni'],
       diet: 'vegetarian',
-      allergies: ['11', '13']
+      allergies: ['11', '13'],
+      tariff: 'employee'
     });
 
     // Mutating draft should not affect state
@@ -96,10 +98,12 @@ describe('Storage Module & Scoped App Reset', () => {
     draft.allergies.push('14');
     draft.diet = 'vegan';
     draft.language = 'en';
+    draft.tariff = 'guest';
 
     expect(state.selectedCanteens).toEqual(['unimensa', 'bistro_uni']);
     expect(state.allergies).toEqual(['11', '13']);
     expect(state.diet).toBe('vegetarian');
     expect(state.language).toBe('de');
+    expect(state.tariff).toBe('employee');
   });
 });
