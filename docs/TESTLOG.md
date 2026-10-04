@@ -40,3 +40,14 @@
   - `npm run build:css` (Tailwind Build erfolgreich).
 - **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v46` aktualisiert.
 - **Offene Probleme**: Keine.
+
+## Paket L1: Datum, Zeit & Woche – Zentralisierung & Zeitzonensicherheit (04.10.2026)
+- **Geprüft**:
+  - `src/lib/dates.js`: `getBerlinTodayDate`, `parseIsoParts`, `getDayOfWeekFromIso`, `getFetchDateRange`, `formatDateSelector`, `formatDateHeader`, `pickActiveDate`.
+  - `tests/dates.test.js`: 14 Unittests für Berlin-Zeitzonenbestimmung (Sommerzeit/Winterzeit über UTC-Grenzen), UTC-Parsing-Sicherheit bei ISO-Strings, Wochentagsbestimmung (Schaltjahre, Jahreswechsel), 14-Tage-Berechnung bei Sonntagen und Monatsgrenzen, und aktive Datumswahl (Wochenende, Feierabend, Präferenz-Erhalt).
+  - Integration in `app.js`: 3-fache Duplizierung der aktiven Datumsauswahl eliminiert, Datumsleiste und Header auf zeitzonensichere Helfer umgestellt.
+  - `node --check` auf `src/lib/dates.js`, `app.js`, `sw.js`.
+  - `npm test` (38/38 Vitest Tests bestanden).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v47` aktualisiert.
+- **Offene Probleme**: Keine.

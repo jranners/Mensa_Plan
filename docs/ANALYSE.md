@@ -33,14 +33,14 @@ Stand: 04.10.2026. Dieses Dokument ist für einen Coding-Agenten gedacht. Jeder 
 - [ ] `resetApp` ruft `localStorage.clear()` auf. Löscht auch Favoriten und Theme, der Service Worker bleibt bestehen. Gezielt nur `kstw_*`-Schlüssel löschen und optional SW-Caches leeren.
 - [ ] Fehlende Übersetzungen: Viele Texte haben Fallbacks wie `t.updateAvailableTitle || '...'`, also fehlen wohl Schlüssel in `translations.js`. Englische Nutzer sehen dann Deutsch. `alert()`-Aufrufe im Onboarding sind zudem nur zweisprachig hartcodiert. Durch Toasts ersetzen.
 - [ ] Barrierefreiheit: Keine ARIA-Rollen in den gelesenen Templates, Modals ohne Fokus-Trap und Escape-Handler, klickbare `div`s (Allergene) per Tastatur nicht erreichbar. Auf `button` umstellen, `role="dialog"` und `aria-modal` setzen, Kontraste in Light und Dark prüfen.
-- [ ] Zeitzone: `getLocalIsoDate` nutzt den Offset des Geräts. `new Date('YYYY-MM-DD')` wird als UTC geparst und `getDay()` lokal ausgewertet. Auf `Europe/Berlin` per `Intl.DateTimeFormat` fest umstellen und Datum aus Y-M-D-Teilen bauen.
+- [x] Zeitzone: Auf `Europe/Berlin` per `Intl.DateTimeFormat` ('en-CA') in `src/lib/dates.js` umgestellt. ISO-Datumsstrings werden ohne UTC-Verschiebungsfehler zerlegt (`parseIsoParts`), Wochentage und Header-Daten sind zeitzonenunabhängig korrekt.
 - [ ] Antwort des Menü-Abrufs wird nicht validiert (Array, erwartete Felder). Ändert der Betreiber das Schema, entsteht ein stiller Render-Fehler. Schema-Check mit klarer Fehlermeldung ergänzen.
 - [ ] `localStorage`-Schlüssel (`kstw_lang`, `kstw_diet`, `kstw_canteens`, `kstw_allergies`, `kstw_prefs_saved`, `kstw_menu_cache`, `kstw_menu_cache_time`, `kstw_announcements_cache`, `kstw_theme`, `kstw_allergen_prompt_shown`, `kstw_updated_successfully`) haben keine Schema-Version. Versionsfeld und Migration ergänzen.
 
 ## Wartbarkeit und Code-Qualität
 
-- [ ] Logik zur Wahl des aktiven Datums steht dreimal im Code (`fetchAndRender` zweimal, `updateMenuDataBackground` einmal). In eine Funktion auslagern.
-- [ ] Montags-Berechnung der Woche steht mehrfach im Code. In Hilfsfunktion auslagern, Sonntag und Monatsgrenzen testen.
+- [x] Logik zur Wahl des aktiven Datums steht dreimal im Code: In zentrale Funktion `pickActiveDate` in `src/lib/dates.js` ausgelagert, getestet und eingebunden.
+- [x] Montags-Berechnung der Woche steht mehrfach im Code: In Hilfsfunktion `getFetchDateRange` in `src/lib/dates.js` ausgelagert. Sonntag, Monatsgrenzen und 14-Tage-Spanne mit Vitest getestet.
 - [ ] Parsing von `dish_info` (Zeit und Theke), `cleanDPName` und der Aufbau von `customFields` kommen mehrfach vor. Zentralisieren.
 - [ ] `getDishAllergens` läuft pro Gericht mit mehreren Regex bei jedem Render, auch für jeden Tag im Datumsselektor. Ergebnis pro Gericht-ID cachen.
 - [ ] `app.js` hat über 3000 Zeilen. Aufteilen in ES-Module (api, cache, filters, i18n, render, settings, favorites, sw-update), kleiner Build mit esbuild oder Vite.

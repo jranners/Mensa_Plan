@@ -13,10 +13,19 @@ import {
 import { getDishDietType } from './src/lib/diet.js';
 import { getCustomFields, stripAllergenCodes, cleanDPName, isPureDessert } from './src/lib/dish.js';
 import { escapeHtml } from './src/lib/html.js';
+import {
+  getBerlinTodayDate,
+  parseIsoParts,
+  getDayOfWeekFromIso,
+  getFetchDateRange,
+  formatDateSelector,
+  formatDateHeader,
+  pickActiveDate
+} from './src/lib/dates.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 function getLocalIsoDate(date = new Date()) {
-  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  return getBerlinTodayDate(date);
 }
 
 function getIconHTML(name, classes = "") {
@@ -1004,8 +1013,25 @@ function hasAvailableDishesForDate(dateStr) {
 
 function hasValidCurrentOrFutureMenuData() {
   if (!state.menuData || !Array.isArray(state.menuData) || state.menuData.length === 0) return false;
-  const todayIso = getLocalIsoDate();
+  const todayIso = getBerlinTodayDate();
   return state.menuData.some(d => d.date >= todayIso && d.dishes && d.dishes.length > 0);
+}
+
+function updateActiveDate(previousActiveDate = null) {
+  const daysWithDishes = state.menuData
+    ? state.menuData
+        .filter(d => hasDishesForSelectedCanteensAndDiet(d.date) && hasAvailableDishesForDate(d.date))
+        .map(d => d.date)
+    : [];
+  const allAvailableDates = (state.menuData || []).map(d => d.date);
+  const todayIso = getBerlinTodayDate();
+
+  state.activeDate = pickActiveDate({
+    datesWithMeals: daysWithDishes,
+    allAvailableDates,
+    todayIso,
+    previousActiveDate
+  });
 }
 
 async function fetchAndRender(forceNetwork = false) {
@@ -1014,26 +1040,7 @@ async function fetchAndRender(forceNetwork = false) {
   
   if (hasCache && hasValidCurrentOrFutureMenuData()) {
     // We have valid current/future cached data, let's determine the active date and render immediately!
-    const daysWithDishes = state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date));
-    if (daysWithDishes.length > 0) {
-      const todayIso = getLocalIsoDate();
-      const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
-      
-      if (hasTodayWithMeals) {
-        state.activeDate = todayIso;
-      } else {
-        const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
-        const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
-        if (nextAvailableDay) {
-          state.activeDate = nextAvailableDay.date;
-        } else {
-          const futureDays = sortedDays.filter(d => d.date >= todayIso);
-          state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
-        }
-      }
-    } else {
-      state.activeDate = getLocalIsoDate();
-    }
+    updateActiveDate();
     
     // Render from cache
     renderApp(true);
@@ -1051,18 +1058,11 @@ async function fetchAndRender(forceNetwork = false) {
     renderSkeletons();
     removeSplash();
     
-    const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(today.getTime());
-    monday.setDate(diff);
-    
-    const start_date = monday;
-    const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
+    const { startDate, endDate } = getFetchDateRange();
 
     try {
       const [rawData, rawAnnouncements] = await Promise.all([
-        fetchWeekMenuData(start_date, end_date),
+        fetchWeekMenuData(startDate, endDate),
         fetchAnnouncements()
       ]);
 
@@ -1076,27 +1076,7 @@ async function fetchAndRender(forceNetwork = false) {
       }
       state.isOfflineMode = false;
       
-      const daysWithDishes = state.menuData ? state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date)) : [];
-      if (daysWithDishes.length > 0) {
-        const todayIso = getLocalIsoDate();
-        const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
-        
-        if (hasTodayWithMeals) {
-          state.activeDate = todayIso;
-        } else {
-          const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
-          const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
-          if (nextAvailableDay) {
-            state.activeDate = nextAvailableDay.date;
-          } else {
-            const futureDays = sortedDays.filter(d => d.date >= todayIso);
-            state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
-          }
-        }
-      } else {
-        state.activeDate = getLocalIsoDate();
-      }
-      
+      updateActiveDate();
       renderApp(true);
     } catch (err) {
       console.error("Blocking fetch completely failed:", err);
@@ -1114,18 +1094,11 @@ async function updateMenuDataBackground(isManual = false) {
     renderOfflineBanner();
   }
 
-  const today = new Date();
-  const day = today.getDay();
-  const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(today.getTime());
-  monday.setDate(diff);
-  
-  const start_date = monday;
-  const end_date = new Date(monday.getTime() + 13 * 24 * 60 * 60 * 1000);
+  const { startDate, endDate } = getFetchDateRange();
 
   try {
     const [rawData, rawAnnouncements] = await Promise.all([
-      fetchWeekMenuData(start_date, end_date),
+      fetchWeekMenuData(startDate, endDate),
       fetchAnnouncements()
     ]);
 
@@ -1139,33 +1112,7 @@ async function updateMenuDataBackground(isManual = false) {
     }
     state.isOfflineMode = false;
     
-    // Preserve previously selected active date if available in updated data
-    const previousActiveDate = state.activeDate;
-    const hasPreviousDateInNewData = state.menuData && state.menuData.some(d => d.date === previousActiveDate);
-
-    if (!previousActiveDate || !hasPreviousDateInNewData) {
-      const daysWithDishes = state.menuData ? state.menuData.filter(d => hasDishesForSelectedCanteensAndDiet(d.date)) : [];
-      if (daysWithDishes.length > 0) {
-        const todayIso = getLocalIsoDate();
-        const hasTodayWithMeals = daysWithDishes.some(d => d.date === todayIso) && hasAvailableDishesForDate(todayIso);
-        
-        if (hasTodayWithMeals) {
-          state.activeDate = todayIso;
-        } else {
-          const sortedDays = [...daysWithDishes].sort((a, b) => a.date.localeCompare(b.date));
-          const nextAvailableDay = sortedDays.find(d => d.date >= todayIso && hasAvailableDishesForDate(d.date));
-          if (nextAvailableDay) {
-            state.activeDate = nextAvailableDay.date;
-          } else {
-            const futureDays = sortedDays.filter(d => d.date >= todayIso);
-            state.activeDate = futureDays.length > 0 ? futureDays[0].date : sortedDays[0].date;
-          }
-        }
-      }
-    } else {
-      state.activeDate = previousActiveDate;
-    }
-    
+    updateActiveDate(state.activeDate);
     renderApp(false);
   } catch (err) {
     console.error("Background fetch failed:", err);
@@ -1226,8 +1173,8 @@ async function fetchWeekMenuData(startDate, endDate) {
 
   const payload = {
     "p_organization_id": SUPABASE_CONFIG.orgId,
-    "p_start_date": getLocalIsoDate(startDate),
-    "p_end_date": getLocalIsoDate(endDate)
+    "p_start_date": typeof startDate === "string" ? startDate : getBerlinTodayDate(startDate),
+    "p_end_date": typeof endDate === "string" ? endDate : getBerlinTodayDate(endDate)
   };
 
   try {
@@ -1419,23 +1366,10 @@ function renderDateSelector(forceScroll = false) {
     return;
   }
 
-  const todayStr = getLocalIsoDate();
+  const todayStr = getBerlinTodayDate();
 
   daysWithDishes.forEach(day => {
-    const date = new Date(day.date);
-    const dayNames = {
-      de: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
-      en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    };
-    
-    const dayStr = dayNames[state.language][date.getDay()];
-    const dateNum = date.getDate();
-    
-    const isToday = day.date === todayStr;
-    const formatted = isToday 
-      ? (state.language === "de" ? "Heute" : "Today") 
-      : `${dayStr} ${dateNum}`;
-      
+    const formatted = formatDateSelector(day.date, todayStr, state.language);
     const isActive = day.date === state.activeDate;
     
     const btnClass = isActive 
@@ -1444,7 +1378,7 @@ function renderDateSelector(forceScroll = false) {
       
     selectorContainer.innerHTML += `
       <button data-action="set-active-date" data-date="${escapeHtml(day.date)}" class="flex-shrink-0 px-4 py-2 rounded-lg font-label-md text-label-md transition-all duration-200 ${btnClass}">
-        ${formatted}
+        ${escapeHtml(formatted)}
       </button>
     `;
   });
@@ -1773,9 +1707,7 @@ function getBrandAndSubTag(dish) {
 
 function getDateHeaderHTML() {
   if (!state.activeDate) return "";
-  const dateObj = new Date(state.activeDate);
-  const options = { weekday: 'long', day: 'numeric', month: 'long' };
-  const formattedDate = dateObj.toLocaleDateString(state.language === "de" ? "de-DE" : "en-US", options);
+  const formattedDate = formatDateHeader(state.activeDate, state.language);
   const prefix = state.language === "de" ? "Speiseplan für" : "Menu for";
   return `
     <div class="flex items-center gap-3 text-text-heading px-1 py-3 mb-2 mt-2 border-b border-slate-200/70 dark:border-white/5 animate-fade-in">
@@ -1784,7 +1716,7 @@ function getDateHeaderHTML() {
       </div>
       <div>
         <span class="text-[10px] font-bold text-slate-500 dark:text-gray-400/60 uppercase tracking-widest block leading-none mb-1">${prefix}</span>
-        <h2 class="text-base md:text-lg font-headline font-extrabold text-text-heading dark:text-white leading-tight">${formattedDate}</h2>
+        <h2 class="text-base md:text-lg font-headline font-extrabold text-text-heading dark:text-white leading-tight">${escapeHtml(formattedDate)}</h2>
       </div>
     </div>
   `;
