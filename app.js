@@ -22,6 +22,7 @@ import {
   formatDateHeader,
   pickActiveDate
 } from './src/lib/dates.js';
+import { needsRefresh } from './src/lib/lifecycle.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 function getLocalIsoDate(date = new Date()) {
@@ -56,7 +57,9 @@ let state = {
   isUpdatingBackground: false,
   isManualUpdating: false,
   lastCacheTime: null,
-  allergies: []
+  allergies: [],
+  lastRenderedDay: null,
+  lastLifecycleCheckTime: 0
 };
 
 let onboardingInitialized = false;
@@ -364,6 +367,17 @@ window.addEventListener("DOMContentLoaded", async () => {
         renderCanteenMenu();
       }
     }, 150);
+  });
+
+  // App Lifecycle Listeners (tab visibility resume, back/forward cache restore)
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      handleAppResume();
+    }
+  });
+
+  window.addEventListener("pageshow", () => {
+    handleAppResume();
   });
 });
 
@@ -1041,6 +1055,8 @@ async function fetchAndRender(forceNetwork = false) {
   if (hasCache && hasValidCurrentOrFutureMenuData()) {
     // We have valid current/future cached data, let's determine the active date and render immediately!
     updateActiveDate();
+    state.lastRenderedDay = getBerlinTodayDate();
+    state.lastLifecycleCheckTime = Date.now();
     
     // Render from cache
     renderApp(true);
@@ -1077,6 +1093,8 @@ async function fetchAndRender(forceNetwork = false) {
       state.isOfflineMode = false;
       
       updateActiveDate();
+      state.lastRenderedDay = getBerlinTodayDate();
+      state.lastLifecycleCheckTime = Date.now();
       renderApp(true);
     } catch (err) {
       console.error("Blocking fetch completely failed:", err);
@@ -1113,6 +1131,8 @@ async function updateMenuDataBackground(isManual = false) {
     state.isOfflineMode = false;
     
     updateActiveDate(state.activeDate);
+    state.lastRenderedDay = getBerlinTodayDate();
+    state.lastLifecycleCheckTime = Date.now();
     renderApp(false);
   } catch (err) {
     console.error("Background fetch failed:", err);
@@ -1121,6 +1141,35 @@ async function updateMenuDataBackground(isManual = false) {
     state.isUpdatingBackground = false;
     state.isManualUpdating = false;
     renderOfflineBanner();
+  }
+}
+
+function handleAppResume() {
+  if (!hasPreferences()) return;
+
+  const now = Date.now();
+  const decision = needsRefresh(
+    state.lastCacheTime,
+    now,
+    state.lastRenderedDay,
+    state.lastLifecycleCheckTime
+  );
+
+  if (decision.throttled) return;
+
+  state.lastLifecycleCheckTime = now;
+  state.lastRenderedDay = decision.currentBerlinDay;
+
+  if (decision.shouldUpdateActiveDate) {
+    updateActiveDate();
+  }
+
+  if (decision.shouldRerender) {
+    renderApp(false);
+  }
+
+  if (decision.shouldFetchBackground) {
+    updateMenuDataBackground();
   }
 }
 

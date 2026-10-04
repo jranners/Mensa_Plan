@@ -3,6 +3,7 @@ import { SVG_ICONS } from '../data/icons.js';
 import { CANTEENS } from '../data/canteens.js';
 import { TRANSLATIONS } from '../data/translations.js';
 import { STANDARD_ALLERGENS } from '../data/allergens.js';
+import { needsRefresh } from '../src/lib/lifecycle.js';
 
 describe('ES Module Smoke Test', () => {
   it('loads SVG_ICONS properly', () => {
@@ -28,5 +29,9 @@ describe('ES Module Smoke Test', () => {
     expect(STANDARD_ALLERGENS).toBeDefined();
     expect(STANDARD_ALLERGENS['11']).toEqual({ de: 'Enthält Gluten', en: 'Contains gluten' });
     expect(STANDARD_ALLERGENS['13']).toEqual({ de: 'Enthält Eier', en: 'Contains eggs' });
+  });
+
+  it('loads lifecycle module properly', () => {
+    expect(typeof needsRefresh).toBe('function');
   });
 });

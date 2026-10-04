@@ -21,7 +21,7 @@ Stand: 04.10.2026. Dieses Dokument ist für einen Coding-Agenten gedacht. Jeder 
 
 ## Wahrscheinliche Bugs
 
-- [ ] Kein Refresh beim Zurückkehren in die App: Es gibt keinen `visibilitychange`-Handler, der Cache-Alter wird nur beim Start geprüft (älter als 60 Minuten). Eine im Hintergrund gehaltene PWA zeigt am nächsten Tag altes Datum, falschen Öffnungsstatus und abgelaufene Gerichte. Beim Sichtbarwerden Datum und Cache neu prüfen.
+- [x] Kein Refresh beim Zurückkehren in die App: Behoben in `src/lib/lifecycle.js` (`needsRefresh`) und `app.js` (`visibilitychange`, `pageshow`). Erkennt Datumswechsel (wählt aktives Datum neu, rendert neu und lädt frische Daten im Hintergrund), aktualisiert Cache im Hintergrund bei Alter > 60 Min und berechnet Öffnungsstatus/Badges neu bei Wiederkehr. Drosselung auf min. 30s Mindestabstand gegen Flackern. Mit Vitest getestet.
 - [ ] Ungespeicherte Einstellungen wirken trotzdem: Checkbox-Handler schreiben `state.selectedCanteens` und `state.allergies` sofort, ebenso `changeDietPreference` für die Diät. Gespeichert wird erst per Button. Wer das Fenster mit X schließt, behält die Änderungen bis zum Reload im Speicher. Verifizieren und Zustand beim Schließen zurücksetzen oder bewusst sofort speichern.
 - [ ] Menü-Abruf ist ein POST, der Service Worker bricht bei `method !== 'GET'` ab. Der Block "Strategie A" (Stale-While-Revalidate für Supabase) und `API_CACHE_NAME` sind toter Code. Offline funktioniert nur der `localStorage`-Cache. Entweder entfernen oder Cache in IndexedDB lösen.
 - [ ] Service-Worker-Installation: Schlägt ein Asset fehl, wird nur gewarnt und die Installation läuft mit teilweisem Cache weiter. Icons `icons/icon-192.png` und `icons/icon-512.png` fehlen in `STATIC_ASSETS`.

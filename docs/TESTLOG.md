@@ -51,3 +51,22 @@
   - `npm run build:css` (Tailwind Build erfolgreich).
 - **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v47` aktualisiert.
 - **Offene Probleme**: Keine.
+
+## Paket L2: App-Lebenszyklus & Background-Refresh (`visibilitychange`, `pageshow`)
+- **Geprüft**:
+  - `src/lib/lifecycle.js` mit Funktion `needsRefresh(lastFetchTime, now, lastRenderedDay, lastCheckTime, options)`.
+  - 6 neue Unit-Tests in `tests/lifecycle.test.js`:
+    - Drosselung schneller Wechsel (< 30s) am selben Tag (`throttled: true`).
+    - Wiederkehr nach > 30s am selben Tag ohne Cache-Ablauf löst UI-Re-Render für Öffnungsstatus aus (`action: 'status_update'`).
+    - Datumswechsel über Mitternacht/Tage hinweg erzwingt sofortige Aktualisierung von Datum, Re-Render und Menü-Abruf, auch bei schnellem Wechsel (`action: 'day_changed'`).
+    - Cache-Ablauf nach > 60 Minuten löst Hintergrundabruf aus (`action: 'cache_expired'`).
+    - Ungültiger/Fehlender Cache-Zeitpunkt löst Hintergrundabruf aus.
+    - Automatische Zeitzonenauflösung Europe/Berlin (inkl. CEST Mitternachtsgrenzen).
+  - Integration in `app.js`: Event-Listener für `visibilitychange` und `pageshow`, Speicherung von `state.lastRenderedDay` und `state.lastLifecycleCheckTime`.
+  - `sw.js`: `CACHE_NAME` auf `kstw-mensa-v48` erhöht und `./src/lib/lifecycle.js` zu `STATIC_ASSETS` hinzugefügt.
+  - `node --check app.js`, `node --check sw.js`, `node --check src/lib/lifecycle.js`.
+  - `npm test` (45/45 Vitest Tests bestanden).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v48` aktualisiert.
+- **Offene Probleme**: Keine.
+
