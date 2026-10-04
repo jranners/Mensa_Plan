@@ -23,7 +23,8 @@ import {
   pickActiveDate
 } from './src/lib/dates.js';
 import { needsRefresh } from './src/lib/lifecycle.js';
-import { resetAppStorage, createSettingsDraft } from './src/lib/storage.js';
+import { resetAppStorage, createSettingsDraft, migrateStorage } from './src/lib/storage.js';
+import { validateWeekMenu, validateAnnouncements } from './src/lib/validation.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 function getLocalIsoDate(date = new Date()) {
@@ -202,6 +203,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   setTimeout(() => {
     removeSplash();
   }, 3500);
+
+  // Run storage schema migration (v1 -> v2)
+  migrateStorage();
 
   loadPreferences();
   applyLanguage();
@@ -517,8 +521,16 @@ function loadMenuCache() {
     const cachedData = localStorage.getItem("kstw_menu_cache");
     const cachedTime = localStorage.getItem("kstw_menu_cache_time");
     if (cachedData && cachedTime) {
-      state.menuData = JSON.parse(cachedData);
-      state.lastCacheTime = parseInt(cachedTime);
+      const parsed = JSON.parse(cachedData);
+      const validation = validateWeekMenu(parsed);
+      if (!validation.valid) {
+        console.warn("Invalid cached menu schema:", validation.error);
+        localStorage.removeItem("kstw_menu_cache");
+        localStorage.removeItem("kstw_menu_cache_time");
+        return false;
+      }
+      state.menuData = parsed;
+      state.lastCacheTime = parseInt(cachedTime, 10);
       return true;
     }
   } catch (err) {
@@ -539,8 +551,14 @@ function loadAnnouncementsCache() {
   try {
     const cached = localStorage.getItem("kstw_announcements_cache");
     if (cached) {
-      state.announcements = JSON.parse(cached);
-      return true;
+      const parsed = JSON.parse(cached);
+      const validation = validateAnnouncements(parsed);
+      if (validation.valid) {
+        state.announcements = parsed;
+        return true;
+      } else {
+        localStorage.removeItem("kstw_announcements_cache");
+      }
     }
   } catch (err) {
     console.error("Failed to load announcements cache:", err);
@@ -1314,7 +1332,12 @@ async function fetchWeekMenuData(startDate, endDate) {
       throw new Error(`Supabase API responded with status ${response.status}`);
     }
 
-    return await response.json();
+    const json = await response.json();
+    const validation = validateWeekMenu(json);
+    if (!validation.valid) {
+      throw new Error(`Invalid week menu schema from API: ${validation.error}`);
+    }
+    return json;
   } catch (error) {
     clearTimeout(timeoutId);
     throw error;
@@ -1333,7 +1356,13 @@ async function fetchAnnouncements() {
     if (!response.ok) {
       throw new Error(`Failed to fetch announcements: ${response.status}`);
     }
-    return await response.json();
+    const json = await response.json();
+    const validation = validateAnnouncements(json);
+    if (!validation.valid) {
+      console.warn("Invalid announcements schema:", validation.error);
+      return [];
+    }
+    return json;
   } catch (error) {
     clearTimeout(timeoutId);
     console.error("Failed to fetch announcements:", error);

@@ -4,7 +4,8 @@ import { CANTEENS } from '../data/canteens.js';
 import { TRANSLATIONS } from '../data/translations.js';
 import { STANDARD_ALLERGENS } from '../data/allergens.js';
 import { needsRefresh } from '../src/lib/lifecycle.js';
-import { resetAppStorage, createSettingsDraft } from '../src/lib/storage.js';
+import { resetAppStorage, createSettingsDraft, migrateStorage } from '../src/lib/storage.js';
+import { validateWeekMenu, validateAnnouncements } from '../src/lib/validation.js';
 
 describe('ES Module Smoke Test', () => {
   it('loads SVG_ICONS properly', () => {
@@ -39,6 +40,12 @@ describe('ES Module Smoke Test', () => {
   it('loads storage module properly', () => {
     expect(typeof resetAppStorage).toBe('function');
     expect(typeof createSettingsDraft).toBe('function');
+    expect(typeof migrateStorage).toBe('function');
+  });
+
+  it('loads validation module properly', () => {
+    expect(typeof validateWeekMenu).toBe('function');
+    expect(typeof validateAnnouncements).toBe('function');
   });
 });
 

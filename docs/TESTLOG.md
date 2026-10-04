@@ -112,6 +112,30 @@
   - `npm test` (53/53 Vitest Tests bestanden).
   - `npm run build:css` (Tailwind Build erfolgreich).
 - **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v50` aktualisiert.
+## Paket L5: RPC-Response-Validierung & LocalStorage Schema-Version v2 (04.10.2026)
+- **Geprüft**:
+  - `src/lib/validation.js`:
+    - `validateWeekMenu`: Überprüft, dass Payloads Arrays sind, Elemente Objekte sind, `id` (Zahl oder String), `date` (ISO-Format `YYYY-MM-DD`) und String-Kategorie (`category_ger` oder `category_en`) vorhanden sind.
+    - `validateAnnouncements`: Überprüft Array-Struktur, Pflichtfelder `id` und `text`.
+  - `src/lib/storage.js`:
+    - `CURRENT_SCHEMA_VERSION = 2` und `SCHEMA_VERSION_KEY = 'kstw_schema_version'`.
+    - `migrateStorage()`: Migration v1 -> v2 stellt valide Formate für `kstw_canteens` (Array), `kstw_allergies` (Array), `kstw_diet` (`vegan|vegetarian|all`) und `kstw_lang` (`de|en`) sicher, invalidiert defekte Menü-Caches und setzt Version 2 idempotent.
+  - 10 Unittests in `tests/validation.test.js`:
+    - Validierung gegen echte RPC-Beispieldaten (`docs/rpc-sample.json`).
+    - Abfangen von Nicht-Arrays, fehlerhaften Elementen, fehlenden Pflichtfeldern, ungültigem Datumsformat.
+    - Validierung von `announcements`.
+    - Vollständiger Migrationslauf v1 -> v2 mit bereinigtem Storage und intaktem Schema.
+  - Integration in `app.js`:
+    - Aufruf von `migrateStorage()` im `DOMContentLoaded`-Handler vor `loadPreferences()`.
+    - Validierung beim Laden des Menü-Caches (`loadMenuCache`) und Ankündigungs-Caches (`loadAnnouncementsCache`) mit Cache-Purge bei Schema-Fehlern.
+    - Validierung bei Live-Abrufen (`fetchWeekMenuData` und `fetchAnnouncements`) mit klarer Fehlerbehandlung.
+  - `sw.js`:
+    - `CACHE_NAME` auf `kstw-mensa-v51` erhöht.
+    - `./src/lib/validation.js` zu `STATIC_ASSETS` hinzugefügt.
+  - `node --check` auf `src/lib/validation.js`, `src/lib/storage.js`, `app.js`, `sw.js`.
+  - `npm test` (64/64 Vitest Tests bestanden).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v51` aktualisiert.
 - **Offene Probleme**: Keine.
 
 
