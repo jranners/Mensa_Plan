@@ -1,4 +1,4 @@
-const STANDARD_ALLERGENS = {
+export const STANDARD_ALLERGENS = {
   "1": { de: "Mit Farbstoff", en: "Contains colorants" },
   "2": { de: "Mit Konservierungsstoff", en: "Contains preservatives" },
   "3": { de: "Mit Antioxidationsmittel", en: "Contains antioxidants" },

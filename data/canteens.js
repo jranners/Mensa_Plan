@@ -1,4 +1,4 @@
-const CANTEENS = {
+export const CANTEENS = {
   "unimensa": {
     "name": "Mensa Zülpicher Straße",
     "type": "mensa",

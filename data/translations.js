@@ -1,4 +1,4 @@
-const TRANSLATIONS = {
+export const TRANSLATIONS = {
   de: {
     title: "Mensaplan",
     welcome: "Willkommen bei der KStW Mensa",

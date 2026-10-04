@@ -1,4 +1,8 @@
-
+import { SVG_ICONS } from './data/icons.js';
+import { CANTEENS } from './data/canteens.js';
+import { TRANSLATIONS } from './data/translations.js';
+import { STANDARD_ALLERGENS } from './data/allergens.js';
+// SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 function getLocalIsoDate(date = new Date()) {
   return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
