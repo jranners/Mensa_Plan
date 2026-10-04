@@ -7,7 +7,9 @@
     "build:css": "tailwindcss -i input.css -o styles.css --minify",
     "watch:css": "tailwindcss -i input.css -o styles.css --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:rpc": "node scripts/check-rpc.mjs",
+    "check:sw": "node scripts/check-sw-version.mjs"
   },
   "devDependencies": {
     "@tailwindcss/container-queries": "^0.1.1",

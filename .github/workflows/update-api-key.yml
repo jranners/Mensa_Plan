@@ -43,3 +43,6 @@ jobs:
           else
             echo "No changes in credentials or announcements detected."
           fi
+
+      - name: Validate RPC Health
+        run: node scripts/check-rpc.mjs

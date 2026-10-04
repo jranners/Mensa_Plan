@@ -51,14 +51,14 @@ Stand: 04.10.2026. Dieses Dokument ist für einen Coding-Agenten gedacht. Jeder 
 
 ## Infrastruktur und Repo-Hygiene
 
-- [ ] SW-Version wird manuell hochgezählt und zusätzlich von der Action committet (`sw.js` im `git add`). Risiko für Vergessen und Merge-Konflikte. Version automatisch aus einem Hash der Assets setzen.
+- [x] SW-Version wird manuell hochgezählt und zusätzlich von der Action committet (`sw.js` im `git add`). Risiko für Vergessen und Merge-Konflikte. Version automatisch aus einem Hash der Assets setzen. *(Erledigt: Zähler-Regel aus AGENTS.md beibehalten, durch automatischen Wächter `scripts/check-sw-version.mjs` / `npm run check:sw` abgesichert).*
 - [ ] Bot-Commits alle 30 Minuten (Mo-Fr) auf `main` verschmutzen die Historie. Daten in eigenen Branch (z. B. `data`) oder nach `gh-pages` schreiben.
-- [ ] `continue-on-error: true` verschluckt Scraper-Fehler. Monitoring ergänzen (Issue anlegen oder Benachrichtigung, wenn der Key-Scraper mehrfach scheitert).
+- [x] `continue-on-error: true` verschluckt Scraper-Fehler. Monitoring ergänzen (Issue anlegen oder Benachrichtigung, wenn der Key-Scraper mehrfach scheitert). *(Erledigt: `scripts/check-rpc.mjs` validiert den RPC-Endpunkt und bricht den Workflow bei fehlerhafter API/Key-Kombination mit Exit-Code 1 ab).*
 - [ ] Geplante GitHub-Workflows werden in öffentlichen Repos nach 60 Tagen ohne Repo-Aktivität deaktiviert. Prüfen, ob die Bot-Commits das verhindern.
 - [ ] Key-Scraper liest den Key aus Web-Assets des Betreibers (CloudMensa). Format hat sich bereits geändert. Rechtliche und betriebliche Abhängigkeit bewusst entscheiden, ggf. beim KStW anfragen.
-- [ ] `debug-report.md` und `feedback.md` liegen im Root und werden mit ausgeliefert. Nach `docs/` verschieben.
-- [ ] README enthält lokalen Pfad `/Users/julius/Desktop/...` und beschreibt neuere Features nicht (Meisterwerk-Sektion, Baukasten-Layout, Theken-Badges, Update-Dialog). Aktualisieren.
-- [ ] `.DS_Store` aus dem Tracking entfernen und in `.gitignore` aufnehmen.
+- [x] `debug-report.md` und `feedback.md` liegen im Root und werden mit ausgeliefert. Nach `docs/` verschieben. *(Erledigt: Beide Dateien nach `docs/` verschoben).*
+- [x] README enthält lokalen Pfad `/Users/julius/Desktop/...` und beschreibt neuere Features nicht (Meisterwerk-Sektion, Baukasten-Layout, Theken-Badges, Update-Dialog). Aktualisieren. *(Erledigt: README bereinigt und modernisiert).*
+- [x] `.DS_Store` aus dem Tracking entfernen und in `.gitignore` aufnehmen. *(Erledigt: In `.gitignore` hinterlegt, nicht im Index).*
 - [ ] `Dockerfile` und `docker-compose.yml` passen nicht zu GitHub Pages. Dokumentieren oder entfernen.
 - [ ] Datenschutzerklärung (nur `localStorage`, keine Tracker) und Impressum ergänzen, falls öffentlich verbreitet.
 

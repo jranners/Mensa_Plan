@@ -187,8 +187,25 @@
   - `node --check` auf allen modifizierten JS-Dateien.
   - `npm test` (90/90 Vitest Tests bestanden).
   - `npm run build:css` (Tailwind Build erfolgreich).
-- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v53` aktualisiert.
 - **Offene Probleme**: Keine.
 
-
-
+## Paket P1–P3: Pipeline-Healthcheck, SW-Versionswächter & Repo-Hygiene (04.10.2026)
+- **Geprüft**:
+  - `scripts/check-rpc.mjs`:
+    - Ruft den echten Supabase-RPC `public_get_week_menu` mit den in `data/config.js` hinterlegten Daten ab.
+    - Validiert den Payload mit `validateWeekMenu`.
+    - Gibt bei Erfolg 0 aus, bei Netzwerk-/Validierungsfehlern Exit-Code 1.
+    - Als npm-Skript `npm run test:rpc` hinterlegt.
+  - `.github/workflows/update-api-key.yml`:
+    - Ergänzt um den Job-Schritt `Validate RPC Health` (`node scripts/check-rpc.mjs`).
+    - Stellt sicher, dass ein fehlgeschlagener Scraper bei abgelaufenem Key den Workflow mit Fehler beendet und das Repo-Monitoring alarmiert.
+  - `scripts/check-sw-version.mjs`:
+    - Vergleicht die in `sw.js` deklarierte `CACHE_NAME`-Version mit dem Basis-Branch (`main` / `origin/main`).
+    - Überprüft, ob modifizierte Dateien in `STATIC_ASSETS` liegen und schlägt mit Fehler fehl, falls die Cache-Version nicht erhöht wurde.
+    - Als npm-Skript `npm run check:sw` hinterlegt.
+  - Repo-Hygiene:
+    - `debug-report.md` nach `docs/debug-report.md` verschoben (liegt nicht mehr ungeschützt im Webroot).
+    - `README.md` von lokalen Dateipfaden bereinigt, moderne Architektur, Testrunner und PWA-Dokumentation ergänzt.
+    - `.DS_Store` geprüft: ist in `.gitignore` hinterlegt und nicht im git index getrackt.
+- **Ergebnis**: Alle Tests und Skripte bestanden (`npm test`, `npm run check:sw`, `npm run test:rpc`).
+- **Offene Probleme**: Keine.
