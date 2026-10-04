@@ -136,6 +136,33 @@
   - `npm test` (64/64 Vitest Tests bestanden).
   - `npm run build:css` (Tailwind Build erfolgreich).
 - **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v51` aktualisiert.
+## Paket L6: Mensa-Zuordnung, Strukturierte Öffnungszeiten & Dish-Metadaten (04.10.2026)
+- **Geprüft**:
+  - `src/lib/canteen-match.js`:
+    - `getCanteenKeyFromDish` & `findCanteensForDish`: Priorisierung exakter `ort_id`, kanonischer Locations und Screen-Gruppennamen.
+    - Test mit echten Daten aus `docs/rpc-sample.json`: Alle 232 Gerichte werden stabil und fehlerfrei den Zielmensen zugeordnet.
+  - `src/lib/hours.js`:
+    - `CANTEEN_HOURS`: Strukturierte Betriebszeiten für alle 14 KStW-Mensen/Bistros mit dezimalen Stundenwerten.
+    - Wochentagsspezifische Logik (Mo-Do, Freitagsschließzeiten wie SpoHo 14:15 oder E-Raum 15:00, Samstag Uni-Mensa 11:30 - 15:00, Sonntag geschlossen).
+    - `getCanteenOpenStatus`: Berechnung von `isOpen`, `opensLater`, `isClosed`, `minutesUntilClose`, `minutesUntilOpen`.
+  - `src/lib/dish.js`:
+    - `parseDishServingTime`, `isDishExpired`, `getDishesServiceWindow`, `extractDishCounter` zentralisiert.
+    - Beseitigt 4 redundante Regex- und String-Parsing-Blöcke in `app.js`.
+  - 18 neue/erweiterte Unittests in:
+    - `tests/canteen-match.test.js` (7 Tests)
+    - `tests/hours.test.js` (4 Tests)
+    - `tests/dish.test.js` (7 Tests)
+    - `tests/smoke.test.js` (Smoke-Test für alle Module)
+  - Integration in `app.js`:
+    - Bereinigung von über 120 Zeilen redundanter Duplikate in `hasAvailableDishesForDate`, `getDishServingMeta`, `renderCanteenMenu`.
+    - Zeitzonensichere Wochentagsermittlung per `getDayOfWeekFromIso`.
+  - `sw.js`:
+    - `CACHE_NAME` auf `kstw-mensa-v52` erhöht.
+    - `./src/lib/canteen-match.js` und `./src/lib/hours.js` zu `STATIC_ASSETS` hinzugefügt.
+  - `node --check` auf allen betroffenen Dateien.
+  - `npm test` (83/83 Vitest Tests bestanden).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v52` aktualisiert.
 - **Offene Probleme**: Keine.
 
 

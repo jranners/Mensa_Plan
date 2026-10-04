@@ -11,7 +11,18 @@ import {
   shouldExcludeDish
 } from './src/lib/allergens.js';
 import { getDishDietType } from './src/lib/diet.js';
-import { getCustomFields, stripAllergenCodes, cleanDPName, isPureDessert } from './src/lib/dish.js';
+import {
+  getCustomFields,
+  stripAllergenCodes,
+  cleanDPName,
+  isPureDessert,
+  parseDishServingTime,
+  isDishExpired,
+  getDishesServiceWindow,
+  extractDishCounter
+} from './src/lib/dish.js';
+import { getCanteenKeyFromDish } from './src/lib/canteen-match.js';
+import { getCanteenHoursForDay, getCanteenOpenStatus } from './src/lib/hours.js';
 import { escapeHtml } from './src/lib/html.js';
 import {
   getBerlinTodayDate,
@@ -1053,54 +1064,14 @@ function hasAvailableDishesForDate(dateStr) {
       dishes = dishes.filter(d => !shouldExcludeDish(d, state.allergies));
     }
 
+    const dayHours = getCanteenHoursForDay(canteenKey, now.getDay(), canteen, state.language);
     dishes.forEach(dish => {
-      const customFields = {};
-      (dish.custom_fields || []).forEach(f => {
-        if (f) customFields[f.field_id] = f.value;
-      });
-
-      let servingTime = "";
-      const dishInfo = customFields["dish_info"] || "";
-      if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
-        const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
-        if (timeMatch) {
-          servingTime = timeMatch[1].replace(/\./g, ":");
-        }
-      }
-
+      const hasExplicitTime = parseDishServingTime(dish);
       let expired = false;
-      if (servingTime) {
-        const endStr = servingTime.split("-")[1].trim();
-        const endHourMatch = endStr.match(/(\d{2})[.:](\d{2})/);
-        if (endHourMatch) {
-          const dishEndHour = parseInt(endHourMatch[1]) + parseInt(endHourMatch[2])/60;
-          if (currentHour > dishEndHour) {
-            expired = true;
-          }
-        }
+      if (hasExplicitTime) {
+        expired = isDishExpired(dish, currentHour);
       } else {
-        // Fallback to canteen general closing time
-        let generalEndHour = 14.5;
-        const openingInfo = canteen.infokurz;
-        if (openingInfo) {
-          const currentDayOfWeek = now.getDay();
-          const lines = openingInfo.split("\n");
-          const dayNamesMap = {
-            1: ["Mo", "Mon"], 2: ["Di", "Tue"], 3: ["Mi", "Wed"], 4: ["Do", "Thu"], 5: ["Fr", "Fri"], 6: ["Sa", "Sat"], 0: ["So", "Sun"]
-          };
-          const searchTerms = dayNamesMap[currentDayOfWeek] || [];
-          for (const line of lines) {
-            if (searchTerms.some(term => line.includes(term)) || (currentDayOfWeek >= 1 && currentDayOfWeek <= 5 && line.includes("Mo - Fr"))) {
-              const hourMatch = line.match(/-\s*(\d{2})[.:](\d{2})/);
-              if (hourMatch) {
-                generalEndHour = parseInt(hourMatch[1]) + parseInt(hourMatch[2])/60;
-              }
-            }
-          }
-        }
-        if (currentHour > generalEndHour) {
-          expired = true;
-        }
+        expired = dayHours.isOpenToday && currentHour > dayHours.endHour;
       }
 
       if (!expired) {
@@ -1578,46 +1549,6 @@ window.setDietFilter = function(dietVal) {
   renderCanteenMenu();
 };
 
-function getCanteenKeyFromDish(dish, canteenKey, canteen) {
-  const customFields = {};
-  (dish.custom_fields || []).forEach(f => {
-    if (f) customFields[f.field_id] = f.value;
-  });
-
-  const dishOrtId = customFields["ort_id"] || "";
-  if (dishOrtId && canteen.ort_id) {
-    if (dishOrtId === canteen.ort_id) return true;
-  }
-  
-  const dishLocation = (customFields["location"] || "").toLowerCase();
-  if (dishLocation && canteen.name) {
-    if (dishLocation.includes(canteen.name.toLowerCase()) || 
-        canteen.name.toLowerCase().includes(dishLocation)) {
-      return true;
-    }
-  }
-
-  const dishScreens = (dish.screens || []).map(s => (s.location || "").toLowerCase()).filter(Boolean);
-  const canteenScreens = (canteen.screen_locations || []).map(s => s.toLowerCase());
-  
-  const overlap = dishScreens.some(screen => canteenScreens.some(cs => cs.includes(screen) || screen.includes(cs)));
-  if (overlap) return true;
-
-  // Uni-Mensa Zülpicher Straße (ort_id 201) and Mensa Lindenthal (ort_id 231) share the central kitchen production
-  if (canteenKey === "unimensa" && (dishOrtId === "231" || dishLocation.includes("lindenthal"))) {
-    return true;
-  }
-
-  // Fallback for central production dishes (Gemeinkostenstelle HSG / ort_id 9999)
-  // which KStW cataloged centrally for the main Mensen (Zülpicher Straße / Lindenthal)
-  if ((dishOrtId === "9999" || dishLocation.includes("gemeinkostenstelle")) && 
-      (canteenKey === "unimensa" || canteenKey === "robertkoch")) {
-    return true;
-  }
-
-  return false;
-}
-
 
 function isSoupOrStew(dish) {
   const customFields = {};
@@ -1882,61 +1813,12 @@ function renderSectionHeader(title, count, iconName) {
 }
 
 function getDishServingMeta(dish, canteen, canteenKey, customFields) {
-  let servingTime = "";
-  let dishCounter = "";
-
-  const dishInfo = customFields["dish_info"] || "";
-  if (dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
-    const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
-    if (timeMatch) {
-      servingTime = timeMatch[1].replace(/\./g, ":");
-    }
-    let counterPart = dishInfo;
-    if (timeMatch) {
-      counterPart = dishInfo.substring(0, dishInfo.indexOf(timeMatch[0]));
-    }
-    counterPart = counterPart.replace(/\s*-\s*$/, "").replace(/Uhr.*$/i, "").trim();
-    if (counterPart && !/^\d+$/.test(counterPart) && counterPart.length > 1) {
-      dishCounter = counterPart;
-    }
-  }
-
-  // If dishCounter is not in dish_info, check screens
-  if (!dishCounter) {
-    const screens = dish.screens || [];
-    for (const s of screens) {
-      const sLoc = s.location || "";
-      if (canteenKey === "unimensa") {
-        if (sLoc.includes("Ausgabe 4") || sLoc.toLowerCase().includes("vegan")) {
-          dishCounter = "EG Nord";
-          break;
-        } else if (sLoc.includes("Ausgabe 1") || sLoc.includes("Ausgabe 5") || sLoc.toLowerCase().includes("pasta")) {
-          dishCounter = "MG Nord";
-          break;
-        } else if (sLoc.includes("Ausgabe 3") || sLoc.toLowerCase().includes("beilage")) {
-          dishCounter = "EG Nord";
-          break;
-        }
-      }
-      if (canteen && canteen.screen_locations && canteen.screen_locations.includes(sLoc)) {
-        dishCounter = sLoc.replace("MZS - ", "").replace("Mensa Deutz - ", "").replace("Mensa Südstadt - ", "").replace("Mensa Lindenthal - ", "").trim();
-        break;
-      }
-    }
-  }
-
-  // Fallback for Uni-Mensa if counter is still empty
-  if (canteenKey === "unimensa" && !dishCounter) {
-    const rawType = (customFields["menu_type"] || "").toLowerCase();
-    const name = (dish.name_de || "").toLowerCase();
-    if (name.includes("gnocchi") || name.includes("pasta") || name.includes("ravioli")) {
-      dishCounter = "MG Nord";
-    } else if (rawType.includes("vegan") || rawType.includes("vegetarisch") || rawType.includes("beilage")) {
-      dishCounter = "EG Nord";
-    }
-  }
-
-  return { dishCounter, servingTime };
+  const serving = parseDishServingTime(dish);
+  const dishCounter = extractDishCounter(dish, canteenKey);
+  return {
+    dishCounter,
+    servingTime: serving ? serving.servingTime : ''
+  };
 }
 
 function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuffet = false, canteenKey = "", isMeisterwerk = false) {
@@ -2365,105 +2247,30 @@ function renderCanteenMenu() {
     if (dishes.length === 0) return;
 
     // Determine opening hours and status
-    const dayOfWeek = new Date(state.activeDate).getDay(); // 0 is Sunday, 6 is Saturday
-    let openingHoursText = canteen.infokurz ? canteen.infokurz.replace(/\n/g, " · ") : "11:30 - 14:30 Uhr";
-    let startHour = 11.0;
-    let endHour = 14.5;
+    // Determine opening hours and status
+    const dayOfWeek = getDayOfWeekFromIso(state.activeDate);
+    const dayHours = getCanteenHoursForDay(canteenKey, dayOfWeek, canteen, state.language);
+    let startHour = dayHours.startHour;
+    let endHour = dayHours.endHour;
+    let openingHoursText = dayHours.formatted;
 
-    if (canteen.opening_hours) {
-      openingHoursText = canteen.opening_hours.weekdays || openingHoursText;
-      if (dayOfWeek === 6) {
-        openingHoursText = canteen.opening_hours.saturday || openingHoursText;
-        startHour = 11.5;
-        endHour = 14.0;
-      } else if (dayOfWeek === 0) {
-        openingHoursText = canteen.opening_hours.sunday || openingHoursText;
-        startHour = 0;
-        endHour = 0;
-      }
-    } else if (canteen.infokurz) {
-      const lines = canteen.infokurz.split("\n");
-      const dayNamesMap = { 1: ["Mo"], 2: ["Di"], 3: ["Mi"], 4: ["Do"], 5: ["Fr"], 6: ["Sa"], 0: ["So"] };
-      const searchTerms = dayNamesMap[dayOfWeek] || [];
-      for (const line of lines) {
-        if (searchTerms.some(term => line.includes(term)) || (dayOfWeek >= 1 && dayOfWeek <= 5 && (line.includes("Mo - Fr") || line.includes("Mo - Do")))) {
-          const match = line.match(/(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})/);
-          if (match) {
-            startHour = parseInt(match[1]) + parseInt(match[2])/60;
-            endHour = parseInt(match[3]) + parseInt(match[4])/60;
-            openingHoursText = `${match[1]}:${match[2]} - ${match[3]}:${match[4]} ${state.language === "de" ? "Uhr" : ""}`.trim();
-            break;
-          }
-        }
-      }
+    // Check if dishes have explicit serving times
+    const serviceWindow = getDishesServiceWindow(dishes, state.language);
+    if (serviceWindow) {
+      startHour = serviceWindow.startHour;
+      endHour = serviceWindow.endHour;
     }
 
-    // Check if there are explicit serving times in the dishes
-    let minDishStart = 24;
-    let maxDishEnd = 0;
-    let hasServingTimes = false;
+    const openStatus = getCanteenOpenStatus({ isOpenToday: dayHours.isOpenToday, startHour, endHour }, currentHour);
+    const isCanteenOpen = isViewingToday ? openStatus.isOpen : true;
+    const opensLater = isViewingToday ? openStatus.opensLater : false;
 
-    dishes.forEach(d => {
-      const customFields = {};
-      (d.custom_fields || []).forEach(f => {
-        if (f) customFields[f.field_id] = f.value;
-      });
-      const dishInfo = customFields["dish_info"] || "";
-      if (dishInfo) {
-        const timeMatch = dishInfo.match(/(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})/);
-        if (timeMatch) {
-          hasServingTimes = true;
-          const sH = parseInt(timeMatch[1]) + parseInt(timeMatch[2])/60;
-          const eH = parseInt(timeMatch[3]) + parseInt(timeMatch[4])/60;
-          if (sH < minDishStart) minDishStart = sH;
-          if (eH > maxDishEnd) maxDishEnd = eH;
-        }
-      }
-    });
-
-    if (hasServingTimes) {
-      startHour = minDishStart;
-      endHour = maxDishEnd;
-    }
-
-    let isCanteenOpen = false;
-    let opensLater = false;
-    if (isViewingToday) {
-      if (currentHour >= startHour && currentHour <= endHour) {
-        isCanteenOpen = true;
-      } else if (currentHour < startHour) {
-        opensLater = true;
-      }
-    } else {
-      isCanteenOpen = true;
-    }
-
-    let serviceWindowText = openingHoursText;
-    if (hasServingTimes) {
-      const format = (h) => `${Math.floor(h)}:${Math.round((h % 1) * 60).toString().padStart(2, '0')}`;
-      serviceWindowText = `${format(startHour)} - ${format(endHour)} ${state.language === "de" ? "Uhr" : ""}`;
-    }
+    const serviceWindowText = serviceWindow ? serviceWindow.formatted : openingHoursText;
 
     // Filter dishes by serving time if viewing today
     const availableDishes = dishes.filter(dish => {
-      const customFields = {};
-      (dish.custom_fields || []).forEach(f => {
-        if (f) customFields[f.field_id] = f.value;
-      });
-      const dishInfo = customFields["dish_info"] || "";
-      if (isViewingToday && dishInfo && !/^\s*\d?\s*$/.test(dishInfo)) {
-        const timeMatch = dishInfo.match(/(\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})/);
-        if (timeMatch) {
-          const servingTime = timeMatch[1].replace(/\./g, ":");
-          const endStr = servingTime.split("-")[1].trim();
-          const endHourMatch = endStr.match(/(\d{2})[.:](\d{2})/);
-          if (endHourMatch) {
-            const dishEndHour = parseInt(endHourMatch[1]) + parseInt(endHourMatch[2])/60;
-            if (currentHour > dishEndHour) return false;
-          }
-        }
-      }
-      return true;
+      if (!isViewingToday) return true;
+      return !isDishExpired(dish, currentHour);
     });
 
     if (availableDishes.length === 0) return;

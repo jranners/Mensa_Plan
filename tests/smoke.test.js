@@ -6,6 +6,8 @@ import { STANDARD_ALLERGENS } from '../data/allergens.js';
 import { needsRefresh } from '../src/lib/lifecycle.js';
 import { resetAppStorage, createSettingsDraft, migrateStorage } from '../src/lib/storage.js';
 import { validateWeekMenu, validateAnnouncements } from '../src/lib/validation.js';
+import { getCanteenKeyFromDish } from '../src/lib/canteen-match.js';
+import { getCanteenHoursForDay, getCanteenOpenStatus } from '../src/lib/hours.js';
 
 describe('ES Module Smoke Test', () => {
   it('loads SVG_ICONS properly', () => {
@@ -46,6 +48,12 @@ describe('ES Module Smoke Test', () => {
   it('loads validation module properly', () => {
     expect(typeof validateWeekMenu).toBe('function');
     expect(typeof validateAnnouncements).toBe('function');
+  });
+
+  it('loads canteen-match and hours modules properly', () => {
+    expect(typeof getCanteenKeyFromDish).toBe('function');
+    expect(typeof getCanteenHoursForDay).toBe('function');
+    expect(typeof getCanteenOpenStatus).toBe('function');
   });
 });
 
