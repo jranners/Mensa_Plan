@@ -163,6 +163,31 @@
   - `npm test` (83/83 Vitest Tests bestanden).
   - `npm run build:css` (Tailwind Build erfolgreich).
 - **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v52` aktualisiert.
+## Paket L7: Pull-to-Refresh, Übersetzungen & Barrierefreiheit (04.10.2026)
+- **Geprüft**:
+  - `src/lib/a11y.js`:
+    - `trapFocus`: Sperrt den Fokus mit zyklischer Tab/Shift+Tab-Navigation innerhalb offener Modals und Dialoge. Stellt den Fokus beim Schließen auf das auslösende Element zurück.
+    - `setAriaPressed` & `setAriaExpanded`: Helfer für konsistente ARIA-Status-Updates.
+    - 3 Unittests in `tests/a11y.test.js`.
+  - `data/translations.js`:
+    - 100% Schlüsselparität zwischen DE und EN (`tests/translations.test.js` prüft alle 77 Schlüssel).
+    - Ergänzung fehlender Übersetzungen für Toasts (`selectAtLeastOneCanteen`, `installGuideToast`, `copiedToClipboard`, `pullToRefresh`, `close`) und ARIA-Labels (`settingsAria`, `themeToggleAria`, `showAllergensAria`, `shareDishAria`, `toggleFavoriteAria`).
+  - Pull-to-Refresh:
+    - Beseitigung des Hängezustands: `startY` wird in `touchend` und `touchcancel` bedingungslos zurückgesetzt.
+    - Textanzeige `#ptr-indicator-text` zweisprachig angebunden, reagiert auf `applyLanguage()`.
+  - Barrierefreiheit im DOM:
+    - `role="dialog"`, `aria-modal="true"`, `aria-labelledby` für `#onboarding`, `#allergens-modal` und `#update-modal`.
+    - Fokusfalle bei Modal-Öffnung und Release bei Schließen aktiv.
+    - `aria-pressed` für Datums-Buttons und Diät-Auswahl; `role="group"` mit Label für Filter.
+    - `role="button"` und `tabindex="0"` mit `aria-expanded` und Tastaturunterstützung (Enter/Space) für zusammenklappbare Komponentenbeschreibungen.
+    - Beseitigung aller blockierenden `alert()`-Dialoge zugunsten animierter barrierefreier Toasts (`showToast` mit `role="status"` und `aria-live="polite"`).
+  - `sw.js`:
+    - `CACHE_NAME` auf `kstw-mensa-v53` erhöht.
+    - `./src/lib/a11y.js` zu `STATIC_ASSETS` hinzugefügt.
+  - `node --check` auf allen modifizierten JS-Dateien.
+  - `npm test` (90/90 Vitest Tests bestanden).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v53` aktualisiert.
 - **Offene Probleme**: Keine.
 
 

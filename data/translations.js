@@ -64,7 +64,17 @@ export const TRANSLATIONS = {
     sectionSides: "Beilagen & Gemüse",
     sectionDessert: "Dessert & Obst",
     sectionBuffet: "Buffet & Selbstbedienung",
-    per100g: "je 100g"
+    per100g: "je 100g",
+    selectAtLeastOneCanteen: "Bitte wähle mindestens eine Mensa aus!",
+    installGuideToast: "Nutze das Browsermenü (Dreipunkt-Menü oben rechts → 'App installieren' oder 'Zum Startbildschirm hinzufügen'), um den Mensaplan hinzuzufügen.",
+    pullToRefresh: "Aktualisieren...",
+    copiedToClipboard: "In die Zwischenablage kopiert!",
+    close: "Schließen",
+    themeToggleAria: "Farbschema wechseln",
+    settingsAria: "Einstellungen öffnen",
+    showAllergensAria: "Allergene anzeigen",
+    shareDishAria: "Gericht teilen",
+    toggleFavoriteAria: "Zu Favoriten hinzufügen"
   },
   en: {
     title: "Mensaplan",
@@ -131,6 +141,16 @@ export const TRANSLATIONS = {
     sectionSides: "Sides & Vegetables",
     sectionDessert: "Dessert & Fruit",
     sectionBuffet: "Buffet & Self-Service",
-    per100g: "per 100g"
+    per100g: "per 100g",
+    selectAtLeastOneCanteen: "Please select at least one canteen!",
+    installGuideToast: "Use your browser's menu (three dots in top right → 'Install app' or 'Add to Home screen') to install the app.",
+    pullToRefresh: "Updating...",
+    copiedToClipboard: "Copied to clipboard!",
+    close: "Close",
+    themeToggleAria: "Toggle color theme",
+    settingsAria: "Open settings",
+    showAllergensAria: "Show allergens",
+    shareDishAria: "Share dish",
+    toggleFavoriteAria: "Toggle favorite"
   }
 };

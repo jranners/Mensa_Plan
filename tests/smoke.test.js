@@ -8,6 +8,7 @@ import { resetAppStorage, createSettingsDraft, migrateStorage } from '../src/lib
 import { validateWeekMenu, validateAnnouncements } from '../src/lib/validation.js';
 import { getCanteenKeyFromDish } from '../src/lib/canteen-match.js';
 import { getCanteenHoursForDay, getCanteenOpenStatus } from '../src/lib/hours.js';
+import { trapFocus, setAriaPressed, setAriaExpanded } from '../src/lib/a11y.js';
 
 describe('ES Module Smoke Test', () => {
   it('loads SVG_ICONS properly', () => {
@@ -54,6 +55,12 @@ describe('ES Module Smoke Test', () => {
     expect(typeof getCanteenKeyFromDish).toBe('function');
     expect(typeof getCanteenHoursForDay).toBe('function');
     expect(typeof getCanteenOpenStatus).toBe('function');
+  });
+
+  it('loads a11y module properly', () => {
+    expect(typeof trapFocus).toBe('function');
+    expect(typeof setAriaPressed).toBe('function');
+    expect(typeof setAriaExpanded).toBe('function');
   });
 });
 

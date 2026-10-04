@@ -36,7 +36,11 @@ import {
 import { needsRefresh } from './src/lib/lifecycle.js';
 import { resetAppStorage, createSettingsDraft, migrateStorage } from './src/lib/storage.js';
 import { validateWeekMenu, validateAnnouncements } from './src/lib/validation.js';
+import { trapFocus, setAriaPressed, setAriaExpanded } from './src/lib/a11y.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
+
+let onboardingFocusRelease = null;
+let allergensFocusRelease = null;
 
 function getLocalIsoDate(date = new Date()) {
   return getBerlinTodayDate(date);
@@ -201,8 +205,8 @@ async function copyTextToClipboard(text) {
       document.execCommand('copy');
       document.body.removeChild(textArea);
     }
-    const msg = state.language === "en" ? "Copied to clipboard!" : "In die Zwischenablage kopiert!";
-    showToast(msg);
+    const trans = TRANSLATIONS[state.language] || TRANSLATIONS.de;
+    showToast(trans.copiedToClipboard);
   } catch (err) {
     console.error('Failed to copy to clipboard:', err);
   }
@@ -330,9 +334,22 @@ window.addEventListener("DOMContentLoaded", async () => {
     } else if (action === 'close-allergens-modal') {
       closeAllergensModal();
     } else if (action === 'toggle-clamp') {
-      actionEl.classList.toggle('line-clamp-2');
+      const isClamped = actionEl.classList.toggle('line-clamp-2');
+      actionEl.setAttribute('aria-expanded', isClamped ? 'false' : 'true');
     } else if (action === 'fetch-and-render') {
       fetchAndRender();
+    }
+  });
+
+  // Keyboard accessibility: Enter or Space on toggle-clamp role="button"
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const actionEl = e.target.closest('[data-action="toggle-clamp"]');
+      if (actionEl) {
+        e.preventDefault();
+        const isClamped = actionEl.classList.toggle('line-clamp-2');
+        actionEl.setAttribute('aria-expanded', isClamped ? 'false' : 'true');
+      }
     }
   });
 
@@ -431,12 +448,14 @@ window.addEventListener("DOMContentLoaded", async () => {
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
     </svg>
-    <span class="text-sm font-medium text-text-heading dark:text-slate-200">Aktualisieren...</span>
+    <span id="ptr-indicator-text" class="text-sm font-medium text-text-heading dark:text-slate-200">Aktualisieren...</span>
   `;
   document.body.prepend(indicator);
 
   document.addEventListener('touchstart', e => {
-    if (window.scrollY === 0) startY = e.touches[0].clientY;
+    if (window.scrollY === 0 && e.touches && e.touches.length > 0) {
+      startY = e.touches[0].clientY;
+    }
   }, { passive: true });
 
   document.addEventListener('touchmove', e => {
@@ -449,15 +468,26 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   }, { passive: true });
 
+  const resetPull = () => {
+    indicator.style.transform = 'translateX(-50%) translateY(-100%)';
+    startY = 0;
+    isPulling = false;
+  };
+
   document.addEventListener('touchend', () => {
-    if (!isPulling) return;
+    if (!isPulling) {
+      startY = 0;
+      return;
+    }
     const indicatorY = parseFloat(indicator.style.transform.match(/translateY\((.+)%\)/)?.[1] || 0);
     if (indicatorY >= 100) {
       triggerManualReload();
     }
-    indicator.style.transform = 'translateX(-50%) translateY(-100%)';
-    startY = 0;
-    isPulling = false;
+    resetPull();
+  });
+
+  document.addEventListener('touchcancel', () => {
+    resetPull();
   });
 })();
 
@@ -607,6 +637,27 @@ function applyLanguage() {
   }
   document.getElementById("onboarding-canteen-title").textContent = t.selectCanteens;
   document.getElementById("onboarding-diet-title").textContent = t.selectDiet;
+
+  const ptrTextEl = document.getElementById("ptr-indicator-text");
+  if (ptrTextEl) {
+    ptrTextEl.textContent = t.pullToRefresh || (state.language === "en" ? "Updating..." : "Aktualisieren...");
+  }
+  const settingsBtn = document.getElementById("settings-btn");
+  if (settingsBtn) {
+    settingsBtn.setAttribute("aria-label", t.settingsAria || "Einstellungen öffnen");
+  }
+  const themeToggle = document.getElementById("theme-toggle");
+  if (themeToggle) {
+    themeToggle.setAttribute("aria-label", t.themeToggleAria || "Farbschema wechseln");
+  }
+  const closeOnboarding = document.getElementById("close-onboarding-btn");
+  if (closeOnboarding) {
+    closeOnboarding.setAttribute("aria-label", t.close || "Schließen");
+  }
+  const closeAllergens = document.getElementById("close-allergens-modal-btn");
+  if (closeAllergens) {
+    closeAllergens.setAttribute("aria-label", t.close || "Schließen");
+  }
 }
 
 // 7. Onboarding & Settings UI Rendering
@@ -783,7 +834,8 @@ function initOnboardingUI() {
     const draft = settingsDraft || createSettingsDraft(state);
     
     if (draft.selectedCanteens.length === 0) {
-      alert(draft.language === "de" ? "Bitte wähle mindestens eine Mensa aus!" : "Please select at least one canteen!");
+      const trans = TRANSLATIONS[draft.language] || TRANSLATIONS.de;
+      showToast(trans.selectAtLeastOneCanteen, 'warning');
       return;
     }
 
@@ -862,6 +914,7 @@ function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
   
   initInstallPrompt();
   removeSplash();
+  onboardingFocusRelease = trapFocus(onboarding);
 }
 
 function cancelOnboarding() {
@@ -877,6 +930,10 @@ function hideOnboarding() {
   settingsDraft = null;
   document.getElementById("onboarding").classList.add("hidden");
   document.body.classList.remove("overflow-hidden");
+  if (onboardingFocusRelease) {
+    onboardingFocusRelease();
+    onboardingFocusRelease = null;
+  }
 }
 
 function renderResetButton(t = null) {
@@ -992,9 +1049,8 @@ function initInstallPrompt() {
             deferredPrompt = null;
           });
         } else {
-          alert(state.language === "de" 
-            ? "Nutze das Browsermenü (Dreipunkt-Menü oben rechts -> 'App installieren' oder 'Zum Startbildschirm hinzufügen'), um den Mensaplan hinzuzufügen." 
-            : "Use your browser's menu (three dots in top right -> 'Install app' or 'Add to Home screen') to install the app.");
+          const trans = TRANSLATIONS[state.language] || TRANSLATIONS.de;
+          showToast(trans.installGuideToast, 'cell_tower');
         }
       };
     }
@@ -1495,7 +1551,7 @@ function renderDateSelector(forceScroll = false) {
       : "text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 hover:text-primary dark:hover:text-white hover:shadow-sm font-medium";
       
     selectorContainer.innerHTML += `
-      <button data-action="set-active-date" data-date="${escapeHtml(day.date)}" class="flex-shrink-0 px-4 py-2 rounded-lg font-label-md text-label-md transition-all duration-200 ${btnClass}">
+      <button data-action="set-active-date" data-date="${escapeHtml(day.date)}" aria-pressed="${isActive ? 'true' : 'false'}" class="flex-shrink-0 px-4 py-2 rounded-lg font-label-md text-label-md transition-all duration-200 ${btnClass}">
         ${escapeHtml(formatted)}
       </button>
     `;
@@ -1521,6 +1577,8 @@ function renderDietToggle() {
   const container = document.getElementById("diet-toggle-container");
   const t = TRANSLATIONS[state.language];
   container.innerHTML = "";
+  container.setAttribute("role", "group");
+  container.setAttribute("aria-label", t.selectDiet);
   
   const options = [
     { value: "all", label: t.all },
@@ -1535,7 +1593,7 @@ function renderDietToggle() {
       : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 hover:text-primary dark:hover:text-white hover:shadow-sm font-medium";
       
     container.innerHTML += `
-      <button data-action="set-diet-filter" data-diet="${opt.value}" class="flex-1 py-2 rounded-lg font-label-md text-label-md text-center transition-all duration-200 focus:outline-none ${activeClass}">
+      <button data-action="set-diet-filter" data-diet="${opt.value}" aria-pressed="${isActive ? 'true' : 'false'}" class="flex-1 py-2 rounded-lg font-label-md text-label-md text-center transition-all duration-200 focus:outline-none ${activeClass}">
         ${opt.label}
       </button>
     `;
@@ -2011,7 +2069,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
           </div>
           <div class="min-w-0">
             <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
-            ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" data-action="toggle-clamp">${escapedComponentsText}</p>` : ""}
+            ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" data-action="toggle-clamp" role="button" tabindex="0" aria-expanded="false">${escapedComponentsText}</p>` : ""}
             ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
           </div>
           ${servingMetaHTML}
@@ -2511,6 +2569,9 @@ function showUpdateDialog(worker) {
   const t = TRANSLATIONS[state.language] || TRANSLATIONS.de;
   const modal = document.createElement('div');
   modal.id = 'update-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'update-dialog-title');
   // Use z-[100] to sit above everything (safe area, header, etc.)
   modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-fade-in backdrop-blur-sm';
   
@@ -2525,7 +2586,7 @@ function showUpdateDialog(worker) {
           ${getIconHTML('update', 'text-[28px]')}
         </div>
         <div class="min-w-0">
-          <h3 class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.updateAvailableTitle || "Update verfügbar!"}</h3>
+          <h3 id="update-dialog-title" class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-snug">${t.updateAvailableTitle || "Update verfügbar!"}</h3>
           <p class="text-[12px] text-slate-500 dark:text-slate-400 font-medium">${t.updateAvailableDesc || "Neue Version ist bereit."}</p>
         </div>
       </div>
@@ -2555,9 +2616,12 @@ function showUpdateDialog(worker) {
     document.body.appendChild(modal);
   }
 
+  const releaseFocus = trapFocus(modal);
+
   function triggerRestart() {
     if (hasTriggeredRestart) return;
     hasTriggeredRestart = true;
+    releaseFocus();
     clearInterval(timerInterval);
     clearTimeout(autoTimer);
 
@@ -2613,6 +2677,7 @@ function showUpdateDialog(worker) {
   const laterBtn = document.getElementById('update-later-btn');
   if (laterBtn) {
     laterBtn.addEventListener('click', () => {
+      releaseFocus();
       clearInterval(timerInterval);
       clearTimeout(autoTimer);
       clearTimeout(fallbackTimer);
@@ -2787,6 +2852,8 @@ window.showAllergens = function(dishId) {
   const modalBox = modal.querySelector(".animate-zoom-in") || modal.firstElementChild;
   modalBox.classList.remove("animate-zoom-out");
   modalBox.classList.add("animate-zoom-in");
+
+  allergensFocusRelease = trapFocus(modal);
 };
 
 window.closeAllergensModal = function() {
@@ -2795,6 +2862,10 @@ window.closeAllergensModal = function() {
   modalBox.classList.remove("animate-zoom-in");
   modalBox.classList.add("animate-zoom-out");
   document.body.classList.remove("overflow-hidden");
+  if (allergensFocusRelease) {
+    allergensFocusRelease();
+    allergensFocusRelease = null;
+  }
   setTimeout(() => {
     modal.classList.add("hidden");
   }, 180);
