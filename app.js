@@ -273,6 +273,53 @@ window.addEventListener("DOMContentLoaded", async () => {
     if ('vibrate' in navigator) navigator.vibrate(added ? [10] : [5]); // Haptic
   });
 
+  // Unified Data-Action Event Delegation
+  document.addEventListener('click', e => {
+    const actionEl = e.target.closest('[data-action]');
+    if (!actionEl) return;
+    const action = actionEl.dataset.action;
+
+    if (action === 'change-language') {
+      changeLanguage(actionEl.dataset.lang);
+    } else if (action === 'change-diet-preference') {
+      changeDietPreference(actionEl.dataset.diet);
+    } else if (action === 'reset-app') {
+      resetApp();
+    } else if (action === 'trigger-manual-reload') {
+      triggerManualReload();
+    } else if (action === 'set-active-date') {
+      setActiveDate(actionEl.dataset.date);
+    } else if (action === 'set-diet-filter') {
+      setDietFilter(actionEl.dataset.diet);
+    } else if (action === 'show-allergens') {
+      showAllergens(actionEl.dataset.dishId);
+    } else if (action === 'close-allergens-modal') {
+      closeAllergensModal();
+    } else if (action === 'toggle-clamp') {
+      actionEl.classList.toggle('line-clamp-2');
+    } else if (action === 'fetch-and-render') {
+      fetchAndRender();
+    }
+  });
+
+  // Capture image load failures gracefully without inline onerror
+  document.addEventListener('error', e => {
+    if (e.target && e.target.classList && e.target.classList.contains('dish-image-el')) {
+      const col = e.target.closest('.dish-right-col');
+      if (col) col.style.display = 'none';
+    }
+  }, true);
+
+  // Keyboard navigation: Escape key closes active modals
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const allergensModal = document.getElementById('allergens-modal');
+      if (allergensModal && !allergensModal.classList.contains('hidden')) {
+        closeAllergensModal();
+      }
+    }
+  });
+
   const closeOnboardingBtn = document.getElementById("close-onboarding-btn");
   if (closeOnboardingBtn) {
     closeOnboardingBtn.addEventListener("click", () => {
@@ -505,8 +552,8 @@ function initOnboardingUI() {
   // Render Language Buttons
   const langContainer = document.getElementById("lang-selector");
   langContainer.innerHTML = `
-    <button id="lang-de" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "de" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}" onclick="changeLanguage('de')">Deutsch</button>
-    <button id="lang-en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "en" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}" onclick="changeLanguage('en')">English</button>
+    <button id="lang-de" data-action="change-language" data-lang="de" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "de" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}">Deutsch</button>
+    <button id="lang-en" data-action="change-language" data-lang="en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "en" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}">English</button>
   `;
 
   // Render Canteen Checkbox List (Clustered into Canteens and Bistros)
@@ -604,7 +651,7 @@ function initOnboardingUI() {
   options.forEach(opt => {
     const isActive = state.diet === opt.value;
     dietContainer.innerHTML += `
-      <button class="diet-option-btn flex-1 py-2 font-label-md text-label-md text-center rounded transition-colors focus:outline-none ${isActive ? "bg-price-badge text-primary font-bold shadow-sm" : "text-on-surface-variant dark:text-slate-300 opacity-70 hover:opacity-100"}" onclick="changeDietPreference('${opt.value}')">
+      <button data-action="change-diet-preference" data-diet="${opt.value}" class="diet-option-btn flex-1 py-2 font-label-md text-label-md text-center rounded transition-colors focus:outline-none ${isActive ? "bg-price-badge text-primary font-bold shadow-sm" : "text-on-surface-variant dark:text-slate-300 opacity-70 hover:opacity-100"}">
         ${opt.label}
       </button>
     `;
@@ -731,7 +778,7 @@ function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
     resetContainer.id = "reset-container";
     resetContainer.className = "mt-4 flex justify-center";
     resetContainer.innerHTML = `
-      <button class="px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors font-label-md text-label-md" onclick="resetApp()">
+      <button data-action="reset-app" class="px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors font-label-md text-label-md">
         ${t.resetBtn}
       </button>
     `;
@@ -1160,7 +1207,7 @@ function renderOfflineBanner() {
         ${getIconHTML('cloud_off', 'text-[20px] text-amber-600 dark:text-amber-400')}
         <span class="font-medium">${bannerText}</span>
       </div>
-      <button id="offline-refresh-btn" ${btnDisabled} class="h-9 px-4 bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:pointer-events-none font-bold" onclick="triggerManualReload()">
+      <button id="offline-refresh-btn" ${btnDisabled} data-action="trigger-manual-reload" class="h-9 px-4 bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:pointer-events-none font-bold">
         ${state.isManualUpdating ? `
           <svg class="animate-spin -ml-1 mr-1.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1295,7 +1342,7 @@ function renderError() {
     <div class="flex flex-col items-center justify-center py-20 text-red-600 dark:text-red-400 gap-4">
       ${getIconHTML('error', 'text-[48px]')}
       <p class="font-label-lg text-label-lg">${t.errorLoading}</p>
-      <button class="mt-4 px-6 py-2 bg-primary-container dark:bg-price-badge text-white dark:text-primary font-bold rounded-lg font-label-md shadow-sm" onclick="fetchAndRender()">${state.language === "de" ? "Erneut versuchen" : "Retry"}</button>
+      <button data-action="fetch-and-render" class="mt-4 px-6 py-2 bg-primary-container dark:bg-price-badge text-white dark:text-primary font-bold rounded-lg font-label-md shadow-sm">${state.language === "de" ? "Erneut versuchen" : "Retry"}</button>
     </div>
   `;
   removeSplash();
@@ -1412,7 +1459,7 @@ function renderDateSelector(forceScroll = false) {
       : "text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 hover:text-primary dark:hover:text-white hover:shadow-sm font-medium";
       
     selectorContainer.innerHTML += `
-      <button class="flex-shrink-0 px-4 py-2 rounded-lg font-label-md text-label-md transition-all duration-200 ${btnClass}" onclick="setActiveDate('${day.date}')">
+      <button data-action="set-active-date" data-date="${escapeHtml(day.date)}" class="flex-shrink-0 px-4 py-2 rounded-lg font-label-md text-label-md transition-all duration-200 ${btnClass}">
         ${formatted}
       </button>
     `;
@@ -1452,7 +1499,7 @@ function renderDietToggle() {
       : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 hover:text-primary dark:hover:text-white hover:shadow-sm font-medium";
       
     container.innerHTML += `
-      <button class="flex-1 py-2 rounded-lg font-label-md text-label-md text-center transition-all duration-200 focus:outline-none ${activeClass}" onclick="setDietFilter('${opt.value}')">
+      <button data-action="set-diet-filter" data-diet="${opt.value}" class="flex-1 py-2 rounded-lg font-label-md text-label-md text-center transition-all duration-200 focus:outline-none ${activeClass}">
         ${opt.label}
       </button>
     `;
@@ -1903,11 +1950,11 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   if (allCodes.length > 0) {
     const label = state.language === "en" ? "Allergens:" : "Allergene:";
     allergenIcons = `
-      <div onclick="showAllergens('${dish.id}')" class="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-body-sm opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2">
+      <button type="button" data-action="show-allergens" data-dish-id="${escapeHtml(dish.id)}" class="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-body-sm opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto pl-2 bg-transparent border-0 p-0 text-left">
         <span class="font-semibold text-slate-700 dark:text-slate-300">${label}</span>
         ${allCodes.slice(0, 3).map(c => `<span class="bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 px-1.5 py-0.5 rounded text-[10px] border border-slate-300/60 dark:border-white/[0.1] font-medium">${escapeHtml(c)}</span>`).join("")}
         ${allCodes.length > 3 ? `<span class="text-xs font-bold text-primary dark:text-price-badge">+${allCodes.length - 3}</span>` : ""}
-      </div>
+      </button>
     `;
   }
 
@@ -1972,7 +2019,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
     <button 
       class="share-btn p-1.5 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors flex items-center justify-center active:scale-95"
       data-dish-name="${escapeHtml(mealName)}"
-      data-dish-price="${studentPrice || ''}"
+      data-dish-price="${escapeHtml(studentPrice || '')}"
       data-canteen-name="${escapeHtml(canteen.name)}"
       aria-label="Teilen"
     >
@@ -1989,7 +2036,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
     rightColumnHTML = `
       <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
         <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-sm">
-          <img src="${escapedImageUrl}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${escapedMealName}" onerror="this.closest('.dish-right-col').style.display='none'"/>
+          <img src="${escapedImageUrl}" class="dish-image-el w-full h-full object-cover transition-transform duration-500 hover:scale-105" alt="${escapedMealName}"/>
         </div>
         <div class="bg-price-badge shadow-sm rounded-full px-2.5 py-0.5 border border-amber-300/40 dark:border-white/20">
           <span class="font-label-md text-label-md text-primary font-extrabold tracking-wide">${escapedStudentPrice}</span>
@@ -2019,7 +2066,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
           </div>
           <div class="min-w-0">
             <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
-            ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" onclick="this.classList.toggle('line-clamp-2')">${escapedComponentsText}</p>` : ""}
+            ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" data-action="toggle-clamp">${escapedComponentsText}</p>` : ""}
             ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
           </div>
           ${servingMetaHTML}
@@ -2124,11 +2171,11 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   let allergenIcons = "";
   if (allCodes.length > 0) {
     allergenIcons = `
-      <div onclick="showAllergens('${dish.id}')" class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto" title="Allergene anzeigen">
+      <button type="button" data-action="show-allergens" data-dish-id="${escapeHtml(dish.id)}" class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto bg-transparent border-0 p-0 text-left" title="Allergene anzeigen">
         <span class="font-medium">${state.language === "en" ? "Allergens:" : "Allergene:"}</span>
         ${allCodes.slice(0, 2).map(c => `<span class="bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 px-1 py-0.2 rounded text-[9px] border border-slate-300/60 dark:border-white/[0.1] font-medium">${escapeHtml(c)}</span>`).join("")}
         ${allCodes.length > 2 ? `<span class="font-bold text-primary dark:text-price-badge text-[10px]">+${allCodes.length - 2}</span>` : ""}
-      </div>
+      </button>
     `;
   }
 

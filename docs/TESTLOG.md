@@ -16,3 +16,16 @@
   - Integration in `app.js` (`renderMainDishCard`, `renderCompactDishCard`, `showAllergens`, `findDishById`).
 - **Ergebnis**: 20/20 Tests bestanden. Service Worker auf `kstw-mensa-v44` aktualisiert.
 - **Offene Probleme**: Keine.
+
+## Paket S3: Inline-Handler & CSP-Härtung (04.10.2026)
+- **Geprüft**:
+  - Sämtliche `onclick` und `onerror` Attribute in `index.html` und `app.js` eliminiert.
+  - Event Delegation für `[data-action]` implementiert (`change-language`, `change-diet-preference`, `reset-app`, `trigger-manual-reload`, `set-active-date`, `set-diet-filter`, `show-allergens`, `close-allergens-modal`, `toggle-clamp`, `fetch-and-render`).
+  - `theme-init.js` als Standalone-Skript im `<head>` eingebunden, synchron ausgeführt (kein White Flash).
+  - CSP: `'unsafe-inline'` aus `script-src` entfernt (`script-src 'self'`).
+  - Modal-A11y: `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, Escape-Taste schließt Modals.
+  - `node --check` auf `theme-init.js`, `app.js`, `sw.js`.
+  - `npm test` (20/20 Vitest Tests erfolgreich).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, CSP gehärtet, Service Worker auf `kstw-mensa-v45` aktualisiert.
+- **Offene Probleme**: Keine.

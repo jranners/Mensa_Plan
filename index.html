@@ -1,17 +1,9 @@
 <!DOCTYPE html>
 <html class="light" lang="de">
 <head>
-    <script>
-      (function initTheme() {
-        const saved = localStorage.getItem('kstw_theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const isDark = saved ? saved === 'dark' : prefersDark;
-        document.documentElement.classList.toggle('dark', isDark);
-        document.documentElement.classList.toggle('light', !isDark);
-      })();
-    </script>
+    <script src="theme-init.js"></script>
     <meta charset="utf-8"/>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.supabase.co https://*.kstw.de; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; manifest-src 'self';"/>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.supabase.co https://*.kstw.de; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; manifest-src 'self';"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
     <title>KStW Mensaplan</title>
     
@@ -269,12 +261,12 @@
     </div>
 
     <!-- Allergens Detail Modal (Root Viewport Fixed) -->
-    <div id="allergens-modal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden pt-safe pb-safe">
+    <div id="allergens-modal" role="dialog" aria-modal="true" aria-labelledby="allergens-modal-title" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden pt-safe pb-safe">
         <div class="w-full max-w-sm bg-white dark:bg-[#0b1926] rounded-3xl border border-black/[0.08] dark:border-white/[0.08] shadow-2xl p-6 flex flex-col gap-4 mx-4 animate-zoom-in">
             <!-- Modal Header -->
             <div class="flex items-center justify-between">
                 <h3 id="allergens-modal-title" class="font-headline text-[18px] font-bold text-text-heading dark:text-white">Allergene & Zusatzstoffe</h3>
-                <button id="close-allergens-modal-btn" class="hover:bg-black/5 dark:hover:bg-white/10 p-1 rounded-full text-on-surface-variant dark:text-slate-300 flex items-center justify-center" onclick="closeAllergensModal()">
+                <button id="close-allergens-modal-btn" data-action="close-allergens-modal" aria-label="Schließen" class="hover:bg-black/5 dark:hover:bg-white/10 p-1 rounded-full text-on-surface-variant dark:text-slate-300 flex items-center justify-center">
                     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
