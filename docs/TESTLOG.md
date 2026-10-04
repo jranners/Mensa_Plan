@@ -264,3 +264,33 @@
 - **Ergebnis**: Alle Feature-Pakete F1–F7 voll funktionsfähig, getestet und abgesichert.
 - **Offene Probleme**: Keine.
 
+## Paket F8: Card-Overflow-Fix, Heute-Header-Button, Verschlanktes Menü & Ultraleichte Statistiken (04.10.2026)
+- **Geprüft**:
+  - **Card-Overflow & Layout (Mobile & Desktop)**:
+    - `renderCanteenMenu`: Beilagen (`sides`) und Desserts (`desserts`) von 2-Spalten-Raster (`grid-cols-1 sm:grid-cols-2`) auf sauberen vertikalen Stapel (`flex flex-col gap-2.5`) umgestellt. Dadurch haben Speisenkarten volle Containerbreite und werden auf Mobile / kleinen Bildschirmen nicht mehr in ~150px breite Spalten gequetscht.
+    - `renderCompactDishCard`: Hinzufügen von `overflow-hidden break-words min-w-0` auf Kartenebene; Titel mit `min-w-0 flex-1 break-words line-clamp-2`; Preisbadge mit `flex-shrink-0 self-start whitespace-nowrap`; Badges (`dishCounter`, `dietBadge`, `undeclaredBadge`, `conflictBadge`) mit `whitespace-nowrap` gegen Zeilenumbrüche mitten im Badge; Allergen-Button kompakter ohne redundanten Text `"Allergene:"` (screen-reader-tauglich über `.sr-only`), wodurch kein Überstand mehr entsteht.
+    - `renderMainDishCard`: Ebenfalls mit `overflow-hidden break-words min-w-0`, `min-w-0` in Flex-Containern und `flex-wrap min-w-0` im Footer gegen Überlauf abgesichert.
+  - **Heute-Header-Button**:
+    - Separater Button `#today-btn` direkt in der App-Kopfzeile (Header) neben Theme-Toggle und Hamburger-Menü platziert.
+    - Springt per Klick unmittelbar auf das heutige Datum (`setActiveDate(getLocalIsoDate(), true)`) und scrollt den Datums-Selektor in die Sicht.
+    - Zweisprachig lokalisiert (DE: „Heute“, EN: „Today“).
+  - **Verschlanktes Hamburger-Menü**:
+    - Hamburger-Menü auf genau zwei Einträge reduziert: **Einstellungen** (`menu-open-settings`) und **Statistiken** (`menu-open-stats`).
+    - Redundante Einträge („Zu heute springen“, „Speiseplan aktualisieren“, Info-Text) vollständig aus dem Menü entfernt.
+  - **Ultraleichte Statistiken (`src/lib/stats.js`)**:
+    - Neues Statistikmodul mit extrem schlankem Speicher-Footprint (< 2 KB in `localStorage` unter `kstw_stats_v1`).
+    - Speichert aggregierte Zahlen (Gerichte gesamt, Vegan, Vegetarisch, Fleisch/Fisch, Durchschnittspreis, Min-/Max-Preis) und begrenzt Häufigkeitslisten auf die Top-50-Gerichte und max. 30 Tage.
+    - `computeLiveMenuStats`: Berechnet live aus den geladenen Daten des aktuellen Speiseplans Ernährungsprofile, Preisspannen, Top-5-Dauerbrenner und Treffer von Favoriten-Speisen.
+    - UI-Modal `#stats-modal`: Barrierefrei (`trapFocus`, Escape-Taste, Backdrop-Klick), zweisprachig (DE/EN) und mit Speicherindikator („🌱 Extrem speicherplatzsparend (< 2 KB lokal)“).
+    - Vor Settings-Reset geschützt (`PRESERVED_KEYS` in `src/lib/storage.js`).
+  - **Tests & Qualität**:
+    - 5 neue Unit-Tests in `tests/stats.test.js` (Initialzustand, Aggregation, Idempotenz, Speicherbegrenzung < 4 KB, Live-Auswertung).
+    - 1 neuer Smoke-Test in `tests/smoke.test.js`.
+    - 110/110 Tests in Vitest bestanden (`npm test`).
+    - `npm run lint` bestanden (0 Fehler, 0 Warnungen).
+    - `sw.js`: `CACHE_NAME` auf `kstw-mensa-v56` erhöht und `./src/lib/stats.js` in `STATIC_ASSETS` aufgenommen.
+    - `npm run check:sw` verifiziert.
+    - `npm run build:css` ausgeführt.
+- **Ergebnis**: Alle Punkte erfolgreich umgesetzt, getestet und abgesichert.
+- **Offene Probleme**: Keine.
+

@@ -62,5 +62,11 @@ describe('ES Module Smoke Test', () => {
     expect(typeof setAriaPressed).toBe('function');
     expect(typeof setAriaExpanded).toBe('function');
   });
+
+  it('loads stats module properly', async () => {
+    const statsModule = await import('../src/lib/stats.js');
+    expect(typeof statsModule.aggregateMenuStats).toBe('function');
+    expect(typeof statsModule.computeLiveMenuStats).toBe('function');
+  });
 });
 

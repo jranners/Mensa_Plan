@@ -92,11 +92,26 @@
                 <img src="kstw-logo.png" class="h-6 w-auto object-contain" alt="KStW Logo"/>
                 <span id="app-title" class="font-headline text-[18px] font-bold text-on-primary tracking-wide">Mensaplan</span>
             </div>
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-1.5">
+                <button 
+                  id="today-btn" 
+                  data-action="jump-today" 
+                  aria-label="Zu heute springen"
+                  title="Zu heute springen"
+                  class="px-2.5 py-1 rounded-full text-xs font-bold bg-white/15 hover:bg-white/25 active:scale-95 transition-all text-on-primary flex items-center gap-1 shadow-xs cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <span id="today-btn-text">Heute</span>
+                </button>
                 <button 
                   id="theme-toggle" 
                   aria-label="Farbschema wechseln"
-                  class="p-2 rounded-full text-on-primary hover:bg-white/10 active:scale-95 transition-colors flex items-center justify-center"
+                  class="p-2 rounded-full text-on-primary hover:bg-white/10 active:scale-95 transition-colors flex items-center justify-center cursor-pointer"
                 >
                   <!-- Mond-Icon (Dark Mode): -->
                   <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden dark:block" fill="currentColor" viewBox="0 0 24 24">
@@ -107,7 +122,7 @@
                     <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
                   </svg>
                 </button>
-                <button id="menu-btn" data-action="open-menu" aria-label="Hauptmenü öffnen" class="hover:bg-white/10 active:scale-95 transition-transform p-1.5 rounded-full flex items-center justify-center text-on-primary">
+                <button id="menu-btn" data-action="open-menu" aria-label="Hauptmenü öffnen" class="hover:bg-white/10 active:scale-95 transition-transform p-1.5 rounded-full flex items-center justify-center text-on-primary cursor-pointer">
                     <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="4" y1="6" x2="20" y2="6"></line>
                         <line x1="4" y1="12" x2="20" y2="12"></line>
@@ -309,41 +324,64 @@
                 </button>
             </div>
             
-            <div class="flex flex-col gap-2">
-                <button type="button" data-action="menu-open-settings" class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 text-left transition-all active:scale-98">
-                    <span class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center">
+            <div class="flex flex-col gap-2.5">
+                <!-- 1. Einstellungen -->
+                <button type="button" data-action="menu-open-settings" class="w-full flex items-center gap-3 p-3.5 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 text-left transition-all active:scale-98 border border-slate-200/60 dark:border-white/5 shadow-xs cursor-pointer">
+                    <span class="p-2.5 rounded-xl bg-primary-container/10 dark:bg-price-badge/15 text-primary-container dark:text-price-badge flex items-center justify-center flex-shrink-0">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                     </span>
                     <div class="flex flex-col min-w-0">
-                        <span id="menu-item-settings-title" class="font-bold text-sm text-text-heading dark:text-white">Einstellungen & Mensen</span>
+                        <span id="menu-item-settings-title" class="font-bold text-sm text-text-heading dark:text-white">Einstellungen</span>
                         <span class="text-[11px] text-slate-500 dark:text-slate-400 truncate">Mensen, Diät, Allergene, Tarif</span>
                     </div>
                 </button>
 
-                <button type="button" data-action="menu-jump-today" class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 text-left transition-all active:scale-98">
-                    <span class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <!-- 2. Statistiken -->
+                <button type="button" data-action="menu-open-stats" class="w-full flex items-center gap-3 p-3.5 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 text-left transition-all active:scale-98 border border-slate-200/60 dark:border-white/5 shadow-xs cursor-pointer">
+                    <span class="p-2.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                     </span>
                     <div class="flex flex-col min-w-0">
-                        <span id="menu-item-today-title" class="font-bold text-sm text-text-heading dark:text-white">Zu heute springen</span>
-                        <span class="text-[11px] text-slate-500 dark:text-slate-400">Aktueller Wochentag</span>
-                    </div>
-                </button>
-
-                <button type="button" data-action="menu-refresh" class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 text-left transition-all active:scale-98">
-                    <span class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                    </span>
-                    <div class="flex flex-col min-w-0">
-                        <span id="menu-item-refresh-title" class="font-bold text-sm text-text-heading dark:text-white">Speiseplan aktualisieren</span>
-                        <span class="text-[11px] text-slate-500 dark:text-slate-400">Neueste Daten laden</span>
+                        <span id="menu-item-stats-title" class="font-bold text-sm text-text-heading dark:text-white">Statistiken</span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 truncate">Vegan-Anteil, Preise, Häufigkeit</span>
                     </div>
                 </button>
             </div>
+        </div>
+    </div>
 
-            <!-- About Text Box -->
-            <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/60 dark:border-white/5 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                <span id="menu-about-text">Inoffizielle, datensparsame Progressive Web App (PWA) für den Mensaplan des Kölner Studierendenwerks (KStW). Alle Einstellungen und Favoriten verbleiben ausschließlich lokal in deinem Browser.</span>
+    <!-- Statistics Modal -->
+    <div id="stats-modal" role="dialog" aria-modal="true" aria-labelledby="stats-modal-title" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden pt-safe pb-safe">
+        <div class="w-full max-w-md bg-white dark:bg-[#0b1926] rounded-3xl border border-black/[0.08] dark:border-white/[0.08] shadow-2xl p-6 flex flex-col gap-4 m-4 max-h-[85vh] overflow-y-auto hide-scrollbar animate-zoom-in">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-black/[0.06] dark:border-white/[0.08] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center text-emerald-600 dark:text-emerald-400" style="width: 24px; height: 24px;">
+                        <svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    </span>
+                    <div>
+                        <h3 id="stats-modal-title" class="font-headline text-[18px] font-bold text-text-heading dark:text-white leading-tight">Mensa-Statistiken</h3>
+                        <p id="stats-modal-subheading" class="text-xs text-slate-500 dark:text-slate-400">Auswertung der Angebote &amp; Trends</p>
+                    </div>
+                </div>
+                <button id="close-stats-modal-btn" data-action="close-stats-modal" aria-label="Schließen" class="hover:bg-black/5 dark:hover:bg-white/10 p-1.5 rounded-full text-on-surface-variant dark:text-slate-300 flex items-center justify-center cursor-pointer">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <!-- Content Container (populated dynamically) -->
+            <div id="stats-modal-content" class="flex flex-col gap-4">
+                <!-- Dynamic stats HTML -->
+            </div>
+
+            <!-- Footer Badge & Close -->
+            <div class="flex items-center justify-between pt-2 border-t border-black/[0.06] dark:border-white/[0.08] text-[11px] text-slate-500 dark:text-slate-400 flex-wrap gap-2">
+                <span id="stats-storage-badge" class="font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                    🌱 Extrem speicherplatzsparend (&lt; 2 KB lokal)
+                </span>
+                <button type="button" data-action="close-stats-modal" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-bold text-xs text-slate-700 dark:text-slate-200 transition-colors cursor-pointer">
+                    Schließen
+                </button>
             </div>
         </div>
     </div>

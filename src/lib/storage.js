@@ -7,6 +7,7 @@ export const CURRENT_SCHEMA_VERSION = 2;
 export const SCHEMA_VERSION_KEY = 'kstw_schema_version';
 export const FAVORITES_V2_KEY = 'kstw_favorites_v2';
 export const TARIFF_KEY = 'kstw_tariff';
+export const STATS_KEY = 'kstw_stats_v1';
 
 export const PREFERENCE_KEYS = [
   'kstw_prefs_saved',
@@ -29,6 +30,7 @@ export const PRESERVED_KEYS = [
   'kstw_theme',
   'kstw_favorites',
   FAVORITES_V2_KEY,
+  STATS_KEY,
   SCHEMA_VERSION_KEY
 ];
 

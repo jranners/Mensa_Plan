@@ -48,11 +48,16 @@ import {
 } from './src/lib/storage.js';
 import { validateWeekMenu, validateAnnouncements } from './src/lib/validation.js';
 import { trapFocus } from './src/lib/a11y.js';
+import {
+  aggregateMenuStats,
+  computeLiveMenuStats
+} from './src/lib/stats.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 let onboardingFocusRelease = null;
 let allergensFocusRelease = null;
 let menuFocusRelease = null;
+let statsFocusRelease = null;
 
 function getLocalIsoDate(date = new Date()) {
   return getBerlinTodayDate(date);
@@ -303,6 +308,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       hideAppMenu();
     }
   });
+  document.getElementById("stats-modal")?.addEventListener("click", e => {
+    if (e.target.id === "stats-modal") {
+      hideStatsModal();
+    }
+  });
 
   // Theme-Toggle Event Listener
   document.getElementById('theme-toggle')?.addEventListener('click', () => {
@@ -421,12 +431,19 @@ window.addEventListener("DOMContentLoaded", async () => {
       showAppMenu();
     } else if (action === 'close-menu') {
       hideAppMenu();
+    } else if (action === 'jump-today') {
+      setActiveDate(getLocalIsoDate(), true);
     } else if (action === 'menu-open-settings') {
       hideAppMenu();
       showOnboarding(true);
+    } else if (action === 'menu-open-stats') {
+      hideAppMenu();
+      showStatsModal();
+    } else if (action === 'close-stats-modal') {
+      hideStatsModal();
     } else if (action === 'menu-jump-today') {
       hideAppMenu();
-      setActiveDate(getLocalIsoDate());
+      setActiveDate(getLocalIsoDate(), true);
     } else if (action === 'menu-refresh') {
       hideAppMenu();
       triggerManualReload();
@@ -461,6 +478,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Keyboard navigation: Escape key closes active modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
+      const statsModal = document.getElementById('stats-modal');
+      if (statsModal && !statsModal.classList.contains('hidden')) {
+        hideStatsModal();
+        return;
+      }
       const menuModal = document.getElementById('app-menu-modal');
       if (menuModal && !menuModal.classList.contains('hidden')) {
         hideAppMenu();
@@ -659,6 +681,9 @@ function saveMenuCache(data) {
     localStorage.setItem("kstw_menu_cache", JSON.stringify(data));
     localStorage.setItem("kstw_menu_cache_time", time.toString());
     state.lastCacheTime = time;
+    if (Array.isArray(data)) {
+      aggregateMenuStats(data);
+    }
   } catch (err) {
     console.error("Failed to save menu cache:", err);
   }
@@ -679,6 +704,7 @@ function loadMenuCache() {
       }
       state.menuData = parsed;
       state.lastCacheTime = parseInt(cachedTime, 10);
+      aggregateMenuStats(parsed);
       return true;
     }
   } catch (err) {
@@ -765,6 +791,10 @@ function applyLanguage() {
   if (menuItemSettingsTitle) {
     menuItemSettingsTitle.textContent = t.menuSettings;
   }
+  const menuItemStatsTitle = document.getElementById("menu-item-stats-title");
+  if (menuItemStatsTitle) {
+    menuItemStatsTitle.textContent = t.statsTitle || "Statistiken";
+  }
   const menuItemTodayTitle = document.getElementById("menu-item-today-title");
   if (menuItemTodayTitle) {
     menuItemTodayTitle.textContent = t.menuToday;
@@ -777,6 +807,27 @@ function applyLanguage() {
   if (menuAboutText) {
     menuAboutText.textContent = t.menuAboutText;
   }
+  const todayBtn = document.getElementById("today-btn");
+  if (todayBtn) {
+    todayBtn.setAttribute("aria-label", t.todayButtonAria || "Zu heute springen");
+    todayBtn.setAttribute("title", t.todayButtonAria || "Zu heute springen");
+  }
+  const todayBtnText = document.getElementById("today-btn-text");
+  if (todayBtnText) {
+    todayBtnText.textContent = t.todayButton || "Heute";
+  }
+  const statsModalTitle = document.getElementById("stats-modal-title");
+  if (statsModalTitle) {
+    statsModalTitle.textContent = t.statsTitle || "Mensa-Statistiken";
+  }
+  const statsModalSub = document.getElementById("stats-modal-subheading");
+  if (statsModalSub) {
+    statsModalSub.textContent = t.statsSubheading || "Auswertung der Angebote & Trends";
+  }
+  const statsStorageBadge = document.getElementById("stats-storage-badge");
+  if (statsStorageBadge) {
+    statsStorageBadge.textContent = t.statsStorageBadge || "🌱 Extrem speicherplatzsparend (< 2 KB lokal)";
+  }
   const themeToggle = document.getElementById("theme-toggle");
   if (themeToggle) {
     themeToggle.setAttribute("aria-label", t.themeToggleAria || "Farbschema wechseln");
@@ -788,6 +839,10 @@ function applyLanguage() {
   const closeMenuBtn = document.getElementById("close-menu-btn");
   if (closeMenuBtn) {
     closeMenuBtn.setAttribute("aria-label", t.close || "Schließen");
+  }
+  const closeStatsBtn = document.getElementById("close-stats-modal-btn");
+  if (closeStatsBtn) {
+    closeStatsBtn.setAttribute("aria-label", t.close || "Schließen");
   }
   const closeAllergens = document.getElementById("close-allergens-modal-btn");
   if (closeAllergens) {
@@ -1124,6 +1179,128 @@ function hideAppMenu() {
   if (menuFocusRelease) {
     menuFocusRelease();
     menuFocusRelease = null;
+  }
+}
+
+function renderStatsContent() {
+  const content = document.getElementById("stats-modal-content");
+  if (!content) return;
+
+  const t = TRANSLATIONS[state.language] || TRANSLATIONS.de;
+  const stats = computeLiveMenuStats(state.menuData || []);
+
+  if (!stats || stats.totalDishes === 0) {
+    content.innerHTML = `
+      <div class="text-center py-8 text-slate-500 dark:text-slate-400">
+        <p class="text-sm font-medium">${escapeHtml(t.statsNoData || "Noch keine Menüdaten vorhanden.")}</p>
+      </div>
+    `;
+    return;
+  }
+
+  const veganPct = Math.round((stats.veganCount / stats.totalDishes) * 100);
+  const vegPct = Math.round((stats.vegetarianCount / stats.totalDishes) * 100);
+  const meatPct = Math.max(0, 100 - veganPct - vegPct);
+
+  const topDishesHTML = (stats.topDishes || []).map(item => `
+    <li class="flex items-center justify-between text-xs py-1.5 border-b border-slate-100 dark:border-white/5 last:border-0">
+      <span class="truncate mr-2 font-medium text-slate-700 dark:text-slate-200">${escapeHtml(item.name)}</span>
+      <span class="px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-700 text-[11px] font-bold text-slate-800 dark:text-slate-200 flex-shrink-0">${item.count}×</span>
+    </li>
+  `).join("");
+
+  const favHTML = stats.activeFavoritesCount > 0 ? `
+    <div class="flex items-center justify-between p-3 rounded-2xl bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 text-xs">
+      <div class="flex items-center gap-2">
+        <span class="text-amber-500 font-extrabold text-sm">★</span>
+        <span class="font-medium text-amber-900 dark:text-amber-200">${escapeHtml(t.statsFavoritesCount || "Favoriten im aktuellen Speiseplan")}</span>
+      </div>
+      <span class="font-extrabold text-amber-600 dark:text-amber-400 text-sm px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/40">${stats.activeFavoritesCount}</span>
+    </div>
+  ` : "";
+
+  content.innerHTML = `
+    <!-- Diet Distribution -->
+    <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
+      <div class="flex justify-between items-center text-xs font-bold text-slate-800 dark:text-white">
+        <span>${escapeHtml(t.statsDietDist || "Ernährungsverteilung")}</span>
+        <span class="text-slate-500 dark:text-slate-400 font-normal text-[11px]">${stats.totalDishes} ${state.language === "en" ? "dishes total" : "Gerichte gesamt"}</span>
+      </div>
+
+      <!-- Segmented Bar -->
+      <div class="w-full h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex shadow-inner">
+        <div style="width: ${veganPct}%" class="bg-emerald-500 transition-all duration-500" title="${escapeHtml(t.statsVegan || 'Vegan')}: ${veganPct}%"></div>
+        <div style="width: ${vegPct}%" class="bg-amber-400 transition-all duration-500" title="${escapeHtml(t.statsVegetarian || 'Vegetarisch')}: ${vegPct}%"></div>
+        <div style="width: ${meatPct}%" class="bg-rose-400 transition-all duration-500" title="${escapeHtml(t.statsMeat || 'Fleisch / Fisch')}: ${meatPct}%"></div>
+      </div>
+
+      <!-- Badges -->
+      <div class="grid grid-cols-3 gap-2 pt-1 text-center">
+        <div class="flex flex-col items-center p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/30">
+          <span class="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">${escapeHtml(t.statsVegan || "Vegan")}</span>
+          <span class="text-xs font-extrabold text-emerald-800 dark:text-emerald-200">${veganPct}% <span class="text-[10px] font-normal text-emerald-600 dark:text-emerald-400">(${stats.veganCount})</span></span>
+        </div>
+        <div class="flex flex-col items-center p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/30">
+          <span class="text-[10px] font-medium text-amber-700 dark:text-amber-300">${escapeHtml(t.statsVegetarian || "Vegetarisch")}</span>
+          <span class="text-xs font-extrabold text-amber-800 dark:text-amber-200">${vegPct}% <span class="text-[10px] font-normal text-amber-600 dark:text-amber-400">(${stats.vegetarianCount})</span></span>
+        </div>
+        <div class="flex flex-col items-center p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/30">
+          <span class="text-[10px] font-medium text-rose-700 dark:text-rose-300">${escapeHtml(t.statsMeat || "Fleisch / Fisch")}</span>
+          <span class="text-xs font-extrabold text-rose-800 dark:text-rose-200">${meatPct}% <span class="text-[10px] font-normal text-rose-600 dark:text-rose-400">(${stats.meatCount})</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prices -->
+    <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
+      <span class="text-xs font-bold text-slate-800 dark:text-white">${state.language === "en" ? "Prices (Selected Tariff)" : "Preise (gewählter Tarif)"}</span>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="flex flex-col p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">${escapeHtml(t.statsAvgPrice || "Durchschnitt")}</span>
+          <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.avgPrice != null ? formatPrice(stats.avgPrice) : "—"}</span>
+        </div>
+        <div class="flex flex-col p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">${escapeHtml(t.statsMinPrice || "Günstigstes")}</span>
+          <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.minPrice != null ? formatPrice(stats.minPrice) : "—"}</span>
+        </div>
+        <div class="flex flex-col p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">${escapeHtml(t.statsMaxPrice || "Teuerstes")}</span>
+          <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.maxPrice != null ? formatPrice(stats.maxPrice) : "—"}</span>
+        </div>
+      </div>
+    </div>
+
+    ${favHTML}
+
+    <!-- Top Dishes -->
+    ${topDishesHTML ? `
+      <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
+        <span class="text-xs font-bold text-slate-800 dark:text-white">${escapeHtml(t.statsTopDishes || "Häufigste Gerichte")}</span>
+        <ul class="flex flex-col divide-y divide-slate-100 dark:divide-white/5">
+          ${topDishesHTML}
+        </ul>
+      </div>
+    ` : ""}
+  `;
+}
+
+function showStatsModal() {
+  const modal = document.getElementById("stats-modal");
+  if (!modal) return;
+  renderStatsContent();
+  modal.classList.remove("hidden");
+  document.body.classList.add("overflow-hidden");
+  statsFocusRelease = trapFocus(modal);
+}
+
+function hideStatsModal() {
+  const modal = document.getElementById("stats-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  document.body.classList.remove("overflow-hidden");
+  if (statsFocusRelease) {
+    statsFocusRelease();
+    statsFocusRelease = null;
   }
 }
 
@@ -1742,9 +1919,9 @@ function renderDateSelector(forceScroll = false) {
   }
 }
 
-function setActiveDate(dateStr) {
+function setActiveDate(dateStr, forceScroll = false) {
   state.activeDate = dateStr;
-  renderDateSelector(false);
+  renderDateSelector(forceScroll);
   renderCanteenMenu();
 }
 window.setActiveDate = setActiveDate;
@@ -2082,14 +2259,14 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   let dietBadge = "";
   if (dietType === "vegan") {
     dietBadge = `
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-label-sm text-[11px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900 font-medium">
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-label-sm text-[11px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900 font-medium whitespace-nowrap">
         ${getIconHTML('eco', 'text-[14px]')}
         ${t.vegan}
       </span>
     `;
   } else if (dietType === "vegetarian") {
     dietBadge = `
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900 font-medium">
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900 font-medium whitespace-nowrap">
         ${getIconHTML('nutrition', 'text-[14px]')}
         ${t.vegetarian}
       </span>
@@ -2102,14 +2279,14 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   if (state.allergies && state.allergies.length > 0) {
     if (allergyEval.hasNoInfo) {
       undeclaredBadge = `
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium whitespace-nowrap">
           ${getIconHTML('warning', 'text-[14px]')}
           ${t.noAllergenInfoBadge}
         </span>
       `;
     } else if (allergyEval.uncertainBy.length > 0) {
       undeclaredBadge = `
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium whitespace-nowrap">
           ${getIconHTML('warning', 'text-[14px]')}
           ${t.uncertainDessertBadge}
         </span>
@@ -2120,7 +2297,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   let conflictBadge = "";
   if (allergyEval.dietConflict) {
     conflictBadge = `
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 font-label-sm text-[11px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium">
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 font-label-sm text-[11px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium whitespace-nowrap">
         ${getIconHTML('warning', 'text-[14px]')}
         ${t.conflictBadge}
       </span>
@@ -2317,10 +2494,10 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   }
 
   return `
-    <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border ${cardBorderClass}" data-dish-clean-name="${escapeHtml(cleanName)}">
+    <article class="bg-slate-50/90 dark:bg-[#182c44] rounded-2xl p-inset-card flex flex-col gap-2 relative hover:bg-white dark:hover:bg-[#1f3754] transition-all duration-200 border overflow-hidden break-words min-w-0 ${cardBorderClass}" data-dish-clean-name="${escapeHtml(cleanName)}">
       ${favoriteBannerHTML}
       ${allergenExcludedBannerHTML}
-      <div class="flex justify-between items-start gap-3">
+      <div class="flex justify-between items-start gap-3 min-w-0">
         <div class="flex-1 flex flex-col gap-2.5 min-w-0">
           <div class="flex items-center gap-1.5 flex-wrap w-full">
             ${brandBadgeHTML}
@@ -2328,22 +2505,22 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
             ${priceBadgeInline}
           </div>
           <div class="min-w-0">
-            <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2">${escapedMealName}</h3>
-            ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer" data-action="toggle-clamp" role="button" tabindex="0" aria-expanded="false">${escapedComponentsText}</p>` : ""}
-            ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1">${escapedMealDesc}</p>` : ""}
+            <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2 min-w-0 break-words">${escapedMealName}</h3>
+            ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer break-words" data-action="toggle-clamp" role="button" tabindex="0" aria-expanded="false">${escapedComponentsText}</p>` : ""}
+            ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1 break-words">${escapedMealDesc}</p>` : ""}
             ${buffetCalcHTML}
           </div>
           ${servingMetaHTML}
         </div>
-        ${rightColumnHTML ? `<div class="dish-right-col">${rightColumnHTML}</div>` : ""}
+        ${rightColumnHTML ? `<div class="dish-right-col flex-shrink-0">${rightColumnHTML}</div>` : ""}
       </div>
-      <div class="flex items-center justify-between mt-1 pt-2 border-t border-slate-200/70 dark:border-white/5">
-        <div class="flex gap-1.5 flex-wrap">
+      <div class="flex items-center justify-between mt-1 pt-2 border-t border-slate-200/70 dark:border-white/5 flex-wrap min-w-0 gap-2">
+        <div class="flex gap-1.5 flex-wrap items-center min-w-0">
           ${dietBadge}
           ${undeclaredBadge}
           ${conflictBadge}
         </div>
-        <div class="flex items-center gap-1.5 ml-auto">
+        <div class="flex items-center gap-1.5 ml-auto flex-shrink-0">
           ${favBtn}
           ${shareBtn}
           ${allergenIcons}
@@ -2390,14 +2567,14 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   let dietBadge = "";
   if (dietType === "vegan") {
     dietBadge = `
-      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900 font-medium">
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] dark:bg-green-950/20 dark:text-green-400 dark:border-green-900 font-medium whitespace-nowrap">
         ${getIconHTML('eco', 'text-[12px]')}
         ${t.vegan}
       </span>
     `;
   } else if (dietType === "vegetarian") {
     dietBadge = `
-      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900 font-medium">
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900 font-medium whitespace-nowrap">
         ${getIconHTML('nutrition', 'text-[12px]')}
         ${t.vegetarian}
       </span>
@@ -2410,14 +2587,14 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   if (state.allergies && state.allergies.length > 0) {
     if (allergyEval.hasNoInfo) {
       undeclaredBadge = `
-        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium whitespace-nowrap">
           ${getIconHTML('warning', 'text-[12px]')}
           ${t.noAllergenInfoBadge}
         </span>
       `;
     } else if (allergyEval.uncertainBy.length > 0) {
       undeclaredBadge = `
-        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium">
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium whitespace-nowrap">
           ${getIconHTML('warning', 'text-[12px]')}
           ${t.uncertainDessertBadge}
         </span>
@@ -2428,7 +2605,7 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   let conflictBadge = "";
   if (allergyEval.dietConflict) {
     conflictBadge = `
-      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[10px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium">
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[10px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium whitespace-nowrap">
         ${getIconHTML('warning', 'text-[12px]')}
         ${t.conflictBadge}
       </span>
@@ -2439,8 +2616,8 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   let allergenIcons = "";
   if (allCodes.length > 0) {
     allergenIcons = `
-      <button type="button" data-action="show-allergens" data-dish-id="${escapeHtml(dish.id)}" class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto bg-transparent border-0 p-0 text-left" title="Allergene anzeigen">
-        <span class="font-medium">${state.language === "en" ? "Allergens:" : "Allergene:"}</span>
+      <button type="button" data-action="show-allergens" data-dish-id="${escapeHtml(dish.id)}" class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 opacity-85 hover:opacity-100 hover:text-[#00273e] dark:hover:text-white cursor-pointer active:scale-95 transition-all select-none ml-auto bg-transparent border-0 p-0 text-left whitespace-nowrap" title="${state.language === 'en' ? 'Show allergens' : 'Allergene anzeigen'}">
+        <span class="sr-only">${state.language === "en" ? "Allergens:" : "Allergene:"}</span>
         ${allCodes.slice(0, 2).map(c => `<span class="bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 px-1 py-0.2 rounded text-[9px] border border-slate-300/60 dark:border-white/[0.1] font-medium">${escapeHtml(c)}</span>`).join("")}
         ${allCodes.length > 2 ? `<span class="font-bold text-primary dark:text-price-badge text-[10px]">+${allCodes.length - 2}</span>` : ""}
       </button>
@@ -2473,23 +2650,23 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   }
 
   return `
-    <div class="${cardClass}" data-dish-clean-name="${escapeHtml(cleanName)}">
-      <div class="flex justify-between items-start gap-2">
-        <h4 class="font-headline text-[13px] sm:text-[14px] text-text-heading dark:text-white font-bold leading-snug line-clamp-2">
+    <div class="${cardClass} overflow-hidden break-words min-w-0" data-dish-clean-name="${escapeHtml(cleanName)}">
+      <div class="flex justify-between items-start gap-2 min-w-0">
+        <h4 class="font-headline text-[13px] sm:text-[14px] text-text-heading dark:text-white font-bold leading-snug line-clamp-2 min-w-0 flex-1 break-words">
           ${isFav ? '<span class="text-amber-500 font-extrabold mr-1">★</span>' : ''}${escapedMealName}
         </h4>
-        <div class="bg-price-badge shadow-sm rounded-full px-2 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0">
+        <div class="bg-price-badge shadow-sm rounded-full px-2 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0 self-start whitespace-nowrap">
           <span class="font-label-sm text-[11px] text-primary font-extrabold tracking-wide">${escapedPrice}</span>
         </div>
       </div>
-      <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5 text-[11px]">
-        <div class="flex gap-1 flex-wrap items-center">
-          ${dishCounter ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 border border-slate-300/50 dark:border-white/10 text-[10px] text-slate-700 dark:text-slate-300 font-medium">${escapeHtml(dishCounter)}</span>` : ""}
+      <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5 text-[11px] flex-wrap min-w-0">
+        <div class="flex gap-1 flex-wrap items-center min-w-0">
+          ${dishCounter ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 border border-slate-300/50 dark:border-white/10 text-[10px] text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">${escapeHtml(dishCounter)}</span>` : ""}
           ${dietBadge}
           ${undeclaredBadge}
           ${conflictBadge}
         </div>
-        <div class="flex items-center gap-1 ml-auto">
+        <div class="flex items-center gap-1 ml-auto flex-shrink-0">
           ${favBtn}
           ${allergenIcons}
         </div>
@@ -2802,7 +2979,7 @@ function renderCanteenMenu() {
       dishesHTML += `
         <div class="flex flex-col gap-2.5 mt-2">
           ${renderSectionHeader(t.sectionSides || "Beilagen & Gemüse", sides.length, "grain")}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div class="flex flex-col gap-2.5">
             ${sides.map(dish => renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, false, canteenKey)).join("")}
           </div>
         </div>
@@ -2814,7 +2991,7 @@ function renderCanteenMenu() {
       dishesHTML += `
         <div class="flex flex-col gap-2.5 mt-2">
           ${renderSectionHeader(t.sectionDessert || "Dessert & Obst", desserts.length, "icecream")}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div class="flex flex-col gap-2.5">
             ${desserts.map(dish => renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, false, canteenKey)).join("")}
           </div>
         </div>

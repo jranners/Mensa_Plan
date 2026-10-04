@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v55';
+const CACHE_NAME = 'kstw-mensa-v56';
 const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
 const STATIC_ASSETS = [
   './',
@@ -26,6 +26,7 @@ const STATIC_ASSETS = [
   './src/lib/canteen-match.js',
   './src/lib/hours.js',
   './src/lib/a11y.js',
+  './src/lib/stats.js',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
