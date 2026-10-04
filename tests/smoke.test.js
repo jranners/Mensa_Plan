@@ -4,6 +4,7 @@ import { CANTEENS } from '../data/canteens.js';
 import { TRANSLATIONS } from '../data/translations.js';
 import { STANDARD_ALLERGENS } from '../data/allergens.js';
 import { needsRefresh } from '../src/lib/lifecycle.js';
+import { resetAppStorage, createSettingsDraft } from '../src/lib/storage.js';
 
 describe('ES Module Smoke Test', () => {
   it('loads SVG_ICONS properly', () => {
@@ -34,4 +35,10 @@ describe('ES Module Smoke Test', () => {
   it('loads lifecycle module properly', () => {
     expect(typeof needsRefresh).toBe('function');
   });
+
+  it('loads storage module properly', () => {
+    expect(typeof resetAppStorage).toBe('function');
+    expect(typeof createSettingsDraft).toBe('function');
+  });
 });
+

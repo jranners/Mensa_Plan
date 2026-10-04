@@ -70,3 +70,24 @@
 - **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v48` aktualisiert.
 - **Offene Probleme**: Keine.
 
+## Paket L3: Einstellungs-Zustand & Scoped Reset
+- **Geprüft**:
+  - `src/lib/storage.js` mit `resetAppStorage` und `createSettingsDraft`.
+  - 3 neue Unit-Tests in `tests/storage.test.js`:
+    - `resetAppStorage` löscht alle Voreinstellungen und Caches (`kstw_prefs_saved`, `kstw_lang`, `kstw_canteens`, `kstw_diet`, `kstw_allergies`, `kstw_menu_cache*`, `kstw_announcements_cache`).
+    - `resetAppStorage` behält `kstw_theme`, `kstw_favorites` und fremde Domain-Schlüssel unberührt.
+    - `createSettingsDraft` erzeugt eine isolierte Deep-Copy der Einstellungen; Modifikationen am Draft verändern den globalen `state` nicht.
+  - Integration in `app.js`:
+    - Einstellungsdialog nutzt isolierten `settingsDraft`. Änderungen an Checkboxen, Diät-Pills oder Sprache modifizieren nur den Entwurf.
+    - Speichern („Speichern“ / `#submit-onboarding-btn`) übernimmt den Entwurf in `state` und persistiert in `localStorage`.
+    - Verwerfen per „X“-Button, Escape-Taste oder Klick auf den Backdrop verwirft `settingsDraft` und stellt den vorherigen Zustand wieder her.
+    - Zwei-Schritt-Reset: Klick auf „Voreinstellungen zurücksetzen“ zeigt Bestätigungs-Buttons („Wirklich zurücksetzen?“ / „Abbrechen“) statt sofortigem Wipe.
+    - Zweisprachige Texte (`resetConfirmBtn`, `resetCancelBtn`) in `data/translations.js` (DE & EN).
+  - `sw.js`: `CACHE_NAME` auf `kstw-mensa-v49` erhöht und `./src/lib/storage.js` zu `STATIC_ASSETS` hinzugefügt.
+  - `node --check app.js`, `node --check sw.js`, `node --check src/lib/storage.js`, `node --check data/translations.js`.
+  - `npm test` (49/49 Vitest Tests bestanden).
+  - `npm run build:css` (Tailwind Build erfolgreich).
+- **Ergebnis**: Alle Tests bestanden, Service Worker auf `kstw-mensa-v49` aktualisiert.
+- **Offene Probleme**: Keine.
+
+

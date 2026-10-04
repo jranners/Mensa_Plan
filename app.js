@@ -23,6 +23,7 @@ import {
   pickActiveDate
 } from './src/lib/dates.js';
 import { needsRefresh } from './src/lib/lifecycle.js';
+import { resetAppStorage, createSettingsDraft } from './src/lib/storage.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
 function getLocalIsoDate(date = new Date()) {
@@ -63,6 +64,7 @@ let state = {
 };
 
 let onboardingInitialized = false;
+let settingsDraft = null;
 
 function removeSplash() {
   const splash = document.getElementById("app-splash");
@@ -296,7 +298,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       changeLanguage(actionEl.dataset.lang);
     } else if (action === 'change-diet-preference') {
       changeDietPreference(actionEl.dataset.diet);
-    } else if (action === 'reset-app') {
+    } else if (action === 'reset-app-prompt' || action === 'reset-app') {
+      renderResetConfirm();
+    } else if (action === 'reset-app-cancel') {
+      renderResetButton();
+    } else if (action === 'reset-app-confirm') {
       resetApp();
     } else if (action === 'trigger-manual-reload') {
       triggerManualReload();
@@ -329,6 +335,12 @@ window.addEventListener("DOMContentLoaded", async () => {
       const allergensModal = document.getElementById('allergens-modal');
       if (allergensModal && !allergensModal.classList.contains('hidden')) {
         closeAllergensModal();
+        return;
+      }
+      const onboardingModal = document.getElementById('onboarding');
+      if (onboardingModal && !onboardingModal.classList.contains('hidden') && state.isSettingsMenu) {
+        cancelOnboarding();
+        return;
       }
     }
   });
@@ -336,7 +348,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   const closeOnboardingBtn = document.getElementById("close-onboarding-btn");
   if (closeOnboardingBtn) {
     closeOnboardingBtn.addEventListener("click", () => {
-      hideOnboarding();
+      cancelOnboarding();
+    });
+  }
+
+  const onboardingModal = document.getElementById("onboarding");
+  if (onboardingModal) {
+    onboardingModal.addEventListener("click", (e) => {
+      if (e.target === e.currentTarget && state.isSettingsMenu) {
+        cancelOnboarding();
+      }
     });
   }
 
@@ -559,15 +580,19 @@ function applyLanguage() {
   document.getElementById("onboarding-diet-title").textContent = t.selectDiet;
 }
 
-// 7. Onboarding UI Rendering
+// 7. Onboarding & Settings UI Rendering
 function initOnboardingUI() {
-  const t = TRANSLATIONS[state.language];
+  if (!settingsDraft) {
+    settingsDraft = createSettingsDraft(state);
+  }
+  const currentLang = settingsDraft.language || state.language;
+  const t = TRANSLATIONS[currentLang] || TRANSLATIONS.de;
 
   // Render Language Buttons
   const langContainer = document.getElementById("lang-selector");
   langContainer.innerHTML = `
-    <button id="lang-de" data-action="change-language" data-lang="de" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "de" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}">Deutsch</button>
-    <button id="lang-en" data-action="change-language" data-lang="en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${state.language === "en" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}">English</button>
+    <button id="lang-de" data-action="change-language" data-lang="de" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${currentLang === "de" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}">Deutsch</button>
+    <button id="lang-en" data-action="change-language" data-lang="en" class="px-6 py-2 rounded-full border shadow-sm font-label-md text-label-md transition-all focus:outline-none ${currentLang === "en" ? "bg-[#143d59] dark:bg-price-badge text-white dark:text-primary border-[#143d59] dark:border-price-badge font-bold" : "bg-slate-50 dark:bg-[#0b1926] text-on-surface-variant dark:text-slate-300 border-black/[0.08] dark:border-white/[0.08]"}">English</button>
   `;
 
   // Render Canteen Checkbox List (Clustered into Canteens and Bistros)
@@ -579,7 +604,7 @@ function initOnboardingUI() {
 
   Object.keys(CANTEENS).forEach(key => {
     const canteen = CANTEENS[key];
-    const isChecked = state.selectedCanteens.includes(key) ? "checked" : "";
+    const isChecked = settingsDraft.selectedCanteens.includes(key) ? "checked" : "";
     const isBistro = canteen.type === "bistro";
     
     const itemHTML = `
@@ -603,7 +628,7 @@ function initOnboardingUI() {
     }
   });
 
-  const canteenLabel = state.language === "de" ? "Mensen" : "Canteens";
+  const canteenLabel = currentLang === "de" ? "Mensen" : "Canteens";
   const bistroLabel = "Bistros & Cafés";
 
   canteenListContainer.innerHTML = `
@@ -646,9 +671,10 @@ function initOnboardingUI() {
         box.querySelector("svg").classList.add("hidden");
       }
       
-      // Update state in real-time to preserve selection across re-renders
       const checkedBoxes = document.querySelectorAll(".canteen-checkbox:checked");
-      state.selectedCanteens = Array.from(checkedBoxes).map(cb => cb.value);
+      if (settingsDraft) {
+        settingsDraft.selectedCanteens = Array.from(checkedBoxes).map(cb => cb.value);
+      }
     };
     updateBox();
     chk.addEventListener("change", updateBox);
@@ -663,7 +689,7 @@ function initOnboardingUI() {
   ];
   dietContainer.innerHTML = "";
   options.forEach(opt => {
-    const isActive = state.diet === opt.value;
+    const isActive = settingsDraft.diet === opt.value;
     dietContainer.innerHTML += `
       <button data-action="change-diet-preference" data-diet="${opt.value}" class="diet-option-btn flex-1 py-2 font-label-md text-label-md text-center rounded transition-colors focus:outline-none ${isActive ? "bg-price-badge text-primary font-bold shadow-sm" : "text-on-surface-variant dark:text-slate-300 opacity-70 hover:opacity-100"}">
         ${opt.label}
@@ -684,8 +710,8 @@ function initOnboardingUI() {
   
   Object.keys(ALLERGEN_GROUPS).forEach(key => {
     const group = ALLERGEN_GROUPS[key];
-    const isChecked = state.allergies.includes(key) ? "checked" : "";
-    const name = state.language === "en" ? group.en : group.de;
+    const isChecked = settingsDraft.allergies.includes(key) ? "checked" : "";
+    const name = currentLang === "en" ? group.en : group.de;
     
     allergenListContainer.innerHTML += `
       <label class="flex items-center gap-3 cursor-pointer min-h-[40px] p-2 hover:bg-slate-100 dark:hover:bg-[#182c44]/80 rounded-lg transition-colors group">
@@ -715,7 +741,9 @@ function initOnboardingUI() {
       }
       
       const checkedBoxes = document.querySelectorAll(".allergy-checkbox:checked");
-      state.allergies = Array.from(checkedBoxes).map(cb => cb.value);
+      if (settingsDraft) {
+        settingsDraft.allergies = Array.from(checkedBoxes).map(cb => cb.value);
+      }
     };
     updateBox();
     chk.addEventListener("change", updateBox);
@@ -723,53 +751,78 @@ function initOnboardingUI() {
 
   // Setup Submit Button Handler
   document.getElementById("submit-onboarding-btn").onclick = async () => {
-    const checkboxes = document.querySelectorAll(".canteen-checkbox:checked");
-    const selected = Array.from(checkboxes).map(cb => cb.value);
+    const draft = settingsDraft || createSettingsDraft(state);
     
-    if (selected.length === 0) {
-      alert(state.language === "de" ? "Bitte wähle mindestens eine Mensa aus!" : "Please select at least one canteen!");
+    if (draft.selectedCanteens.length === 0) {
+      alert(draft.language === "de" ? "Bitte wähle mindestens eine Mensa aus!" : "Please select at least one canteen!");
       return;
     }
 
-    const allergyCbs = document.querySelectorAll(".allergy-checkbox:checked");
-    const selectedAllergies = Array.from(allergyCbs).map(cb => cb.value);
-
-    savePreferences(state.language, selected, state.diet, selectedAllergies);
+    savePreferences(draft.language, draft.selectedCanteens, draft.diet, draft.allergies);
     localStorage.setItem("kstw_allergen_prompt_shown", "true");
+    applyLanguage();
+    settingsDraft = null;
     hideOnboarding();
     await fetchAndRender();
   };
 }
 
+function updateOnboardingHeaderAndButtons() {
+  const currentLang = settingsDraft ? settingsDraft.language : state.language;
+  const t = TRANSLATIONS[currentLang] || TRANSLATIONS.de;
+  const closeBtn = document.getElementById("close-onboarding-btn");
+  
+  if (state.isSettingsMenu) {
+    if (closeBtn) closeBtn.classList.remove("hidden");
+    document.getElementById("onboarding-title").textContent = t.settings;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.saveSettings} ${getIconHTML('check', 'text-[20px]')}`;
+    renderResetButton(t);
+  } else {
+    if (closeBtn) closeBtn.classList.add("hidden");
+    document.getElementById("onboarding-title").textContent = t.welcome;
+    document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} ${getIconHTML('arrow_forward', 'text-[20px]')}`;
+    const resetContainer = document.getElementById("reset-container");
+    if (resetContainer && resetContainer.parentNode) {
+      resetContainer.parentNode.removeChild(resetContainer);
+    }
+  }
+}
+
 window.changeLanguage = function(lang) {
-  state.language = lang;
-  applyLanguage();
-  initOnboardingUI();
-  initInstallPrompt();
+  if (settingsDraft) {
+    settingsDraft.language = lang;
+    initOnboardingUI();
+    initInstallPrompt();
+    updateOnboardingHeaderAndButtons();
+  } else {
+    state.language = lang;
+    applyLanguage();
+  }
 };
 
 window.changeDietPreference = function(diet) {
-  state.diet = diet;
-  initOnboardingUI();
+  if (settingsDraft) {
+    settingsDraft.diet = diet;
+    initOnboardingUI();
+  }
 };
 
 function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
   state.isSettingsMenu = isSettingsMenu;
+  settingsDraft = createSettingsDraft(state);
+  
   const onboarding = document.getElementById("onboarding");
   onboarding.classList.remove("hidden");
   document.body.classList.add("overflow-hidden");
   
-  if (!onboardingInitialized) {
-    initOnboardingUI();
-    onboardingInitialized = true;
-  }
+  initOnboardingUI();
+  updateOnboardingHeaderAndButtons();
   
   // Expand or collapse the allergen accordion based on flag
   const accordion = document.getElementById("allergen-details-accordion");
   if (accordion) {
     if (expandAllergens) {
       accordion.open = true;
-      // Scroll it into view after a short delay so the container has rendered
       setTimeout(() => {
         accordion.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 300);
@@ -779,45 +832,61 @@ function showOnboarding(isSettingsMenu = false, expandAllergens = false) {
   }
   
   initInstallPrompt();
-  
-  const closeBtn = document.getElementById("close-onboarding-btn");
-  const t = TRANSLATIONS[state.language];
-  
-  if (isSettingsMenu) {
-    if (closeBtn) closeBtn.classList.remove("hidden");
-    document.getElementById("onboarding-title").textContent = t.settings;
-    document.getElementById("submit-onboarding-btn").innerHTML = `${t.saveSettings} ${getIconHTML('check', 'text-[20px]')}`;
-    
-    const resetContainer = document.getElementById("reset-container") || document.createElement("div");
-    resetContainer.id = "reset-container";
-    resetContainer.className = "mt-4 flex justify-center";
-    resetContainer.innerHTML = `
-      <button data-action="reset-app" class="px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors font-label-md text-label-md">
-        ${t.resetBtn}
-      </button>
-    `;
-    document.getElementById("onboarding-content-area").appendChild(resetContainer);
-  } else {
-    if (closeBtn) closeBtn.classList.add("hidden");
-    document.getElementById("onboarding-title").textContent = t.welcome;
-    document.getElementById("submit-onboarding-btn").innerHTML = `${t.showMenu} ${getIconHTML('arrow_forward', 'text-[20px]')}`;
-    
-    const resetContainer = document.getElementById("reset-container");
-    if (resetContainer && resetContainer.parentNode) {
-      resetContainer.parentNode.removeChild(resetContainer);
-    }
-  }
   removeSplash();
+}
+
+function cancelOnboarding() {
+  if (state.isSettingsMenu) {
+    settingsDraft = null;
+    applyLanguage(); // Revert any language previewed in draft
+    hideOnboarding();
+  }
 }
 
 function hideOnboarding() {
   state.isSettingsMenu = false;
+  settingsDraft = null;
   document.getElementById("onboarding").classList.add("hidden");
   document.body.classList.remove("overflow-hidden");
 }
 
+function renderResetButton(t = null) {
+  const currentLang = settingsDraft ? settingsDraft.language : state.language;
+  const trans = t || TRANSLATIONS[currentLang] || TRANSLATIONS.de;
+  let resetContainer = document.getElementById("reset-container");
+  if (!resetContainer) {
+    resetContainer = document.createElement("div");
+    resetContainer.id = "reset-container";
+    resetContainer.className = "mt-4 flex justify-center";
+    const contentArea = document.getElementById("onboarding-content-area");
+    if (contentArea) contentArea.appendChild(resetContainer);
+  }
+  resetContainer.innerHTML = `
+    <button data-action="reset-app-prompt" class="px-4 py-2 text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 transition-colors font-label-md text-label-md">
+      ${trans.resetBtn}
+    </button>
+  `;
+}
+
+function renderResetConfirm(t = null) {
+  const currentLang = settingsDraft ? settingsDraft.language : state.language;
+  const trans = t || TRANSLATIONS[currentLang] || TRANSLATIONS.de;
+  let resetContainer = document.getElementById("reset-container");
+  if (!resetContainer) return;
+  resetContainer.innerHTML = `
+    <div class="flex items-center gap-3 animate-fade-in">
+      <button data-action="reset-app-confirm" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold rounded-xl text-label-md shadow-sm transition-all">
+        ${trans.resetConfirmBtn || "Wirklich zurücksetzen?"}
+      </button>
+      <button data-action="reset-app-cancel" class="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-medium rounded-xl text-label-md transition-all">
+        ${trans.resetCancelBtn || "Abbrechen"}
+      </button>
+    </div>
+  `;
+}
+
 window.resetApp = function() {
-  localStorage.clear();
+  resetAppStorage();
   location.reload();
 };
 

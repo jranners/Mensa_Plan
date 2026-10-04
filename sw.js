@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v48';
+const CACHE_NAME = 'kstw-mensa-v49';
 const API_CACHE_NAME = 'kstw-api-v1';
 const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
 const STATIC_ASSETS = [
@@ -21,7 +21,8 @@ const STATIC_ASSETS = [
   './src/lib/allergens.js',
   './src/lib/html.js',
   './src/lib/dates.js',
-  './src/lib/lifecycle.js'
+  './src/lib/lifecycle.js',
+  './src/lib/storage.js'
 ];
 
 // Install Service Worker and cache static shell assets
