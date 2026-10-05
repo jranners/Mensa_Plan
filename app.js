@@ -1204,7 +1204,7 @@ function renderStatsContent() {
 
   const topDishesHTML = (stats.topDishes || []).map(item => `
     <li class="flex items-center justify-between text-xs py-1.5 border-b border-slate-100 dark:border-white/5 last:border-0">
-      <span class="truncate mr-2 font-medium text-slate-700 dark:text-slate-200">${escapeHtml(item.name)}</span>
+      <span class="min-w-0 break-words mr-2 font-medium text-slate-700 dark:text-slate-200">${escapeHtml(item.name.charAt(0).toUpperCase() + item.name.slice(1))}</span>
       <span class="px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-700 text-[11px] font-bold text-slate-800 dark:text-slate-200 flex-shrink-0">${item.count}×</span>
     </li>
   `).join("");
@@ -1224,7 +1224,7 @@ function renderStatsContent() {
     <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
       <div class="flex justify-between items-center text-xs font-bold text-slate-800 dark:text-white">
         <span>${escapeHtml(t.statsDietDist || "Ernährungsverteilung")}</span>
-        <span class="text-slate-500 dark:text-slate-400 font-normal text-[11px]">${stats.totalDishes} ${state.language === "en" ? "dishes total" : "Gerichte gesamt"}</span>
+        <span class="text-slate-500 dark:text-slate-400 font-normal text-[11px]">${stats.totalDishes} ${escapeHtml(t.statsDishesTotal)}</span>
       </div>
 
       <!-- Segmented Bar -->
@@ -1253,18 +1253,18 @@ function renderStatsContent() {
 
     <!-- Prices -->
     <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
-      <span class="text-xs font-bold text-slate-800 dark:text-white">${state.language === "en" ? "Prices (Selected Tariff)" : "Preise (gewählter Tarif)"}</span>
+      <span class="text-xs font-bold text-slate-800 dark:text-white">${escapeHtml(t.statsPricesTitle)}</span>
       <div class="grid grid-cols-3 gap-2 text-center">
-        <div class="flex flex-col p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
-          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">${escapeHtml(t.statsAvgPrice || "Durchschnitt")}</span>
+        <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsAvgPrice || "Durchschnitt")}</span>
           <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.avgPrice != null ? formatPrice(stats.avgPrice) : "—"}</span>
         </div>
-        <div class="flex flex-col p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
-          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">${escapeHtml(t.statsMinPrice || "Günstigstes")}</span>
+        <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsMinPrice || "Günstigstes")}</span>
           <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.minPrice != null ? formatPrice(stats.minPrice) : "—"}</span>
         </div>
-        <div class="flex flex-col p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
-          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">${escapeHtml(t.statsMaxPrice || "Teuerstes")}</span>
+        <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsMaxPrice || "Teuerstes")}</span>
           <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.maxPrice != null ? formatPrice(stats.maxPrice) : "—"}</span>
         </div>
       </div>
@@ -2279,14 +2279,14 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   if (state.allergies && state.allergies.length > 0) {
     if (allergyEval.hasNoInfo) {
       undeclaredBadge = `
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium max-w-full leading-tight">
           ${getIconHTML('warning', 'text-[14px]')}
           ${t.noAllergenInfoBadge}
         </span>
       `;
     } else if (allergyEval.uncertainBy.length > 0) {
       undeclaredBadge = `
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-label-sm text-[11px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium max-w-full leading-tight">
           ${getIconHTML('warning', 'text-[14px]')}
           ${t.uncertainDessertBadge}
         </span>
@@ -2297,7 +2297,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
   let conflictBadge = "";
   if (allergyEval.dietConflict) {
     conflictBadge = `
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 font-label-sm text-[11px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium whitespace-nowrap">
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 font-label-sm text-[11px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium max-w-full leading-tight">
         ${getIconHTML('warning', 'text-[14px]')}
         ${t.conflictBadge}
       </span>
@@ -2505,7 +2505,7 @@ function renderMainDishCard(dish, canteen, isViewingToday, currentHour, t, isBuf
             ${priceBadgeInline}
           </div>
           <div class="min-w-0">
-            <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 line-clamp-2 min-w-0 break-words">${escapedMealName}</h3>
+            <h3 class="font-headline-sm text-headline-sm text-text-heading dark:text-white font-bold leading-snug mb-0.5 min-w-0 break-words">${escapedMealName}</h3>
             ${escapedComponentsText ? `<p class="font-body-sm text-[13px] text-slate-600 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5 cursor-pointer break-words" data-action="toggle-clamp" role="button" tabindex="0" aria-expanded="false">${escapedComponentsText}</p>` : ""}
             ${escapedMealDesc ? `<p class="font-body-md text-body-md text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 mt-1 break-words">${escapedMealDesc}</p>` : ""}
             ${buffetCalcHTML}
@@ -2587,14 +2587,14 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   if (state.allergies && state.allergies.length > 0) {
     if (allergyEval.hasNoInfo) {
       undeclaredBadge = `
-        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium max-w-full leading-tight">
           ${getIconHTML('warning', 'text-[12px]')}
           ${t.noAllergenInfoBadge}
         </span>
       `;
     } else if (allergyEval.uncertainBy.length > 0) {
       undeclaredBadge = `
-        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900 font-medium max-w-full leading-tight">
           ${getIconHTML('warning', 'text-[12px]')}
           ${t.uncertainDessertBadge}
         </span>
@@ -2605,7 +2605,7 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   let conflictBadge = "";
   if (allergyEval.dietConflict) {
     conflictBadge = `
-      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[10px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium whitespace-nowrap">
+      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[10px] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 font-medium max-w-full leading-tight">
         ${getIconHTML('warning', 'text-[12px]')}
         ${t.conflictBadge}
       </span>
@@ -2652,7 +2652,7 @@ function renderCompactDishCard(dish, canteen, isViewingToday, currentHour, t, is
   return `
     <div class="${cardClass} overflow-hidden break-words min-w-0" data-dish-clean-name="${escapeHtml(cleanName)}">
       <div class="flex justify-between items-start gap-2 min-w-0">
-        <h4 class="font-headline text-[13px] sm:text-[14px] text-text-heading dark:text-white font-bold leading-snug line-clamp-2 min-w-0 flex-1 break-words">
+        <h4 class="font-headline text-[13px] sm:text-[14px] text-text-heading dark:text-white font-bold leading-snug min-w-0 flex-1 break-words">
           ${isFav ? '<span class="text-amber-500 font-extrabold mr-1">★</span>' : ''}${escapedMealName}
         </h4>
         <div class="bg-price-badge shadow-sm rounded-full px-2 py-0.5 border border-amber-300/40 dark:border-white/20 flex-shrink-0 self-start whitespace-nowrap">
@@ -3386,13 +3386,14 @@ function showAllergens(dishId) {
 
   const evalResult = evaluateDishAllergies(dish, state.allergies || []);
   if (evalResult.dietConflict) {
-    const conflictText = state.language === "en"
-      ? `Declared as ${evalResult.dietConflict.type}, but contains animal products according to allergen codes (${evalResult.dietConflict.codes.join(", ")})!`
-      : `Deklariert als ${evalResult.dietConflict.type}, enthält jedoch laut Allergenliste tierische Bestandteile (${evalResult.dietConflict.codes.join(", ")})!`;
+    const conflictTemplate = evalResult.dietConflict.type === "vegetarian_with_non_veg_allergen"
+      ? t.conflictVegetarianText
+      : t.conflictVeganText;
+    const conflictText = conflictTemplate.replace("{codes}", evalResult.dietConflict.codes.join(", "));
     listContainer.innerHTML += `
       <div class="flex items-start gap-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300 text-xs font-medium mb-1">
         ${getIconHTML('warning', 'text-sm flex-shrink-0 mt-0.5')}
-        <span>${escapeHtml(conflictText)}</span>
+        <span class="min-w-0 break-words">${escapeHtml(conflictText)}</span>
       </div>
     `;
   }
@@ -3403,11 +3404,11 @@ function showAllergens(dishId) {
     const name = state.language === "en" ? info.en : info.de;
     
     listContainer.innerHTML += `
-      <div class="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-[#182c44] border border-black/[0.04] dark:border-white/[0.08]">
-        <span class="inline-flex items-center justify-center bg-primary-container dark:bg-price-badge text-white dark:text-primary text-[11px] font-bold px-2 py-0.5 rounded min-w-[28px] text-center">
+      <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-[#182c44] border border-black/[0.04] dark:border-white/[0.08]">
+        <span class="inline-flex items-center justify-center flex-shrink-0 bg-primary-container dark:bg-price-badge text-white dark:text-primary text-[11px] font-bold px-2 py-0.5 rounded w-11 text-center">
           ${escapeHtml(code)}
         </span>
-        <span class="text-sm text-text-heading dark:text-slate-100 font-medium">
+        <span class="text-sm text-text-heading dark:text-slate-100 font-medium min-w-0 break-words">
           ${escapeHtml(name)}
         </span>
       </div>

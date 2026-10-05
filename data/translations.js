@@ -118,7 +118,11 @@ export const TRANSLATIONS = {
     statsTopDishes: "Häufigste Gerichte",
     statsFavoritesCount: "Deine Favoriten im Menü",
     statsStorageBadge: "Extrem speicherplatzsparend (< 2 KB lokal)",
-    statsNoData: "Noch keine Menüdaten zur Auswertung vorhanden."
+    statsNoData: "Noch keine Menüdaten zur Auswertung vorhanden.",
+    statsDishesTotal: "Gerichte gesamt",
+    statsPricesTitle: "Preise (gewählter Tarif)",
+    conflictVeganText: "Als vegan deklariert, enthält laut Allergenliste jedoch tierische Bestandteile ({codes})!",
+    conflictVegetarianText: "Als vegetarisch deklariert, enthält laut Allergenliste jedoch Fleisch oder Fisch ({codes})!"
   },
   en: {
     title: "Mensaplan",
@@ -239,6 +243,10 @@ export const TRANSLATIONS = {
     statsTopDishes: "Most Frequent Dishes",
     statsFavoritesCount: "Your Favorites on the Menu",
     statsStorageBadge: "Ultra-compact footprint (< 2 KB local)",
-    statsNoData: "No menu data available yet for analytics."
+    statsNoData: "No menu data available yet for analytics.",
+    statsDishesTotal: "dishes total",
+    statsPricesTitle: "Prices (selected tariff)",
+    conflictVeganText: "Declared as vegan, but the allergen list indicates animal products ({codes})!",
+    conflictVegetarianText: "Declared as vegetarian, but the allergen list indicates meat or fish ({codes})!"
   }
 };
