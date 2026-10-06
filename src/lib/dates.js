@@ -178,3 +178,33 @@ export function pickActiveDate({
   // 6. Ultimate fallback
   return effectiveToday;
 }
+
+/**
+ * Formats a start and end ISO date into a localized range string,
+ * e.g. "05.10. – 16.10.2026".
+ *
+ * @param {string} startIso
+ * @param {string} endIso
+ * @returns {string}
+ */
+export function formatDateRange(startIso, endIso) {
+  if (!startIso) return '';
+  if (!endIso || startIso === endIso) {
+    const p = parseIsoParts(startIso);
+    if (!p) return startIso;
+    return `${String(p.day).padStart(2, '0')}.${String(p.month).padStart(2, '0')}.${p.year}`;
+  }
+  const p1 = parseIsoParts(startIso);
+  const p2 = parseIsoParts(endIso);
+  if (!p1 || !p2) return `${startIso} – ${endIso}`;
+
+  const d1 = String(p1.day).padStart(2, '0');
+  const m1 = String(p1.month).padStart(2, '0');
+  const d2 = String(p2.day).padStart(2, '0');
+  const m2 = String(p2.month).padStart(2, '0');
+
+  if (p1.year === p2.year) {
+    return `${d1}.${m1}. – ${d2}.${m2}.${p2.year}`;
+  }
+  return `${d1}.${m1}.${p1.year} – ${d2}.${m2}.${p2.year}`;
+}

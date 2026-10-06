@@ -129,4 +129,136 @@ describe('Statistics Module (Ultra-lightweight)', () => {
     const sizeInBytes = new TextEncoder().encode(storedString).length;
     expect(sizeInBytes).toBeLessThan(4096); // < 4 KB
   });
+
+  describe('Rich Live Stats & Filter Scenarios', () => {
+    const complexMenuData = [
+      {
+        date: '2026-10-05', // Monday of week 1
+        dishes: [
+          {
+            name_de: 'Marokkanischer Kichererbseneintopf',
+            price: 2.10,
+            custom_fields: [{ field_id: 'food_icon', value: 'VGN' }, { field_id: 'menu_type', value: 'HEIMSPEIL' }],
+            screens: [{ location: 'MZS - MG Nord (Ausgabe 1)', screen_group_name: 'Mensa Zülpicher Straße' }]
+          },
+          {
+            name_de: 'Dessert (11, 18)',
+            price: 0.80,
+            category: { name_de: 'Dessert' },
+            custom_fields: [{ field_id: 'menu_type', value: 'dessert' }],
+            screens: [{ location: 'MZS - EG Nord 1', screen_group_name: 'Mensa Zülpicher Straße' }]
+          },
+          {
+            name_de: 'Pommes frites',
+            price: 1.10,
+            custom_fields: [{ field_id: 'menu_type', value: 'beilage' }],
+            screens: [{ location: 'MZS - EG Nord 1', screen_group_name: 'Mensa Zülpicher Straße' }]
+          },
+          {
+            name_de: 'Salatbuffet in Selbstbedienung, je 100g',
+            price: 1.10,
+            custom_fields: [{ field_id: 'preis_gramm', value: '100' }],
+            screens: [{ location: 'MZS - MG Süd 1', screen_group_name: 'Mensa Zülpicher Straße' }]
+          }
+        ]
+      },
+      {
+        date: '2026-10-06', // Tuesday of week 1
+        dishes: [
+          {
+            name_de: 'Marokkanischer Kichererbseneintopf',
+            price: 2.10,
+            custom_fields: [{ field_id: 'food_icon', value: 'VGN' }, { field_id: 'menu_type', value: 'HEIMSPEIL' }],
+            screens: [{ location: 'MZS - MG Nord (Ausgabe 1)', screen_group_name: 'Mensa Zülpicher Straße' }]
+          },
+          {
+            name_de: 'No Butter Chicken',
+            price: 2.45,
+            custom_fields: [{ field_id: 'food_icon', value: 'VGN' }, { field_id: 'menu_type', value: 'WORLDWIDE' }],
+            screens: [{ location: 'Deutz - Ausgabe 1', screen_group_name: 'Mensa Deutz' }]
+          },
+          {
+            name_de: 'Dessert vegan',
+            price: 0.80,
+            category: { name_de: 'Dessert' },
+            custom_fields: [{ field_id: 'menu_type', value: 'dessert' }],
+            screens: [{ location: 'Deutz - Ausgabe 1', screen_group_name: 'Mensa Deutz' }]
+          }
+        ]
+      },
+      {
+        date: '2026-10-12', // Monday of week 2
+        dishes: [
+          {
+            name_de: 'Penne Rigate mit Tomatensauce',
+            price: 3.20,
+            custom_fields: [{ field_id: 'food_icon', value: 'V' }, { field_id: 'menu_type', value: 'MEISTERWERK' }],
+            screens: [{ location: 'MZS - MG Nord (Ausgabe 1)', screen_group_name: 'Mensa Zülpicher Straße' }]
+          }
+        ]
+      }
+    ];
+
+    it('filters out desserts, side dishes, and buffets by default when category is main', () => {
+      const stats = computeLiveMenuStats(complexMenuData, { category: 'main' });
+      // Only 3 mains across the dataset: 2x Kichererbseneintopf, 1x No Butter Chicken, 1x Penne = 4 mains total
+      expect(stats.totalDishes).toBe(4);
+      expect(stats.topDishes.map(d => d.name)).toEqual([
+        'Marokkanischer Kichererbseneintopf',
+        'No Butter Chicken',
+        'Penne Rigate mit Tomatensauce'
+      ]);
+      // Confirm Dessert and Pommes are NOT present
+      expect(stats.topDishes.find(d => d.name.toLowerCase().includes('dessert'))).toBeUndefined();
+      expect(stats.topDishes.find(d => d.name.toLowerCase().includes('pommes'))).toBeUndefined();
+      expect(stats.topDishes.find(d => d.name.toLowerCase().includes('salatbuffet'))).toBeUndefined();
+    });
+
+    it('correctly filters for desserts when category is dessert', () => {
+      const stats = computeLiveMenuStats(complexMenuData, { category: 'dessert' });
+      expect(stats.totalDishes).toBe(2);
+      expect(stats.topDishes[0].clean).toBe('dessert');
+      expect(stats.topDishes[0].count).toBe(2);
+    });
+
+    it('filters by timeframe (this week vs all)', () => {
+      const weekStats = computeLiveMenuStats(complexMenuData, {
+        category: 'main',
+        timeframe: 'week',
+        todayIso: '2026-10-05'
+      });
+      // Week 1 has only the 2026-10-05 and 2026-10-06 entries (3 mains)
+      expect(weekStats.totalDishes).toBe(3);
+      expect(weekStats.timeframe.activeDaysCount).toBe(2);
+      expect(weekStats.timeframe.formattedRange).toBe('05.10. – 06.10.2026');
+
+      const allStats = computeLiveMenuStats(complexMenuData, {
+        category: 'main',
+        timeframe: 'all',
+        todayIso: '2026-10-05'
+      });
+      // All loaded days include week 2 (4 mains)
+      expect(allStats.totalDishes).toBe(4);
+      expect(allStats.timeframe.activeDaysCount).toBe(3);
+      expect(allStats.timeframe.formattedRange).toBe('05.10. – 12.10.2026');
+    });
+
+    it('matches user favorites and marks active counts', () => {
+      const stats = computeLiveMenuStats(complexMenuData, {
+        category: 'main',
+        favorites: ['no butter chicken']
+      });
+      expect(stats.activeFavoritesCount).toBe(1);
+      expect(stats.matchedFavorites[0].clean).toBe('no butter chicken');
+      expect(stats.matchedFavorites[0].dates).toEqual(['2026-10-06']);
+    });
+
+    it('provides expandable allDishes array with ranks and date occurrences', () => {
+      const stats = computeLiveMenuStats(complexMenuData, { category: 'main' });
+      expect(stats.allDishes.length).toBe(3);
+      expect(stats.allDishes[0].rank).toBe(1);
+      expect(stats.allDishes[0].count).toBe(2);
+      expect(stats.allDishes[0].dates).toEqual(['2026-10-05', '2026-10-06']);
+    });
+  });
 });

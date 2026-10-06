@@ -1,5 +1,17 @@
 import { getDishDietType } from './diet.js';
-import { getDishPrice, cleanDishNameForFavorite } from './dish.js';
+import {
+  getDishPrice,
+  cleanDishNameForFavorite,
+  classifyDish,
+  stripAllergenCodes,
+  cleanDPName
+} from './dish.js';
+import { getCanteenKeyFromDish } from './canteen-match.js';
+import {
+  getBerlinTodayDate,
+  parseIsoParts,
+  formatDateRange
+} from './dates.js';
 
 export const STATS_KEY = 'kstw_stats_v1';
 
@@ -14,12 +26,25 @@ export function getInitialStats() {
     veganCount: 0,
     vegetarianCount: 0,
     otherCount: 0,
+    meatCount: 0,
     priceSum: 0,
     priceCount: 0,
     minPrice: null,
     maxPrice: null,
+    avgPrice: null,
     dishCounts: {},
-    recordedDates: []
+    recordedDates: [],
+    topDishes: [],
+    allDishes: [],
+    matchedFavorites: [],
+    activeFavoritesCount: 0,
+    timeframe: {
+      mode: 'all',
+      startDate: '',
+      endDate: '',
+      formattedRange: '',
+      activeDaysCount: 0
+    }
   };
 }
 
@@ -141,20 +166,94 @@ export function aggregateMenuStats(menuData, existingStats = null) {
 }
 
 /**
- * Computes live instant stats for currently loaded days.
- * Used for instant display and when historical data is fresh.
+ * Computes live instant stats for loaded menu days with rich filtering options:
+ * - timeframe ('all' | 'week')
+ * - category ('main' | 'side' | 'dessert' | 'all')
+ * - canteenScope ('all' | 'selected')
+ *
+ * Zero extra storage footprint (< 2 KB local guarantee).
  *
  * @param {Array<{ date: string, dishes: Array }>} menuData
+ * @param {object} [options={}]
  * @returns {object}
  */
-export function computeLiveMenuStats(menuData) {
-  const live = getInitialStats();
-  if (!Array.isArray(menuData)) return live;
+export function computeLiveMenuStats(menuData, options = {}) {
+  const {
+    timeframe = 'all',
+    canteenScope = 'all',
+    selectedCanteens = [],
+    canteensMap = null,
+    category = 'main',
+    tariff = 'student',
+    favorites = [],
+    todayIso = getBerlinTodayDate()
+  } = options;
 
-  menuData.forEach(day => {
+  const live = getInitialStats();
+  if (!Array.isArray(menuData) || menuData.length === 0) {
+    return live;
+  }
+
+  // Calculate current week bounds based on todayIso
+  const todayParts = parseIsoParts(todayIso);
+  let weekStartIso = todayIso;
+  let weekEndIso = todayIso;
+  if (todayParts) {
+    const d = new Date(todayParts.year, todayParts.month - 1, todayParts.day, 12, 0, 0);
+    const dayOfWeek = d.getDay();
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : (dayOfWeek - 1);
+    const monday = new Date(todayParts.year, todayParts.month - 1, todayParts.day - daysSinceMonday, 12, 0, 0);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 12, 0, 0);
+    weekStartIso = getBerlinTodayDate(monday);
+    weekEndIso = getBerlinTodayDate(sunday);
+  }
+
+  // Filter days by timeframe
+  const filteredDays = menuData.filter(day => {
+    if (!day || !day.date) return false;
+    if (timeframe === 'week') {
+      return day.date >= weekStartIso && day.date <= weekEndIso;
+    }
+    return true;
+  });
+
+  // Collect dates that actually have meal entries
+  const datesWithMeals = filteredDays
+    .filter(d => Array.isArray(d.dishes) && d.dishes.length > 0)
+    .map(d => d.date)
+    .sort();
+
+  const startDate = datesWithMeals.length > 0 ? datesWithMeals[0] : (timeframe === 'week' ? weekStartIso : todayIso);
+  const endDate = datesWithMeals.length > 0 ? datesWithMeals[datesWithMeals.length - 1] : (timeframe === 'week' ? weekEndIso : todayIso);
+  const activeDaysCount = datesWithMeals.length;
+  const formattedRange = formatDateRange(startDate, endDate);
+
+  const dishMap = {};
+  let priceSum = 0;
+  let priceCount = 0;
+
+  filteredDays.forEach(day => {
     if (!day || !Array.isArray(day.dishes)) return;
     day.dishes.forEach(dish => {
       if (!dish) return;
+
+      // Canteen scope filter
+      if (canteenScope === 'selected' && Array.isArray(selectedCanteens) && selectedCanteens.length > 0 && canteensMap) {
+        const matches = selectedCanteens.some(cKey => getCanteenKeyFromDish(dish, cKey, canteensMap[cKey]));
+        if (!matches) return;
+      }
+
+      // Category filter (default: 'main' includes mains & meisterwerk action meals)
+      const cls = classifyDish(dish);
+      if (category === 'main') {
+        if (cls !== 'main' && cls !== 'meisterwerk') return;
+      } else if (category === 'side') {
+        if (cls !== 'side') return;
+      } else if (category === 'dessert') {
+        if (cls !== 'dessert') return;
+      }
+      // 'all' includes everything
+
       live.totalDishes++;
 
       const diet = getDishDietType(dish);
@@ -162,32 +261,100 @@ export function computeLiveMenuStats(menuData) {
       else if (diet === 'vegetarian') live.vegetarianCount++;
       else live.otherCount++;
 
-      const price = getDishPrice(dish, 'student');
+      const price = getDishPrice(dish, tariff);
       if (price != null && price > 0) {
-        live.priceSum += price;
-        live.priceCount++;
+        priceSum += price;
+        priceCount++;
         if (live.minPrice == null || price < live.minPrice) live.minPrice = price;
         if (live.maxPrice == null || price > live.maxPrice) live.maxPrice = price;
       }
 
-      const cleanName = cleanDishNameForFavorite(dish);
-      if (cleanName) {
-        live.dishCounts[cleanName] = (live.dishCounts[cleanName] || 0) + 1;
+      const clean = cleanDishNameForFavorite(dish);
+      if (!clean) return;
+
+      if (!dishMap[clean]) {
+        const rawName = dish.name_de || dish.name_en || '';
+        let displayName = stripAllergenCodes(rawName);
+        displayName = cleanDPName(displayName);
+        displayName = displayName.replace(/\s+/g, ' ').trim();
+        if (!displayName) displayName = clean;
+        displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+
+        dishMap[clean] = {
+          clean,
+          name: displayName,
+          count: 0,
+          diet,
+          price,
+          category: cls,
+          dates: new Set()
+        };
+      }
+
+      dishMap[clean].count++;
+      if (day.date) dishMap[clean].dates.add(day.date);
+      if (dishMap[clean].price == null && price != null && price > 0) {
+        dishMap[clean].price = price;
       }
     });
   });
 
-  const topDishes = Object.entries(live.dishCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, count]) => ({ name, count }));
+  const sortedDishes = Object.values(dishMap)
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .map((item, idx) => ({
+      rank: idx + 1,
+      clean: item.clean,
+      name: item.name,
+      count: item.count,
+      diet: item.diet,
+      price: item.price,
+      category: item.category,
+      dates: Array.from(item.dates).sort()
+    }));
 
-  const avgPrice = live.priceCount > 0 ? live.priceSum / live.priceCount : null;
+  const dishCounts = {};
+  sortedDishes.forEach(d => {
+    dishCounts[d.clean] = d.count;
+  });
+
+  const favSet = new Set(Array.isArray(favorites) ? favorites.map(f => cleanDishNameForFavorite(f)) : []);
+  const matchedFavorites = sortedDishes.filter(d => favSet.has(d.clean));
+
+  const veganPct = live.totalDishes > 0 ? Math.round((live.veganCount / live.totalDishes) * 100) : 0;
+  const vegPct = live.totalDishes > 0 ? Math.round((live.vegetarianCount / live.totalDishes) * 100) : 0;
+  const meatPct = Math.max(0, 100 - veganPct - vegPct);
+  const avgPrice = priceCount > 0 ? Math.round((priceSum / priceCount) * 100) / 100 : null;
 
   return {
-    ...live,
+    version: 1,
+    timeframe: {
+      mode: timeframe,
+      startDate,
+      endDate,
+      formattedRange,
+      activeDaysCount
+    },
+    canteenScope,
+    category,
+    tariff,
+    totalDishes: live.totalDishes,
+    veganCount: live.veganCount,
+    vegetarianCount: live.vegetarianCount,
+    otherCount: live.otherCount,
     meatCount: live.otherCount,
+    veganPct,
+    vegetarianPct: vegPct,
+    meatPct,
+    priceSum: Math.round(priceSum * 100) / 100,
+    priceCount,
     avgPrice,
-    topDishes
+    minPrice: live.minPrice,
+    maxPrice: live.maxPrice,
+    topDishes: sortedDishes.slice(0, 5),
+    allDishes: sortedDishes,
+    matchedFavorites,
+    activeFavoritesCount: matchedFavorites.length,
+    dishCounts,
+    recordedDates: datesWithMeals
   };
 }

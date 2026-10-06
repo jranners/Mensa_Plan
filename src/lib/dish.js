@@ -77,6 +77,99 @@ export function isGenericDessertComponent(partText, isPureDessertDish = false) {
 }
 
 /**
+ * Checks if a dish is a soup, stew, or chili meal.
+ * @param {object} dish
+ * @returns {boolean}
+ */
+export function isSoupOrStew(dish) {
+  if (!dish) return false;
+  const customFields = getCustomFields(dish);
+  const name = (dish.name_de || '').toLowerCase();
+  const nameEn = (dish.name_en || '').toLowerCase();
+  const dpName = (customFields['CUSTOM_DPNAME'] || '').toLowerCase();
+
+  const soupKeywords = ['suppe', 'soup', 'eintopf', 'stew', 'brühe', 'bouillon', 'minestrone', 'feuertopf'];
+  return soupKeywords.some(k => name.includes(k) || nameEn.includes(k) || dpName.includes(k));
+}
+
+/**
+ * Classifies a dish into 'main', 'meisterwerk', 'side', 'dessert', or 'buffet'.
+ * @param {object} dish
+ * @returns {'main'|'meisterwerk'|'side'|'dessert'|'buffet'}
+ */
+export function classifyDish(dish) {
+  if (!dish) return 'side';
+  const customFields = getCustomFields(dish);
+
+  const rawType = (customFields['menu_type'] || '').trim();
+  const typeLower = rawType.toLowerCase();
+  const catNameDe = (dish.category && dish.category.name_de) ? dish.category.name_de.toLowerCase() : '';
+  const name = (dish.name_de || '').toLowerCase();
+  const dpName = (customFields['CUSTOM_DPNAME'] || '').toLowerCase();
+  const location = (customFields['location'] || '').toLowerCase();
+  const screenLocs = (dish.screens || []).map(s => (s.location || '').toLowerCase()).join(' ');
+  const price = typeof dish.price === 'number' ? dish.price : parseFloat(customFields['price_1'] || '0');
+
+  // Buffet / Selbstbedienung (pay by weight / buffet counter)
+  const isBuffet = !!customFields['preis_gramm'] ||
+                   name.includes('salatbuffet') || dpName.includes('salatbuffet') ||
+                   name.includes('selbstbedienung') || dpName.includes('selbstbedienung') ||
+                   location.includes('bistro') || screenLocs.includes('warmausgabe');
+
+  if (isBuffet) {
+    return 'buffet';
+  }
+
+  // Soups & Stews are main dishes / social meals (e.g. Eintöpfe, Cremesuppen)
+  const isSoup = isSoupOrStew(dish);
+
+  // Desserts & Fruit & Sweet dishes (Milchreis, Grütze, Pudding, etc.)
+  const dessertKeywords = ['dessert', 'pudding', 'quark', 'joghurt', 'grütze', 'creme', 'mousse', 'apfel', 'banane', 'nektarine', 'obst', 'wassermelone', 'kirschen', 'kompott', 'pfirsich', 'milchreis'];
+  if (!isSoup && (catNameDe.includes('dessert') || catNameDe.includes('nachspeise') || dessertKeywords.some(k => name.includes(k) || dpName.includes(k)))) {
+    return 'dessert';
+  }
+
+  // Explicit side dish categorization
+  if (typeLower === 'beilagen' || typeLower === 'xbeilagen' || typeLower === 'beilage' || catNameDe.includes('beilage') || catNameDe.includes('gemüse')) {
+    if (price < 2.5) {
+      return 'side';
+    }
+  }
+
+  // Side dish keywords (if price is low: <= 1.20€)
+  const sideKeywords = ['pommes', 'kartoffel', 'reis', 'spätzle', 'schupfnudeln', 'gemüse', 'blumenkohl', 'brokkoli', 'broccoli', 'erbsen', 'möhren', 'karotten', 'bohnen', 'röstitaler', 'leipzigerallerlei', 'balkangemüse', 'kaisergemüse', 'sommergemüse', 'beilagensalat', 'salat', 'sauce'];
+  const hasSideKeyword = sideKeywords.some(k => name.includes(k) || dpName.includes(k));
+
+  if (hasSideKeyword && price <= 1.20) {
+    return 'side';
+  }
+
+  // Meisterwerk / Premium Action lines (Pizza, Flammkuchen, Burger, Pasta Mista)
+  const isMeisterwerkLine = typeLower.includes('meisterwerk') || typeLower.includes('aktion');
+  if (isMeisterwerkLine && !hasSideKeyword && price >= 1.40) {
+    return 'meisterwerk';
+  }
+
+  // Main dish lines
+  const mainLines = ['heimspiel', 'worldwide', 'querbeet', 'streetfood', 'sozialgericht', 'fleisch', 'fisch'];
+  const isMainLine = mainLines.some(l => typeLower.includes(l));
+
+  if (isMainLine && !hasSideKeyword) {
+    return 'main';
+  }
+
+  if (isSoup) {
+    return 'main';
+  }
+
+  if (price >= 1.4) {
+    return 'main';
+  }
+
+  return 'side';
+}
+
+/**
  * Extracts and parses dish serving times from custom_fields['dish_info'].
  * Returns { startHour, endHour, servingTime, raw } or null if absent/invalid.
  *
