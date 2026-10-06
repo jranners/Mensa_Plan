@@ -260,5 +260,71 @@ describe('Statistics Module (Ultra-lightweight)', () => {
       expect(stats.allDishes[0].count).toBe(2);
       expect(stats.allDishes[0].dates).toEqual(['2026-10-05', '2026-10-06']);
     });
+
+    it('computes All-Time statistics accurately from pre-aggregated dataset with scoping', () => {
+      const mockAllTimeData = {
+        startDate: '2026-01-22',
+        endDate: '2026-10-27',
+        openingDaysCount: 204,
+        dishes: [
+          {
+            name: 'Currywurst',
+            clean: 'currywurst',
+            count: 133,
+            diet: 'all',
+            price: 3.25,
+            category: 'main',
+            canteens: { unimensa: 38, 'iwz-deutz': 25 }
+          },
+          {
+            name: 'Schnitzel',
+            clean: 'schnitzel',
+            count: 110,
+            diet: 'vegan',
+            price: 3.05,
+            category: 'main',
+            canteens: { unimensa: 50, 'iwz-deutz': 20 }
+          },
+          {
+            name: 'Pommes frites',
+            clean: 'pommes frites',
+            count: 250,
+            diet: 'vegan',
+            price: 1.10,
+            category: 'side',
+            canteens: { unimensa: 100 }
+          }
+        ]
+      };
+
+      // 1. All-Time across all canteens for main dishes
+      const allMains = computeLiveMenuStats([], {
+        timeframe: 'all-time',
+        allTimeData: mockAllTimeData,
+        category: 'main',
+        canteenScope: 'all'
+      });
+      expect(allMains.timeframe.mode).toBe('all-time');
+      expect(allMains.timeframe.activeDaysCount).toBe(204);
+      expect(allMains.totalDishes).toBe(243); // 133 + 110 (Pommes excluded)
+      expect(allMains.topDishes[0].name).toBe('Currywurst');
+      expect(allMains.topDishes[0].count).toBe(133);
+      expect(allMains.topDishes[1].name).toBe('Schnitzel');
+      expect(allMains.topDishes[1].count).toBe(110);
+
+      // 2. All-Time scoped to UniMensa only
+      const uniMensaMains = computeLiveMenuStats([], {
+        timeframe: 'all-time',
+        allTimeData: mockAllTimeData,
+        category: 'main',
+        canteenScope: 'selected',
+        selectedCanteens: ['unimensa']
+      });
+      expect(uniMensaMains.totalDishes).toBe(88); // 38 Currywurst + 50 Schnitzel
+      expect(uniMensaMains.topDishes[0].name).toBe('Schnitzel'); // 50 in UniMensa > 38
+      expect(uniMensaMains.topDishes[0].count).toBe(50);
+      expect(uniMensaMains.topDishes[1].name).toBe('Currywurst');
+      expect(uniMensaMains.topDishes[1].count).toBe(38);
+    });
   });
 });

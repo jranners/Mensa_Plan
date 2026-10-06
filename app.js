@@ -104,7 +104,9 @@ let state = {
     canteenScope: "selected",
     category: "main",
     isExpanded: false
-  }
+  },
+  allTimeData: null,
+  isLoadingAllTime: false
 };
 
 let settingsDraft = null;
@@ -450,8 +452,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     } else if (action === 'close-stats-modal') {
       hideStatsModal();
     } else if (action === 'stats-set-timeframe') {
-      state.statsOptions.timeframe = actionEl.dataset.timeframe;
-      renderStatsContent();
+      const selectedTimeframe = actionEl.dataset.timeframe;
+      state.statsOptions.timeframe = selectedTimeframe;
+      if (selectedTimeframe === 'all-time' && !state.allTimeData) {
+        loadAllTimeStats();
+      } else {
+        renderStatsContent();
+      }
+    } else if (action === 'stats-retry-all-time') {
+      loadAllTimeStats();
     } else if (action === 'stats-set-scope') {
       state.statsOptions.canteenScope = actionEl.dataset.scope;
       renderStatsContent();
@@ -1202,6 +1211,23 @@ function hideAppMenu() {
   }
 }
 
+async function loadAllTimeStats() {
+  if (state.allTimeData) return;
+  state.isLoadingAllTime = true;
+  renderStatsContent();
+  try {
+    const res = await fetch(`data/stats_all_time.json?v=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    state.allTimeData = data;
+  } catch (err) {
+    console.error('Failed to load all-time stats:', err);
+  } finally {
+    state.isLoadingAllTime = false;
+    renderStatsContent();
+  }
+}
+
 function renderStatsContent() {
   const content = document.getElementById("stats-modal-content");
   if (!content) return;
@@ -1210,6 +1236,7 @@ function renderStatsContent() {
   const currentTariff = state.tariff || 'student';
   const stats = computeLiveMenuStats(state.menuData || [], {
     timeframe: state.statsOptions.timeframe,
+    allTimeData: state.allTimeData,
     canteenScope: state.statsOptions.canteenScope,
     selectedCanteens: state.selectedCanteens,
     canteensMap: CANTEENS,
@@ -1219,7 +1246,7 @@ function renderStatsContent() {
     todayIso: getBerlinTodayDate()
   });
 
-  if (!state.menuData || state.menuData.length === 0) {
+  if ((!state.menuData || state.menuData.length === 0) && (!state.allTimeData || state.statsOptions.timeframe !== 'all-time')) {
     content.innerHTML = `
       <div class="text-center py-8 text-slate-500 dark:text-slate-400">
         <p class="text-sm font-medium">${escapeHtml(t.statsNoData || "Noch keine Menüdaten vorhanden.")}</p>
@@ -1316,10 +1343,10 @@ function renderStatsContent() {
     <div class="flex flex-col gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08] text-xs">
       <div class="flex items-center justify-between gap-2 flex-wrap">
         <span class="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-          📅 ${escapeHtml(t.statsTimeframe)}: <span class="font-extrabold text-primary-container dark:text-price-badge">${escapeHtml(stats.timeframe.formattedRange || "—")}</span>
+          📅 ${escapeHtml(t.statsTimeframe)}: <span class="font-extrabold text-primary-container dark:text-price-badge">${state.isLoadingAllTime && timeframe === 'all-time' ? '...' : escapeHtml(stats.timeframe.formattedRange || "—")}</span>
         </span>
         <span class="px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-[10px] font-bold text-slate-700 dark:text-slate-300">
-          ${stats.timeframe.activeDaysCount} ${escapeHtml(t.statsOpenDays)}
+          ${state.isLoadingAllTime && timeframe === 'all-time' ? '...' : `${stats.timeframe.activeDaysCount} ${escapeHtml(t.statsOpenDays)}`}
         </span>
       </div>
       <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate" title="${escapeHtml(scopeInfoText)}">
@@ -1336,6 +1363,9 @@ function renderStatsContent() {
           <button type="button" data-action="stats-set-timeframe" data-timeframe="week" class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${timeframe === 'week' ? 'bg-white dark:bg-[#122338] text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}">
             ${escapeHtml(t.statsThisWeek)}
           </button>
+          <button type="button" data-action="stats-set-timeframe" data-timeframe="all-time" class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${timeframe === 'all-time' ? 'bg-white dark:bg-[#122338] text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}">
+            ${escapeHtml(t.statsAllTime || "All-Time")}
+          </button>
         </div>
 
         <!-- Scope Toggle -->
@@ -1350,88 +1380,105 @@ function renderStatsContent() {
       </div>
     </div>
 
-    <!-- 2. Category Filter Pills -->
-    <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar text-xs">
-      <button type="button" data-action="stats-set-category" data-category="main" class="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer ${category === 'main' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs' : 'bg-slate-100 dark:bg-[#182c44] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/60'}">
-        🍲 ${escapeHtml(t.statsCatMain)}
-      </button>
-      <button type="button" data-action="stats-set-category" data-category="side" class="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer ${category === 'side' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs' : 'bg-slate-100 dark:bg-[#182c44] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/60'}">
-        🥗 ${escapeHtml(t.statsCatSide)}
-      </button>
-      <button type="button" data-action="stats-set-category" data-category="dessert" class="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer ${category === 'dessert' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs' : 'bg-slate-100 dark:bg-[#182c44] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/60'}">
-        🍮 ${escapeHtml(t.statsCatDessert)}
-      </button>
-    </div>
-
-    <!-- 3. Diet Distribution -->
-    <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
-      <div class="flex justify-between items-center text-xs font-bold text-slate-800 dark:text-white">
-        <span>${escapeHtml(t.statsDietDist)} (${escapeHtml(catLabel)})</span>
-        <span class="text-slate-500 dark:text-slate-400 font-normal text-[11px]">${stats.totalDishes} ${escapeHtml(t.statsDishesTotal)}</span>
+    ${timeframe === 'all-time' && state.isLoadingAllTime ? `
+      <div class="flex flex-col items-center justify-center py-12 gap-3 text-slate-500 dark:text-slate-400">
+        <div class="w-8 h-8 border-3 border-primary-container border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-xs font-semibold">${escapeHtml(t.statsLoadingAllTime || "Lade All-Time Daten...")}</p>
       </div>
-
-      <!-- Segmented Bar -->
-      <div class="w-full h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex shadow-inner">
-        <div style="width: ${veganPct}%" class="bg-emerald-500 transition-all duration-500" title="${escapeHtml(t.statsVegan)}: ${veganPct}%"></div>
-        <div style="width: ${vegPct}%" class="bg-amber-400 transition-all duration-500" title="${escapeHtml(t.statsVegetarian)}: ${vegPct}%"></div>
-        <div style="width: ${meatPct}%" class="bg-rose-400 transition-all duration-500" title="${escapeHtml(t.statsMeat)}: ${meatPct}%"></div>
-      </div>
-
-      <!-- Badges -->
-      <div class="grid grid-cols-3 gap-2 pt-1 text-center">
-        <div class="flex flex-col items-center p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/30">
-          <span class="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">${escapeHtml(t.statsVegan)}</span>
-          <span class="text-xs font-extrabold text-emerald-800 dark:text-emerald-200">${veganPct}% <span class="text-[10px] font-normal text-emerald-600 dark:text-emerald-400">(${stats.veganCount})</span></span>
-        </div>
-        <div class="flex flex-col items-center p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/30">
-          <span class="text-[10px] font-medium text-amber-700 dark:text-amber-300">${escapeHtml(t.statsVegetarian)}</span>
-          <span class="text-xs font-extrabold text-amber-800 dark:text-amber-200">${vegPct}% <span class="text-[10px] font-normal text-amber-600 dark:text-amber-400">(${stats.vegetarianCount})</span></span>
-        </div>
-        <div class="flex flex-col items-center p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/30">
-          <span class="text-[10px] font-medium text-rose-700 dark:text-rose-300">${escapeHtml(t.statsMeat)}</span>
-          <span class="text-xs font-extrabold text-rose-800 dark:text-rose-200">${meatPct}% <span class="text-[10px] font-normal text-rose-600 dark:text-rose-400">(${stats.meatCount})</span></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. Prices -->
-    <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
-      <span class="text-xs font-bold text-slate-800 dark:text-white">${escapeHtml(t.statsPricesTitle)}</span>
-      <div class="grid grid-cols-3 gap-2 text-center">
-        <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
-          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsAvgPrice)}</span>
-          <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.avgPrice != null ? formatPrice(stats.avgPrice) : "—"}</span>
-        </div>
-        <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
-          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsMinPrice)}</span>
-          <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.minPrice != null ? formatPrice(stats.minPrice) : "—"}</span>
-        </div>
-        <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
-          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsMaxPrice)}</span>
-          <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.maxPrice != null ? formatPrice(stats.maxPrice) : "—"}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 5. Favorites Match (if present) -->
-    ${favHTML}
-
-    <!-- 6. Dish Frequency Ranking (Expandable) -->
-    <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
-      <div class="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-white">
-        <span>${escapeHtml(t.statsTopDishes)}: ${escapeHtml(catLabel)}</span>
-        <span class="text-slate-500 dark:text-slate-400 font-normal text-[11px]">${displayDishes.length} / ${stats.allDishes.length}</span>
-      </div>
-      <ul class="flex flex-col divide-y divide-slate-100 dark:divide-white/5">
-        ${topDishesHTML}
-      </ul>
-
-      ${hasMore ? `
-        <button type="button" data-action="stats-toggle-expand" class="w-full mt-1.5 py-2 px-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-[#122338] hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-slate-200/60 dark:border-white/5 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98">
-          ${isExpanded ? `⌃ ${escapeHtml(t.statsShowLess)}` : `⌄ ${escapeHtml(t.statsShowMore.replace('{count}', String(stats.allDishes.length)))}`}
+    ` : timeframe === 'all-time' && !state.allTimeData ? `
+      <div class="flex flex-col items-center justify-center py-10 gap-3 text-center px-4">
+        <span class="text-2xl">⚠️</span>
+        <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+          ${escapeHtml(state.language === 'en' ? "Could not load all-time data." : "All-Time Daten konnten nicht geladen werden.")}
+        </p>
+        <button type="button" data-action="stats-retry-all-time" class="px-3.5 py-1.5 rounded-xl bg-primary-container text-white text-xs font-bold shadow-xs cursor-pointer active:scale-98">
+          ${escapeHtml(state.language === 'en' ? "Try again" : "Erneut versuchen")}
         </button>
-      ` : ""}
-    </div>
+      </div>
+    ` : `
+      <!-- 2. Category Filter Pills -->
+      <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar text-xs">
+        <button type="button" data-action="stats-set-category" data-category="main" class="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer ${category === 'main' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs' : 'bg-slate-100 dark:bg-[#182c44] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/60'}">
+          🍲 ${escapeHtml(t.statsCatMain)}
+        </button>
+        <button type="button" data-action="stats-set-category" data-category="side" class="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer ${category === 'side' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs' : 'bg-slate-100 dark:bg-[#182c44] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/60'}">
+          🥗 ${escapeHtml(t.statsCatSide)}
+        </button>
+        <button type="button" data-action="stats-set-category" data-category="dessert" class="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer ${category === 'dessert' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs' : 'bg-slate-100 dark:bg-[#182c44] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/60'}">
+          🍮 ${escapeHtml(t.statsCatDessert)}
+        </button>
+      </div>
+
+      <!-- 3. Diet Distribution -->
+      <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
+        <div class="flex justify-between items-center text-xs font-bold text-slate-800 dark:text-white">
+          <span>${escapeHtml(t.statsDietDist)} (${escapeHtml(catLabel)})</span>
+          <span class="text-slate-500 dark:text-slate-400 font-normal text-[11px]">${stats.totalDishes} ${escapeHtml(t.statsDishesTotal)}</span>
+        </div>
+
+        <!-- Segmented Bar -->
+        <div class="w-full h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex shadow-inner">
+          <div style="width: ${veganPct}%" class="bg-emerald-500 transition-all duration-500" title="${escapeHtml(t.statsVegan)}: ${veganPct}%"></div>
+          <div style="width: ${vegPct}%" class="bg-amber-400 transition-all duration-500" title="${escapeHtml(t.statsVegetarian)}: ${vegPct}%"></div>
+          <div style="width: ${meatPct}%" class="bg-rose-400 transition-all duration-500" title="${escapeHtml(t.statsMeat)}: ${meatPct}%"></div>
+        </div>
+
+        <!-- Badges -->
+        <div class="grid grid-cols-3 gap-2 pt-1 text-center">
+          <div class="flex flex-col items-center p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/30">
+            <span class="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">${escapeHtml(t.statsVegan)}</span>
+            <span class="text-xs font-extrabold text-emerald-800 dark:text-emerald-200">${veganPct}% <span class="text-[10px] font-normal text-emerald-600 dark:text-emerald-400">(${stats.veganCount})</span></span>
+          </div>
+          <div class="flex flex-col items-center p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/30">
+            <span class="text-[10px] font-medium text-amber-700 dark:text-amber-300">${escapeHtml(t.statsVegetarian)}</span>
+            <span class="text-xs font-extrabold text-amber-800 dark:text-amber-200">${vegPct}% <span class="text-[10px] font-normal text-amber-600 dark:text-amber-400">(${stats.vegetarianCount})</span></span>
+          </div>
+          <div class="flex flex-col items-center p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/30">
+            <span class="text-[10px] font-medium text-rose-700 dark:text-rose-300">${escapeHtml(t.statsMeat)}</span>
+            <span class="text-xs font-extrabold text-rose-800 dark:text-rose-200">${meatPct}% <span class="text-[10px] font-normal text-rose-600 dark:text-rose-400">(${stats.meatCount})</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Prices -->
+      <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
+        <span class="text-xs font-bold text-slate-800 dark:text-white">${escapeHtml(t.statsPricesTitle)}</span>
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsAvgPrice)}</span>
+            <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.avgPrice != null ? formatPrice(stats.avgPrice) : "—"}</span>
+          </div>
+          <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsMinPrice)}</span>
+            <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.minPrice != null ? formatPrice(stats.minPrice) : "—"}</span>
+          </div>
+          <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsMaxPrice)}</span>
+            <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.maxPrice != null ? formatPrice(stats.maxPrice) : "—"}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Favorites Match (if present) -->
+      ${favHTML}
+
+      <!-- 6. Dish Frequency Ranking (Expandable) -->
+      <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-white">
+          <span>${escapeHtml(t.statsTopDishes)}: ${escapeHtml(catLabel)}</span>
+          <span class="text-slate-500 dark:text-slate-400 font-normal text-[11px]">${displayDishes.length} / ${stats.allDishes.length}</span>
+        </div>
+        <ul class="flex flex-col divide-y divide-slate-100 dark:divide-white/5">
+          ${topDishesHTML}
+        </ul>
+
+        ${hasMore ? `
+          <button type="button" data-action="stats-toggle-expand" class="w-full mt-1.5 py-2 px-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-[#122338] hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-slate-200/60 dark:border-white/5 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98">
+            ${isExpanded ? `⌃ ${escapeHtml(t.statsShowLess)}` : `⌄ ${escapeHtml(t.statsShowMore.replace('{count}', String(stats.allDishes.length)))}`}
+          </button>
+        ` : ""}
+      </div>
+    `}
   `;
 }
 
@@ -1439,7 +1486,11 @@ function showStatsModal() {
   const modal = document.getElementById("stats-modal");
   if (!modal) return;
   state.statsOptions.isExpanded = false;
-  renderStatsContent();
+  if (state.statsOptions.timeframe === 'all-time' && !state.allTimeData) {
+    loadAllTimeStats();
+  } else {
+    renderStatsContent();
+  }
   modal.classList.remove("hidden");
   document.body.classList.add("overflow-hidden");
   statsFocusRelease = trapFocus(modal);

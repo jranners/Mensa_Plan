@@ -137,7 +137,9 @@ export const TRANSLATIONS = {
     statsOpenDays: "Öffnungstage",
     statsNoDishesFound: "Keine Gerichte für die gewählten Filter.",
     statsServedOnDays: "an {count} Tagen",
-    statsFavoritesFound: "Deine Favoriten im Zeitraum"
+    statsFavoritesFound: "Deine Favoriten im Zeitraum",
+    statsAllTime: "All-Time",
+    statsLoadingAllTime: "Lade All-Time Daten..."
   },
   en: {
     title: "Mensaplan",
@@ -277,6 +279,8 @@ export const TRANSLATIONS = {
     statsOpenDays: "open days",
     statsNoDishesFound: "No dishes found for the selected filters.",
     statsServedOnDays: "on {count} days",
-    statsFavoritesFound: "Your favorites in this period"
+    statsFavoritesFound: "Your favorites in this period",
+    statsAllTime: "All-Time",
+    statsLoadingAllTime: "Loading all-time data..."
   }
 };

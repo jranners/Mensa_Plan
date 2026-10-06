@@ -155,11 +155,21 @@ Die Mensa Plan PWA ist eine native-artige progressive Web-App für das Kölner S
 
 ### 5.8 Statistik-Modal (`#stats-modal`)
 - **Speicher-Footprint:** Streng **< 2 KB lokal** (`kstw_stats_v1` in `localStorage`), keine externen Tracker.
-- **Komponenten:**
-  - **Ernährungsverteilung:** Dreifarbiger, segmentierter Prozentbalken (Smaragdgrün = Vegan, Bernstein = Vegetarisch, Koralle = Fleisch & Fisch) mit Zählern.
-  - **Preise (gewählter Tarif):** 3-Spalten-Raster für *Durchschnittspreis*, *Günstigstes Gericht* und *Teuerstes Gericht*.
-  - **Häufigste Gerichte:** Top 5 Gerichte mit Wiederholungszähler (`37×`, `29×`).
-  - **Speicher-Badge:** Grünes Pill-Badge: *„🌱 Extrem speicherplatzsparend (< 2 KB lokal)“*.
+- **Zeitraum- & Mensen-Steuerung:**
+  - **Zeitraum:** Umschaltbar zwischen `2 Wochen` (aktueller Datenbestand), `Diese Woche` und `All-Time` (historischer Gesamtzeitraum seit Januar 2026, On-Demand gestreamt und im ServiceWorker gecacht, ~20 KB gzip).
+  - **Mensen-Scope:** Filterung nach `Meine Mensen` (aktive Auswahl) oder `Alle Mensen`.
+- **Kategorie-Filterung:**
+  - `🍲 Hauptgerichte` (Standard – bereinigt um tägliche Beilagen/Desserts wie Schokopudding oder Salatbuffet)
+  - `🥗 Beilagen`
+  - `🍮 Desserts`
+- **Ausklappbare Häufigkeits-Rangliste:**
+  - Standardmäßig kompakte Top 5 mit Medaillen-Badges (🥇, 🥈, 🥉).
+  - Vollständig ausklappbar via `⌄ Mehr anzeigen ({count})`, um den gesamten Speiseplan-Verlauf zu durchsuchen.
+- **Ernährungs- & Preis-Metriken:**
+  - Segmentierter Verteilungsbalken (Vegan, Vegetarisch, Fleisch & Fisch) mit Prozenten und absoluten Zählern.
+  - 3-Spalten-Raster für *Durchschnittspreis*, *Günstigstes Gericht* und *Teuerstes Gericht* (basierend auf gewähltem Tarif).
+  - Automatische Favoriten-Erkennung mit Trefferzähler.
+- **Speicher-Badge:** Grünes Pill-Badge: *„🌱 Extrem speicherplatzsparend (< 2 KB lokal)“*.
 
 ### 5.9 Einstellungs- & Onboarding-Modal (`#onboarding`)
 - **Sprachumschalter:** Dual-Pill für Deutsch & English.
@@ -186,6 +196,7 @@ Alle Screenshots wurden in nativer 2x Retina-Auflösung (iPhone 14 Viewport, 390
 | `08_mobile_stats_modal_light.png` | Mensa-Statistiken (Light Mode) | Hellmodus-Äquivalent der Statistiken |
 | `09_mobile_allergens_modal_light.png` | Allergen-Detaildialog (Light Mode) | Klare Auszeichnung, Gewähr-Disclaimer |
 | `10_mobile_settings_modal_light.png` | Einstellungen im Betrieb (Light Mode) | Draft-Zustand, Speichern-Button |
+| `11_mobile_stats_all_time.png` | All-Time Gesamtzeitraum-Statistiken | 204 Öffnungstage, 1.300+ Gerichte, Top-Rangliste |
 
 ---
 

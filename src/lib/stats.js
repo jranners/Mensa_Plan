@@ -180,6 +180,7 @@ export function aggregateMenuStats(menuData, existingStats = null) {
 export function computeLiveMenuStats(menuData, options = {}) {
   const {
     timeframe = 'all',
+    allTimeData = null,
     canteenScope = 'all',
     selectedCanteens = [],
     canteensMap = null,
@@ -190,6 +191,128 @@ export function computeLiveMenuStats(menuData, options = {}) {
   } = options;
 
   const live = getInitialStats();
+
+  // Special branch: All-Time mode with pre-aggregated historical database
+  if (timeframe === 'all-time' && allTimeData && Array.isArray(allTimeData.dishes)) {
+    const startDate = allTimeData.startDate || '2026-01-22';
+    const endDate = allTimeData.endDate || todayIso;
+    const activeDaysCount = allTimeData.openingDaysCount || 0;
+    const formattedRange = formatDateRange(startDate, endDate);
+
+    const dishMap = {};
+    let priceSum = 0;
+    let priceCount = 0;
+
+    allTimeData.dishes.forEach(dish => {
+      if (!dish) return;
+
+      // Category filter
+      const cls = dish.category || 'main';
+      if (category === 'main') {
+        if (cls !== 'main' && cls !== 'meisterwerk') return;
+      } else if (category === 'side') {
+        if (cls !== 'side') return;
+      } else if (category === 'dessert') {
+        if (cls !== 'dessert') return;
+      }
+
+      // Canteen scope filter
+      let effectiveCount = dish.count || 0;
+      if (canteenScope === 'selected' && Array.isArray(selectedCanteens) && selectedCanteens.length > 0) {
+        effectiveCount = 0;
+        selectedCanteens.forEach(cKey => {
+          if (dish.canteens && dish.canteens[cKey]) {
+            effectiveCount += dish.canteens[cKey];
+          }
+        });
+        if (effectiveCount === 0) return;
+      }
+
+      live.totalDishes += effectiveCount;
+      const diet = dish.diet || 'all';
+      if (diet === 'vegan') live.veganCount += effectiveCount;
+      else if (diet === 'vegetarian') live.vegetarianCount += effectiveCount;
+      else live.otherCount += effectiveCount;
+
+      const price = dish.price;
+      if (price != null && price > 0) {
+        priceSum += price * effectiveCount;
+        priceCount += effectiveCount;
+        if (live.minPrice == null || price < live.minPrice) live.minPrice = price;
+        if (live.maxPrice == null || price > live.maxPrice) live.maxPrice = price;
+      }
+
+      dishMap[dish.clean] = {
+        clean: dish.clean,
+        name: dish.name,
+        count: effectiveCount,
+        diet,
+        price,
+        category: cls,
+        dates: dish.lastSeen ? [dish.lastSeen] : []
+      };
+    });
+
+    const sortedDishes = Object.values(dishMap)
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .map((item, idx) => ({
+        rank: idx + 1,
+        clean: item.clean,
+        name: item.name,
+        count: item.count,
+        diet: item.diet,
+        price: item.price,
+        category: item.category,
+        dates: item.dates
+      }));
+
+    const dishCounts = {};
+    sortedDishes.forEach(d => {
+      dishCounts[d.clean] = d.count;
+    });
+
+    const favSet = new Set(Array.isArray(favorites) ? favorites.map(f => cleanDishNameForFavorite(f)) : []);
+    const matchedFavorites = sortedDishes.filter(d => favSet.has(d.clean));
+
+    const veganPct = live.totalDishes > 0 ? Math.round((live.veganCount / live.totalDishes) * 100) : 0;
+    const vegPct = live.totalDishes > 0 ? Math.round((live.vegetarianCount / live.totalDishes) * 100) : 0;
+    const meatPct = Math.max(0, 100 - veganPct - vegPct);
+    const avgPrice = priceCount > 0 ? Math.round((priceSum / priceCount) * 100) / 100 : null;
+
+    return {
+      version: 1,
+      timeframe: {
+        mode: 'all-time',
+        startDate,
+        endDate,
+        formattedRange,
+        activeDaysCount
+      },
+      canteenScope,
+      category,
+      tariff,
+      totalDishes: live.totalDishes,
+      veganCount: live.veganCount,
+      vegetarianCount: live.vegetarianCount,
+      otherCount: live.otherCount,
+      meatCount: live.otherCount,
+      veganPct,
+      vegetarianPct: vegPct,
+      meatPct,
+      priceSum: Math.round(priceSum * 100) / 100,
+      priceCount,
+      avgPrice,
+      minPrice: live.minPrice,
+      maxPrice: live.maxPrice,
+      topDishes: sortedDishes.slice(0, 5),
+      allDishes: sortedDishes,
+      matchedFavorites,
+      activeFavoritesCount: matchedFavorites.length,
+      dishCounts,
+      recordedDates: [startDate, endDate]
+    };
+  }
+
   if (!Array.isArray(menuData) || menuData.length === 0) {
     return live;
   }

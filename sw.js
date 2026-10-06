@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v59';
+const CACHE_NAME = 'kstw-mensa-v60';
 const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
 const STATIC_ASSETS = [
   './',
@@ -94,7 +94,7 @@ self.addEventListener('fetch', event => {
   const pathname = url.pathname;
 
   // Strategie 1: Dynamische Konfiguration & Ankündigungen → Network-First mit Cache-Fallback
-  if (pathname.endsWith('data/config.js') || pathname.endsWith('data/announcements.json')) {
+  if (pathname.endsWith('data/config.js') || pathname.endsWith('data/announcements.json') || pathname.endsWith('data/stats_all_time.json')) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE_NAME);
