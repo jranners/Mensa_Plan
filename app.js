@@ -52,7 +52,8 @@ import { validateWeekMenu, validateAnnouncements } from './src/lib/validation.js
 import { trapFocus } from './src/lib/a11y.js';
 import {
   aggregateMenuStats,
-  computeLiveMenuStats
+  computeLiveMenuStats,
+  generatePriceChartSvg
 } from './src/lib/stats.js';
 // SUPABASE_CONFIG wird von data/config.js (klassisches Skript, von der GitHub Action verwaltet) global bereitgestellt.
 
@@ -103,7 +104,10 @@ let state = {
     timeframe: "all",
     canteenScope: "selected",
     category: "main",
-    isExpanded: false
+    isExpanded: false,
+    showPriceChart: false,
+    priceChartMode: "normalized",
+    selectedChartMonth: null
   },
   allTimeData: null,
   isLoadingAllTime: false
@@ -469,6 +473,16 @@ window.addEventListener("DOMContentLoaded", async () => {
       renderStatsContent();
     } else if (action === 'stats-toggle-expand') {
       state.statsOptions.isExpanded = !state.statsOptions.isExpanded;
+      renderStatsContent();
+    } else if (action === 'toggle-price-chart') {
+      state.statsOptions.showPriceChart = !state.statsOptions.showPriceChart;
+      renderStatsContent();
+    } else if (action === 'set-chart-mode') {
+      state.statsOptions.priceChartMode = actionEl.dataset.mode || 'normalized';
+      renderStatsContent();
+    } else if (action === 'select-chart-month') {
+      const month = actionEl.dataset.month;
+      state.statsOptions.selectedChartMonth = state.statsOptions.selectedChartMonth === month ? null : month;
       renderStatsContent();
     } else if (action === 'menu-jump-today') {
       hideAppMenu();
@@ -1255,7 +1269,7 @@ function renderStatsContent() {
     return;
   }
 
-  const { timeframe, canteenScope, category, isExpanded } = state.statsOptions;
+  const { timeframe, canteenScope, category, isExpanded, showPriceChart, priceChartMode, selectedChartMonth } = state.statsOptions;
 
   // Selected canteens text for banner
   let scopeInfoText = "";
@@ -1334,6 +1348,91 @@ function renderStatsContent() {
       </div>
     </div>
   ` : "";
+
+  // Price development chart
+  let priceChartHTML = "";
+  if (showPriceChart) {
+    const historyData = stats.priceHistory || [];
+    if (historyData.length === 0) {
+      priceChartHTML = `
+        <div class="p-3 text-center text-xs text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-[#122338]/70 rounded-xl border border-slate-200/60 dark:border-white/5 mt-1">
+          ${escapeHtml(t.statsChartNoHistory || "Keine historischen Preisdaten verfügbar.")}
+        </div>
+      `;
+    } else {
+      const effectiveTariff = (currentTariff === 'external') ? 'guest' : currentTariff;
+      const chartSvg = generatePriceChartSvg(historyData, {
+        tariff: effectiveTariff,
+        mode: priceChartMode,
+        activeMonth: selectedChartMonth,
+        t
+      });
+
+      const activeItem = (selectedChartMonth && historyData.find(d => d.month === selectedChartMonth || d.label === selectedChartMonth)) || historyData[historyData.length - 1];
+      const activeTariffData = activeItem?.tariffs?.[effectiveTariff] || activeItem?.tariffs?.student || {};
+      const activePrices = priceChartMode === 'raw' ? activeTariffData.raw : (activeTariffData.normalized || activeTariffData.raw);
+      const activeCounts = activeTariffData.counts || {};
+
+      priceChartHTML = `
+        <div class="flex flex-col gap-2.5 p-3 rounded-2xl bg-white dark:bg-[#122338] border border-slate-200/70 dark:border-white/10 mt-1">
+          <!-- Chart Header & Mode Toggle -->
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex flex-col min-w-0">
+              <span class="text-xs font-bold text-slate-900 dark:text-white">${escapeHtml(t.statsChartTitle || "Preisentwicklung")}</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400">${escapeHtml(t.statsChartSubtitle || "Monatsdurchschnitt")}</span>
+            </div>
+
+            <!-- Mode Switcher -->
+            <div class="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800 p-0.5 text-[10px]">
+              <button type="button" data-action="set-chart-mode" data-mode="normalized" class="px-2 py-1 rounded-lg font-bold transition-all cursor-pointer ${priceChartMode === 'normalized' ? 'bg-white dark:bg-[#1a2f4a] text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}">
+                🥗 ${escapeHtml(t.statsChartNormalized || "Bereinigt")}
+              </button>
+              <button type="button" data-action="set-chart-mode" data-mode="raw" class="px-2 py-1 rounded-lg font-bold transition-all cursor-pointer ${priceChartMode === 'raw' ? 'bg-white dark:bg-[#1a2f4a] text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}">
+                🏷️ ${escapeHtml(t.statsChartRaw || "Kassenpreis")}
+              </button>
+            </div>
+          </div>
+
+          <!-- Explanation Notice -->
+          <p class="text-[10px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/60 dark:border-white/5 leading-snug">
+            ${priceChartMode === 'normalized'
+              ? `ℹ️ <strong>${escapeHtml(t.statsChartNormalized)}:</strong> ${escapeHtml(t.statsChartExplain || "Gleicht den Systemwechsel ab Sept. 2026 für einen fairen Langzeitvergleich aus.")}`
+              : `ℹ️ <strong>${escapeHtml(t.statsChartRaw)}:</strong> Zeigt den Kassenpreis. Der Knick ab September 2026 entsteht durch das Wegfallen enthaltener Beilagen.`}
+          </p>
+
+          <!-- SVG Chart Area -->
+          <div class="w-full pt-1 pb-1">
+            ${chartSvg}
+          </div>
+
+          <!-- Legend & Active Month Inspector -->
+          <div class="flex flex-col gap-1.5 pt-2 border-t border-slate-100 dark:border-white/5">
+            <div class="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300">
+              <span>📅 ${escapeHtml(activeItem?.label || activeItem?.month || "Auswahl")}:</span>
+              <span class="text-[10px] font-normal text-slate-500 dark:text-slate-400">Tippe auf Punkte für Details</span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+              <div class="flex flex-col p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/30">
+                <span class="font-medium text-emerald-700 dark:text-emerald-300">🌱 Vegan</span>
+                <span class="font-black text-xs text-emerald-800 dark:text-emerald-200 mt-0.5">${activePrices?.vegan != null ? formatPrice(activePrices.vegan) : "—"}</span>
+                ${activeCounts.vegan ? `<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">(${activeCounts.vegan} Gerichte)</span>` : ''}
+              </div>
+              <div class="flex flex-col p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/30">
+                <span class="font-medium text-amber-700 dark:text-amber-300">🧀 Vegetarisch</span>
+                <span class="font-black text-xs text-amber-800 dark:text-amber-200 mt-0.5">${activePrices?.vegetarian != null ? formatPrice(activePrices.vegetarian) : "—"}</span>
+                ${activeCounts.vegetarian ? `<span class="text-[9px] text-amber-600 dark:text-amber-400 font-medium">(${activeCounts.vegetarian} Gerichte)</span>` : ''}
+              </div>
+              <div class="flex flex-col p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/30">
+                <span class="font-medium text-rose-700 dark:text-rose-300">🥩 Fleisch & Fisch</span>
+                <span class="font-black text-xs text-rose-800 dark:text-rose-200 mt-0.5">${activePrices?.meat != null ? formatPrice(activePrices.meat) : "—"}</span>
+                ${activeCounts.meat ? `<span class="text-[9px] text-rose-600 dark:text-rose-400 font-medium">(${activeCounts.meat} Gerichte)</span>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
 
   // Category title label
   const catLabel = category === 'main' ? t.statsCatMain : (category === 'side' ? t.statsCatSide : (category === 'dessert' ? t.statsCatDessert : t.statsCatAll));
@@ -1442,7 +1541,12 @@ function renderStatsContent() {
 
       <!-- 4. Prices -->
       <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#182c44]/80 border border-slate-200/70 dark:border-white/[0.08]">
-        <span class="text-xs font-bold text-slate-800 dark:text-white">${escapeHtml(t.statsPricesTitle)}</span>
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <span class="text-xs font-bold text-slate-800 dark:text-white">${escapeHtml(t.statsPricesTitle)}</span>
+          <button type="button" data-action="toggle-price-chart" class="px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-98 ${showPriceChart ? 'bg-primary-container text-white dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-[#122338] text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10'}">
+            📈 ${showPriceChart ? escapeHtml(t.statsChartHide || "Schließen") : escapeHtml(t.statsPriceHistoryBtn || "Preisentwicklung")}
+          </button>
+        </div>
         <div class="grid grid-cols-3 gap-2 text-center">
           <div class="flex flex-col items-center justify-center min-w-0 p-2 rounded-xl bg-white dark:bg-[#122338] border border-slate-200/60 dark:border-white/5">
             <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight break-words">${escapeHtml(t.statsAvgPrice)}</span>
@@ -1457,6 +1561,8 @@ function renderStatsContent() {
             <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">${stats.maxPrice != null ? formatPrice(stats.maxPrice) : "—"}</span>
           </div>
         </div>
+
+        ${priceChartHTML}
       </div>
 
       <!-- 5. Favorites Match (if present) -->

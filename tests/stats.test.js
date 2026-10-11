@@ -5,8 +5,11 @@ import {
   loadSavedStats,
   saveStats,
   aggregateMenuStats,
-  computeLiveMenuStats
+  computeLiveMenuStats,
+  computeLivePriceHistory,
+  generatePriceChartSvg
 } from '../src/lib/stats.js';
+import { detectIncludedSides } from '../src/lib/dish.js';
 
 class MockStorage {
   constructor() {
@@ -325,6 +328,100 @@ describe('Statistics Module (Ultra-lightweight)', () => {
       expect(uniMensaMains.topDishes[0].count).toBe(50);
       expect(uniMensaMains.topDishes[1].name).toBe('Currywurst');
       expect(uniMensaMains.topDishes[1].count).toBe(38);
+    });
+
+    it('correctly detects included sides before and after September 2026 transition', () => {
+      // 1. Explicit in title
+      expect(detectIncludedSides({ name_de: 'Bratwurst + 1 Beilage' }, '2026-10-05')).toBe(1);
+      expect(detectIncludedSides({ name_de: 'Butter Chicken mit 2 Beilagen' }, '2026-10-05')).toBe(2);
+      expect(detectIncludedSides({ name_de: 'Curry inkl. 2 Beilagen' }, '2026-03-01')).toBe(2);
+
+      // 2. Pre-September 2026 (old system with bundled meals)
+      expect(detectIncludedSides({ name_de: 'Blumenkohlschnitzel' }, '2026-04-15')).toBe(2);
+      expect(detectIncludedSides({ name_de: 'Kartoffel-Gemüseeintopf' }, '2026-04-15')).toBe(0); // Soups/stews had 0
+
+      // 3. Post-September 2026 (modular system)
+      expect(detectIncludedSides({ name_de: 'Blumenkohlschnitzel' }, '2026-10-05')).toBe(0);
+      expect(detectIncludedSides({ name_de: 'Kartoffel-Gemüseeintopf' }, '2026-10-05')).toBe(0);
+    });
+
+    it('computes live price history with normalized and raw values', () => {
+      const history = computeLivePriceHistory(complexMenuData, 'student');
+      expect(Array.isArray(history)).toBe(true);
+      expect(history.length).toBeGreaterThan(0);
+
+      const firstPoint = history[0];
+      expect(firstPoint.tariffs.student).toBeDefined();
+      expect(firstPoint.tariffs.student.raw).toBeDefined();
+      expect(firstPoint.tariffs.student.normalized).toBeDefined();
+
+      // On 2026-10-05: Kichererbseneintopf is a soup (0 sides) at 2.10€
+      // Normalized price (+2 sides * 0.70€) should be 3.50€
+      expect(firstPoint.tariffs.student.raw.vegan).toBe(2.1);
+      expect(firstPoint.tariffs.student.normalized.vegan).toBe(3.5);
+    });
+
+    it('generates accessible, valid SVG price chart markup', () => {
+      const sampleHistory = [
+        {
+          month: '2026-01',
+          label: 'Jan',
+          tariffs: {
+            student: {
+              raw: { vegan: 2.44, vegetarian: 3.24, meat: 3.86 },
+              normalized: { vegan: 3.19, vegetarian: 3.56, meat: 3.86 },
+              counts: { vegan: 83, vegetarian: 16, meat: 30 }
+            }
+          }
+        },
+        {
+          month: '2026-09',
+          label: 'Sep',
+          tariffs: {
+            student: {
+              raw: { vegan: 2.19, vegetarian: 2.77, meat: 2.67 },
+              normalized: { vegan: 3.59, vegetarian: 4.17, meat: 4.07 },
+              counts: { vegan: 340, vegetarian: 64, meat: 139 }
+            }
+          }
+        },
+        {
+          month: '2026-10',
+          label: 'Okt',
+          tariffs: {
+            student: {
+              raw: { vegan: 1.89, vegetarian: 2.78, meat: 2.70 },
+              normalized: { vegan: 3.27, vegetarian: 4.18, meat: 4.10 },
+              counts: { vegan: 218, vegetarian: 70, meat: 102 }
+            }
+          }
+        }
+      ];
+
+      // Normalized mode SVG
+      const svgNorm = generatePriceChartSvg(sampleHistory, {
+        tariff: 'student',
+        mode: 'normalized',
+        activeMonth: '2026-10'
+      });
+      expect(svgNorm).toContain('<svg');
+      expect(svgNorm).toContain('</svg>');
+      expect(svgNorm).toContain('⚡ Sep: Umstellung'); // System transition marker
+      expect(svgNorm).toContain('#10b981'); // Vegan line/dots
+      expect(svgNorm).toContain('#f59e0b'); // Vegetarian line/dots
+      expect(svgNorm).toContain('#f43f5e'); // Meat line/dots
+      expect(svgNorm).toContain('data-month="2026-10"');
+
+      // Raw mode SVG
+      const svgRaw = generatePriceChartSvg(sampleHistory, {
+        tariff: 'student',
+        mode: 'raw'
+      });
+      expect(svgRaw).toContain('<svg');
+      expect(svgRaw).toContain('role="img"');
+
+      // Returns empty string for empty input
+      expect(generatePriceChartSvg([])).toBe('');
     });
   });
 });

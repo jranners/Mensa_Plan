@@ -4,8 +4,11 @@ import {
   cleanDishNameForFavorite,
   classifyDish,
   stripAllergenCodes,
-  cleanDPName
+  cleanDPName,
+  detectIncludedSides,
+  SIDE_PRICES_BY_TARIFF
 } from './dish.js';
+import { escapeHtml } from './html.js';
 import { getCanteenKeyFromDish } from './canteen-match.js';
 import {
   getBerlinTodayDate,
@@ -34,6 +37,7 @@ export function getInitialStats() {
     avgPrice: null,
     dishCounts: {},
     recordedDates: [],
+    priceHistory: [],
     topDishes: [],
     allDishes: [],
     matchedFavorites: [],
@@ -309,7 +313,8 @@ export function computeLiveMenuStats(menuData, options = {}) {
       matchedFavorites,
       activeFavoritesCount: matchedFavorites.length,
       dishCounts,
-      recordedDates: [startDate, endDate]
+      recordedDates: [startDate, endDate],
+      priceHistory: (allTimeData && Array.isArray(allTimeData.monthlyPriceHistory)) ? allTimeData.monthlyPriceHistory : []
     };
   }
 
@@ -478,6 +483,242 @@ export function computeLiveMenuStats(menuData, options = {}) {
     matchedFavorites,
     activeFavoritesCount: matchedFavorites.length,
     dishCounts,
-    recordedDates: datesWithMeals
+    recordedDates: datesWithMeals,
+    priceHistory: (allTimeData && Array.isArray(allTimeData.monthlyPriceHistory))
+      ? allTimeData.monthlyPriceHistory
+      : computeLivePriceHistory(filteredDays, tariff, selectedCanteens, canteensMap, canteenScope)
   };
 }
+
+/**
+ * Computes price history from live loaded menu data.
+ *
+ * @param {Array<{ date: string, dishes: Array }>} menuData
+ * @param {'student'|'employee'|'guest'|'external'} [tariff='student']
+ * @param {string[]} [selectedCanteens=[]]
+ * @param {object|null} [canteensMap=null]
+ * @param {'all'|'selected'} [canteenScope='all']
+ * @returns {Array<object>}
+ */
+export function computeLivePriceHistory(menuData, tariff = 'student', selectedCanteens = [], canteensMap = null, canteenScope = 'all') {
+  if (!Array.isArray(menuData) || menuData.length === 0) return [];
+
+  const dateBuckets = {};
+  const sideCost = SIDE_PRICES_BY_TARIFF[tariff] || 0.70;
+
+  menuData.forEach(day => {
+    if (!day || !day.date || !Array.isArray(day.dishes)) return;
+    const dateKey = day.date;
+    if (!dateBuckets[dateKey]) {
+      dateBuckets[dateKey] = {
+        date: dateKey,
+        vegan: [], veg: [], meat: [],
+        normVegan: [], normVeg: [], normMeat: []
+      };
+    }
+
+    day.dishes.forEach(dish => {
+      const cls = classifyDish(dish);
+      if (cls !== 'main' && cls !== 'meisterwerk') return;
+
+      if (canteenScope === 'selected' && Array.isArray(selectedCanteens) && selectedCanteens.length > 0 && canteensMap) {
+        const matches = selectedCanteens.some(cKey => getCanteenKeyFromDish(dish, cKey, canteensMap[cKey]));
+        if (!matches) return;
+      }
+
+      const p = getDishPrice(dish, tariff);
+      if (p == null || p <= 0) return;
+
+      const diet = getDishDietType(dish);
+      const incSides = detectIncludedSides(dish, day.date);
+      const missingSides = Math.max(0, 2 - incSides);
+      const normP = Math.round((p + missingSides * sideCost) * 100) / 100;
+
+      if (diet === 'vegan') {
+        dateBuckets[dateKey].vegan.push(p);
+        dateBuckets[dateKey].normVegan.push(normP);
+      } else if (diet === 'vegetarian') {
+        dateBuckets[dateKey].veg.push(p);
+        dateBuckets[dateKey].normVeg.push(normP);
+      } else {
+        dateBuckets[dateKey].meat.push(p);
+        dateBuckets[dateKey].normMeat.push(normP);
+      }
+    });
+  });
+
+  const avg = arr => arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100 : null;
+
+  return Object.keys(dateBuckets).sort().filter(k => {
+    const b = dateBuckets[k];
+    return b.vegan.length > 0 || b.veg.length > 0 || b.meat.length > 0;
+  }).map(k => {
+    const b = dateBuckets[k];
+    const parts = k.split('-');
+    const label = parts.length === 3 ? `${parts[2]}.${parts[1]}.` : k;
+    return {
+      month: k,
+      label,
+      tariffs: {
+        [tariff]: {
+          raw: {
+            vegan: avg(b.vegan),
+            vegetarian: avg(b.veg),
+            meat: avg(b.meat)
+          },
+          normalized: {
+            vegan: avg(b.normVegan),
+            vegetarian: avg(b.normVeg),
+            meat: avg(b.normMeat)
+          },
+          counts: {
+            vegan: b.vegan.length,
+            vegetarian: b.veg.length,
+            meat: b.meat.length
+          }
+        }
+      }
+    };
+  });
+}
+
+/**
+ * Generates responsive SVG price trend chart markup.
+ *
+ * @param {Array<object>} priceHistory
+ * @param {object} [options={}]
+ * @returns {string}
+ */
+export function generatePriceChartSvg(priceHistory, options = {}) {
+  const {
+    tariff = 'student',
+    mode = 'normalized',
+    activeMonth = null,
+    t = {}
+  } = options;
+
+  if (!Array.isArray(priceHistory) || priceHistory.length === 0) {
+    return '';
+  }
+
+  const width = 360;
+  const height = 180;
+  const padLeft = 40;
+  const padRight = 16;
+  const padTop = 22;
+  const padBottom = 26;
+
+  const chartW = width - padLeft - padRight;
+  const chartH = height - padTop - padBottom;
+
+  const effectiveTariff = (tariff === 'external') ? 'guest' : (tariff || 'student');
+  const allValues = [];
+
+  priceHistory.forEach(item => {
+    const tData = (item.tariffs && item.tariffs[effectiveTariff]) ? item.tariffs[effectiveTariff] : (item.tariffs?.student || item);
+    const priceObj = mode === 'raw' ? tData.raw : (tData.normalized || tData.raw);
+    if (priceObj) {
+      if (typeof priceObj.vegan === 'number' && priceObj.vegan > 0) allValues.push(priceObj.vegan);
+      if (typeof priceObj.vegetarian === 'number' && priceObj.vegetarian > 0) allValues.push(priceObj.vegetarian);
+      if (typeof priceObj.meat === 'number' && priceObj.meat > 0) allValues.push(priceObj.meat);
+    }
+  });
+
+  let minVal = allValues.length ? Math.floor(Math.min(...allValues) * 2) / 2 : 1.5;
+  let maxVal = allValues.length ? Math.ceil(Math.max(...allValues) * 2) / 2 : 4.5;
+  if (maxVal - minVal < 1.0) {
+    minVal = Math.max(0, minVal - 0.5);
+    maxVal = maxVal + 0.5;
+  }
+  const priceRange = maxVal - minVal;
+
+  const getX = index => padLeft + (priceHistory.length > 1 ? (index / (priceHistory.length - 1)) * chartW : chartW / 2);
+  const getY = val => padTop + chartH - ((val - minVal) / priceRange) * chartH;
+
+  const step = priceRange > 3.5 ? 1.0 : 0.5;
+  const gridPrices = [];
+  for (let p = Math.ceil(minVal / step) * step; p <= maxVal; p += step) {
+    gridPrices.push(Math.round(p * 100) / 100);
+  }
+
+  const gridLines = gridPrices.map(p => {
+    const y = getY(p);
+    return `
+      <line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${(width - padRight).toFixed(1)}" y2="${y.toFixed(1)}" stroke="currentColor" stroke-opacity="0.1" stroke-dasharray="3 3" />
+      <text x="${(padLeft - 6).toFixed(1)}" y="${(y + 3).toFixed(1)}" font-size="8.5" fill="currentColor" opacity="0.6" text-anchor="end" font-weight="600">${p.toFixed(2).replace('.', ',')}€</text>
+    `;
+  }).join('');
+
+  const xLabels = priceHistory.map((d, i) => {
+    const x = getX(i);
+    const isCurrentActive = activeMonth && (d.month === activeMonth || d.label === activeMonth);
+    const fillClass = isCurrentActive ? 'font-bold fill-primary-container dark:fill-price-badge opacity-100' : 'fill-currentColor opacity-65';
+    return `<text x="${x.toFixed(1)}" y="${(height - 8).toFixed(1)}" font-size="9" class="${fillClass}" text-anchor="middle">${escapeHtml(d.label || d.month)}</text>`;
+  }).join('');
+
+  let transitionMarker = '';
+  const sepIdx = priceHistory.findIndex(d => d.month === '2026-09');
+  if (sepIdx !== -1) {
+    const sepX = getX(sepIdx);
+    const transNote = t.statsChartTransitionNote || "⚡ Sep: Umstellung";
+    transitionMarker = `
+      <line x1="${sepX.toFixed(1)}" y1="${padTop}" x2="${sepX.toFixed(1)}" y2="${(padTop + chartH).toFixed(1)}" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.75" />
+      <text x="${sepX.toFixed(1)}" y="${(padTop - 5).toFixed(1)}" font-size="7.5" fill="#f59e0b" text-anchor="middle" font-weight="700">${escapeHtml(transNote)}</text>
+    `;
+  }
+
+  function getLineData(dietKey) {
+    return priceHistory.map((d, i) => {
+      const tData = (d.tariffs && d.tariffs[effectiveTariff]) ? d.tariffs[effectiveTariff] : (d.tariffs?.student || d);
+      const priceObj = mode === 'raw' ? tData.raw : (tData.normalized || tData.raw);
+      const val = priceObj ? priceObj[dietKey] : null;
+      return { x: getX(i), y: val != null ? getY(val) : null, val, item: d };
+    }).filter(p => p.val != null);
+  }
+
+  function buildPath(points) {
+    return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  }
+
+  function buildDots(points, color, dietLabel) {
+    return points.map(p => {
+      const isCurrent = activeMonth && (p.item.month === activeMonth || p.item.label === activeMonth);
+      const r = isCurrent ? 5 : 3.5;
+      const sw = isCurrent ? 2.5 : 1.5;
+      const formattedPrice = p.val.toFixed(2).replace('.', ',');
+      return `
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="${color}" stroke="#ffffff" stroke-width="${sw}"
+          class="cursor-pointer transition-transform hover:scale-125"
+          data-action="select-chart-month" data-month="${p.item.month || p.item.label}"
+          role="button"
+          tabindex="0"
+          aria-label="${dietLabel}: ${formattedPrice} € (${p.item.label})"
+        >
+          <title>${dietLabel} (${p.item.label}): ${formattedPrice} €</title>
+        </circle>
+      `;
+    }).join('');
+  }
+
+  const veganPoints = getLineData('vegan');
+  const vegPoints = getLineData('vegetarian');
+  const meatPoints = getLineData('meat');
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" class="w-full h-auto text-slate-700 dark:text-slate-300 select-none overflow-visible" role="img" aria-label="Preisentwicklung">
+      ${gridLines}
+      ${transitionMarker}
+      <!-- Lines -->
+      ${veganPoints.length > 1 ? `<path d="${buildPath(veganPoints)}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />` : ''}
+      ${vegPoints.length > 1 ? `<path d="${buildPath(vegPoints)}" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />` : ''}
+      ${meatPoints.length > 1 ? `<path d="${buildPath(meatPoints)}" fill="none" stroke="#f43f5e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />` : ''}
+      <!-- Interactive Dots -->
+      ${buildDots(veganPoints, '#10b981', 'Vegan')}
+      ${buildDots(vegPoints, '#f59e0b', 'Vegetarisch')}
+      ${buildDots(meatPoints, '#f43f5e', 'Fleisch & Fisch')}
+      <!-- X-Labels -->
+      ${xLabels}
+    </svg>
+  `;
+}
+

@@ -397,3 +397,43 @@ export function calculateBuffetPrice(pricePer100g, grams) {
   if (!pricePer100g || !grams || grams <= 0) return 0;
   return Math.round(pricePer100g * (grams / 100) * 100) / 100;
 }
+
+export const SIDE_PRICES_BY_TARIFF = {
+  student: 0.70,
+  employee: 0.95,
+  guest: 1.25,
+  external: 1.25
+};
+
+export const PRICING_SYSTEM_TRANSITION_DATE = '2026-09-01';
+
+/**
+ * Detects the number of sides (Beilagen) bundled/included with a main dish.
+ * - Before 2026-09-01 (old system):
+ *   - Soups/stews included 0 sides (just bread roll).
+ *   - Standard main dishes included 2 sides (Sättigungsbeilage + Gemüseteller/Salat).
+ * - On/after 2026-09-01 (flexible modular system):
+ *   - Title containing "+ 2 Beilagen" -> 2 sides.
+ *   - Title containing "+ 1 Beilage" -> 1 side.
+ *   - Otherwise -> 0 sides included.
+ *
+ * @param {object} dish
+ * @param {string} [dateStr=''] - ISO date string (YYYY-MM-DD)
+ * @returns {number}
+ */
+export function detectIncludedSides(dish, dateStr = '') {
+  if (!dish) return 0;
+  const name = ((dish.name_de || dish.name_en || '') + ' ' + (dish.clean || '')).toLowerCase();
+
+  // Check explicit title hints in new or old system
+  if (/(?:\+|\bmit\b|\binkl\.?\b)\s*2\s*beilagen/i.test(name)) return 2;
+  if (/(?:\+|\bmit\b|\binkl\.?\b)\s*1\s*beilage/i.test(name)) return 1;
+
+  const isOldSystem = dateStr ? dateStr < PRICING_SYSTEM_TRANSITION_DATE : false;
+  if (isOldSystem) {
+    if (isSoupOrStew(dish)) return 0;
+    return 2;
+  }
+  return 0;
+}
+

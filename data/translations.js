@@ -139,7 +139,16 @@ export const TRANSLATIONS = {
     statsServedOnDays: "an {count} Tagen",
     statsFavoritesFound: "Deine Favoriten im Zeitraum",
     statsAllTime: "All-Time",
-    statsLoadingAllTime: "Lade All-Time Daten..."
+    statsLoadingAllTime: "Lade All-Time Daten...",
+    statsPriceHistoryBtn: "Preisentwicklung",
+    statsChartTitle: "Preisentwicklung der Hauptgerichte",
+    statsChartSubtitle: "Verlauf nach Ernährungsweise (Monatsdurchschnitt)",
+    statsChartNormalized: "Bereinigt (inkl. 2 Beilagen)",
+    statsChartRaw: "Kassenpreis (Rohdaten)",
+    statsChartTransitionNote: "⚡ Sep: Umstellung auf flexibles Beilagensystem",
+    statsChartExplain: "Gleicht den Systemwechsel ab Sept. 2026 (vom Komplett-Menü zur Einzelbepreisung) aus, um die echte Preisentwicklung vergleichbar zu machen.",
+    statsChartHide: "Diagramm schließen",
+    statsChartNoHistory: "Keine historischen Preisdaten verfügbar."
   },
   en: {
     title: "Mensaplan",
@@ -281,6 +290,15 @@ export const TRANSLATIONS = {
     statsServedOnDays: "on {count} days",
     statsFavoritesFound: "Your favorites in this period",
     statsAllTime: "All-Time",
-    statsLoadingAllTime: "Loading all-time data..."
+    statsLoadingAllTime: "Loading all-time data...",
+    statsPriceHistoryBtn: "Price Trends",
+    statsChartTitle: "Main Dish Price Development",
+    statsChartSubtitle: "Trends by dietary type (monthly average)",
+    statsChartNormalized: "Adjusted (incl. 2 sides)",
+    statsChartRaw: "Cash price (raw)",
+    statsChartTransitionNote: "⚡ Sep: Transition to flexible side system",
+    statsChartExplain: "Compensates for the Sept 2026 transition from bundled meals to separate sides to ensure long-term comparability.",
+    statsChartHide: "Close chart",
+    statsChartNoHistory: "No historical price data available."
   }
 };
