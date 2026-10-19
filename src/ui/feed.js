@@ -5,12 +5,18 @@ import {
   getDishesServiceWindow,
   cleanDishNameForFavorite
 } from '../lib/dish.js';
-import { getCanteenKeyFromDish, isSharedLindenthalDish } from '../lib/canteen-match.js';
+import {
+  getCanteenKeyFromDish,
+  formatDistance,
+  normalizeCanteenOrder,
+  getCanteenRouteUrl
+} from '../lib/canteen-match.js';
 import { getCanteenHoursForDay, getCanteenOpenStatus } from '../lib/hours.js';
 import {
   getDayOfWeekFromIso,
   formatDateSelector,
-  getBerlinHourDecimal
+  getBerlinHourDecimal,
+  getAllowedMenuDates
 } from '../lib/dates.js';
 import {
   dishMatchesSearchAndQuickFilters,
@@ -238,11 +244,7 @@ export function renderDateSelector(state) {
     return;
   }
 
-  const validDays = state.menuData.filter((d) => {
-    if (d.date < state.todayIso || !d.dishes || d.dishes.length === 0) return false;
-    const dow = getDayOfWeekFromIso(d.date);
-    return dow !== 0 && dow !== 6;
-  });
+  const validDays = getAllowedMenuDates(state.menuData, state.todayIso);
 
   container.innerHTML = validDays
     .map((day) => {
@@ -346,7 +348,7 @@ export function renderQuickFilterBar(state) {
           value="${escapeHtml(state.searchQuery || '')}"
           placeholder="${escapeHtml(t.searchPlaceholder)}"
           aria-label="${escapeHtml(t.searchPlaceholder)}"
-          class="w-full pl-9 pr-8 py-2 rounded-xl bg-white/85 dark:bg-[#122338]/90 border border-slate-200/80 dark:border-white/[0.08] text-xs font-medium text-text-heading dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-price-badge"
+          class="w-full pl-9 pr-8 py-2 rounded-xl bg-white/85 dark:bg-[#122338]/90 border border-slate-200/80 dark:border-white/[0.08] text-base sm:text-xs font-medium text-text-heading dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-price-badge"
         />
         ${
           state.searchQuery
@@ -435,39 +437,79 @@ export function renderCanteenMenu(dayData, state) {
   let totalVisibleDishes = 0;
 
   const isViewingToday = state.activeDate === state.todayIso;
+  const isPastDay = Boolean(state.activeDate && state.todayIso && state.activeDate < state.todayIso);
   const currentDecimalHour = getBerlinHourDecimal();
   const activeDayOfWeek = getDayOfWeekFromIso(state.activeDate);
-  const bothUniAndLindenthalSelected =
-    state.selectedCanteens.includes('unimensa') && state.selectedCanteens.includes('robertkoch');
 
-  state.selectedCanteens.forEach((canteenKey) => {
+  // Ordered Canteens (Mensen always before Bistros) & Route Overview Bar
+  const orderedCanteens = normalizeCanteenOrder(state.selectedCanteens, CANTEENS);
+
+  let routeOverviewBarHTML = '';
+  if (orderedCanteens.length > 0) {
+    const hasDistances = Object.keys(state.canteenDistancesKm || {}).length > 0;
+    const locationBtnHTML = !hasDistances
+      ? `
+        <button
+          type="button"
+          data-action="request-user-location"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-primary text-on-primary dark:bg-price-badge dark:text-primary shadow-xs cursor-pointer flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge"
+        >
+          <span class="text-[13px] flex items-center">${getIconHTML('near_me')}</span>
+          <span>${escapeHtml(t.enableDistanceBtn || '📍 Entfernungen berechnen')}</span>
+        </button>
+      `
+      : '';
+
+    const routeChipsHTML = orderedCanteens
+      .map((cKey) => {
+        const c = CANTEENS[cKey];
+        if (!c) return '';
+        const distKm = state.canteenDistancesKm?.[cKey];
+        const distStr = distKm != null ? formatDistance(distKm, state.lang) : '';
+        const shortName = c.name.replace(/^Mensa\s+/i, '');
+        const isNearestMensa = cKey === state.nearestMensaKey && c.type === 'mensa';
+        const routeUrl = getCanteenRouteUrl(c);
+        if (!routeUrl) return '';
+
+        const chipClass = isNearestMensa
+          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-700 font-bold shadow-xs'
+          : 'bg-white/80 dark:bg-[#122338] text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-[#182c44] border border-black/[0.06] dark:border-white/[0.08] font-medium';
+
+        return `
+          <a
+            href="${escapeHtml(routeUrl)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="${escapeHtml(t.routeWalkingLabel || 'Route zu Fuß')} (${escapeHtml(c.name)})"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs whitespace-nowrap transition-all flex-shrink-0 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge ${chipClass}"
+          >
+            <span>📍 ${escapeHtml(shortName)}${distStr ? ` · ${escapeHtml(distStr)}` : ''}${isNearestMensa ? ` (${escapeHtml(t.nearestMensaBadge || 'Nächste')})` : ''} ↗</span>
+          </a>
+        `;
+      })
+      .join('');
+
+    routeOverviewBarHTML = `
+      <div class="mb-4 p-2 rounded-2xl bg-slate-100/80 dark:bg-[#0b1926]/90 border border-black/[0.04] dark:border-white/[0.06]">
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          ${locationBtnHTML}
+          ${routeChipsHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  orderedCanteens.forEach((canteenKey) => {
     const canteen = CANTEENS[canteenKey];
     if (!canteen) return;
+    const canteenRank = orderedCanteens.indexOf(canteenKey) + 1;
 
-    const allCanteenDishes = dayData.dishes.filter((dish) => {
-      if (!getCanteenKeyFromDish(dish, canteenKey, canteen)) return false;
-      // When both Uni-Mensa and Mensa Lindenthal are selected, show shared Lindenthal
-      // dishes once under Uni-Mensa (with the "Auch in Mensa Lindenthal" badge)
-      // unless the dish is exclusively for Robert-Koch-Str.
-      if (bothUniAndLindenthalSelected && canteenKey === 'robertkoch' && isSharedLindenthalDish(dish)) {
-        const alsoInUni = getCanteenKeyFromDish(dish, 'unimensa', CANTEENS.unimensa);
-        if (alsoInUni) return false;
-      }
-      return true;
-    });
+    const allCanteenDishes = dayData.dishes.filter((dish) =>
+      getCanteenKeyFromDish(dish, canteenKey, canteen)
+    );
 
     const serviceWindow = getDishesServiceWindow(allCanteenDishes, state.lang);
     const dayHours = getCanteenHoursForDay(canteenKey, activeDayOfWeek, canteen, state.lang);
-
-    if (isViewingToday && dayHours) {
-      const effectiveEndHour = Math.max(
-        dayHours.endHour,
-        serviceWindow ? serviceWindow.endHour : 0
-      );
-      if (currentDecimalHour >= effectiveEndHour) {
-        return;
-      }
-    }
 
     let cDishes = allCanteenDishes.filter((dish) =>
       dishMatchesSearchAndQuickFilters(dish, {
@@ -525,7 +567,13 @@ export function renderCanteenMenu(dayData, state) {
         canteenGridHTML += renderSectionHeader('main', sections.main.length, state);
         canteenGridHTML += sections.main
           .map((d) =>
-            renderMainDishCard(d, isViewingToday && isDishExpired(d, currentDecimalHour), state, canteenKey)
+            renderMainDishCard(
+              d,
+              !isPastDay && isViewingToday && isDishExpired(d, currentDecimalHour),
+              state,
+              canteenKey,
+              sections.side
+            )
           )
           .join('');
       }
@@ -534,7 +582,13 @@ export function renderCanteenMenu(dayData, state) {
         canteenGridHTML += renderSectionHeader('meisterwerk', sections.meisterwerk.length, state);
         canteenGridHTML += sections.meisterwerk
           .map((d) =>
-            renderMainDishCard(d, isViewingToday && isDishExpired(d, currentDecimalHour), state, canteenKey)
+            renderMainDishCard(
+              d,
+              !isPastDay && isViewingToday && isDishExpired(d, currentDecimalHour),
+              state,
+              canteenKey,
+              sections.side
+            )
           )
           .join('');
       }
@@ -543,7 +597,13 @@ export function renderCanteenMenu(dayData, state) {
         canteenGridHTML += renderSectionHeader('buffet', sections.buffet.length, state);
         canteenGridHTML += sections.buffet
           .map((d) =>
-            renderMainDishCard(d, isViewingToday && isDishExpired(d, currentDecimalHour), state, canteenKey)
+            renderMainDishCard(
+              d,
+              !isPastDay && isViewingToday && isDishExpired(d, currentDecimalHour),
+              state,
+              canteenKey,
+              sections.side
+            )
           )
           .join('');
       }
@@ -554,7 +614,7 @@ export function renderCanteenMenu(dayData, state) {
         out += `<div class="col-span-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">`;
         out += dishesArr
           .map((d, idx) => {
-            const isUnavail = isViewingToday && isDishExpired(d, currentDecimalHour);
+            const isUnavail = !isPastDay && isViewingToday && isDishExpired(d, currentDecimalHour);
             const card = renderCompactDishCard(d, isUnavail, state, canteenKey);
             if (idx < 3) return card;
             return `<div class="hidden" data-extra-item="${escapeHtml(canteenKey)}-${escapeHtml(sectionKey)}">${card}</div>`;
@@ -593,6 +653,10 @@ export function renderCanteenMenu(dayData, state) {
         const hoursText = displayHours.formatted || `${displayHours.label || ''}${t.hoursSuffix}`;
         if (isViewingToday) {
           const status = getCanteenOpenStatus(displayHours, currentDecimalHour);
+          const effectiveEndHour = Math.max(
+            displayHours.endHour || 0,
+            serviceWindow ? serviceWindow.endHour : 0
+          );
           if (status === 'open') {
             hoursBadgeHTML = `
               <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60 shadow-xs">
@@ -608,10 +672,14 @@ export function renderCanteenMenu(dayData, state) {
               </span>
             `;
           } else {
+            const isEnded = currentDecimalHour >= effectiveEndHour;
+            const endedSuffix = isEnded
+              ? ` · ${escapeHtml(t.dishTimeEnded || (state.lang === 'de' ? 'Beendet' : 'Ended'))}`
+              : '';
             hoursBadgeHTML = `
               <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                 ${getIconHTML('schedule', 'text-[13px] opacity-75')}
-                <span>${escapeHtml(hoursText)}</span>
+                <span>${escapeHtml(hoursText)}${endedSuffix}</span>
               </span>
             `;
           }
@@ -625,12 +693,48 @@ export function renderCanteenMenu(dayData, state) {
         }
       }
 
+      const distKm = state.canteenDistancesKm?.[canteenKey];
+      const distStr = distKm != null ? formatDistance(distKm, state.lang) : '';
+      const routeUrl = getCanteenRouteUrl(canteen);
+
+      let routeBadgeHTML = '';
+      if (routeUrl) {
+        if (distStr) {
+          routeBadgeHTML = `
+            <a
+              href="${escapeHtml(routeUrl)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="${escapeHtml(t.routeWalkingLabel || 'Route zu Fuß')}"
+              class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 dark:bg-blue-950/50 dark:hover:bg-blue-900/60 dark:text-blue-300 dark:border-blue-800/60 shadow-xs transition-colors"
+            >
+              <span class="text-[13px] flex items-center">${getIconHTML('location_on')}</span>
+              <span>${escapeHtml(distStr)} · Route ↗</span>
+            </a>
+          `;
+        } else {
+          routeBadgeHTML = `
+            <a
+              href="${escapeHtml(routeUrl)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="${escapeHtml(t.routeWalkingLabel || 'Route zu Fuß')}"
+              class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 shadow-xs transition-colors"
+            >
+              <span class="text-[13px] flex items-center">${getIconHTML('location_on')}</span>
+              <span>Route ↗</span>
+            </a>
+          `;
+        }
+      }
+
       htmlContent += `
         <section class="mb-8">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
-            <div class="flex items-center gap-2">
-              <span class="text-primary-container dark:text-price-badge text-xl flex items-center">${getIconHTML('location_on')}</span>
+            <div class="flex items-center gap-2 flex-wrap">
+              ${orderedCanteens.length > 1 ? `<span class="w-5 h-5 rounded-md bg-primary/10 dark:bg-price-badge/15 text-primary dark:text-price-badge font-bold text-[11px] flex items-center justify-center flex-shrink-0">#${canteenRank}</span>` : ''}
               <h2 class="font-headline text-lg font-bold text-text-heading dark:text-white tracking-tight">${escapeHtml(canteen.name)}</h2>
+              ${routeBadgeHTML}
             </div>
             <div class="flex items-center gap-2 flex-wrap">
               ${hoursBadgeHTML}
@@ -659,6 +763,7 @@ export function renderCanteenMenu(dayData, state) {
     const emptyDesc = isViewingToday ? t.allCanteensClosedToday : t.noMatchesDesc;
     const emptyIcon = isViewingToday ? 'schedule' : 'filter_alt_off';
     feed.innerHTML = `
+      ${routeOverviewBarHTML}
       <div class="bg-slate-50 dark:bg-[#122338] rounded-2xl p-8 text-center my-4 border border-black/[0.04] dark:border-white/[0.08]">
         <span class="text-on-surface-variant dark:text-slate-500 text-4xl mb-2 flex justify-center">${getIconHTML(emptyIcon)}</span>
         <p class="font-headline font-bold text-text-heading dark:text-white text-base">${escapeHtml(t.noMatchesTitle)}</p>
@@ -666,6 +771,6 @@ export function renderCanteenMenu(dayData, state) {
       </div>
     `;
   } else {
-    feed.innerHTML = htmlContent;
+    feed.innerHTML = routeOverviewBarHTML + htmlContent;
   }
 }

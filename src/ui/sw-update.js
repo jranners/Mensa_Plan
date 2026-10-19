@@ -232,3 +232,151 @@ export function initPullToRefresh(onPullRefresh) {
     { passive: true }
   );
 }
+
+export const CHANGELOG_VERSION = 'v63';
+
+/**
+ * Displays the "What's New?" Changelog modal (`#changelog-modal`) upon first start of a major release.
+ *
+ * @param {object} state
+ * @param {object} modalState
+ * @param {(() => void) | null} onOpenStats
+ */
+export function showChangelogModal(state, modalState, onOpenStats = null) {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('changelog-modal')) return;
+
+  const t = state.translations[state.lang] || state.translations.de;
+  const modal = document.createElement('div');
+  modal.id = 'changelog-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'changelog-modal-title');
+  modal.className =
+    'fixed inset-0 z-[65] bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in';
+
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-[#0b1926] border border-black/[0.08] dark:border-white/[0.08] rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[88vh] overflow-y-auto hide-scrollbar animate-zoom-in">
+      <div class="flex items-center justify-between">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-price-badge/20 text-yellow-800 dark:text-price-badge border border-price-badge/30">
+          ${escapeHtml(t.changelogBadge)}
+        </span>
+        <button type="button" id="changelog-x-btn" aria-label="${escapeHtml(t.closeBtn)}" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge">
+          ${getIconHTML('close', 'text-lg')}
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <h3 id="changelog-modal-title" class="text-xl font-bold font-headline text-text-heading dark:text-white leading-tight">
+          ${escapeHtml(t.changelogTitle)}
+        </h3>
+        <p class="text-xs text-on-surface-variant dark:text-slate-400 leading-relaxed">
+          ${escapeHtml(t.changelogSubtitle)}
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2.5">
+        <div class="bg-slate-50 dark:bg-[#122338] p-3.5 rounded-2xl border border-black/[0.04] dark:border-white/[0.06] flex flex-col gap-1">
+          <div class="text-xs font-bold text-text-heading dark:text-white flex items-center gap-1.5">
+            ${escapeHtml(t.changelogFeat1Title)}
+          </div>
+          <p class="text-[11px] text-on-surface-variant dark:text-slate-400 leading-relaxed">
+            ${escapeHtml(t.changelogFeat1Desc)}
+          </p>
+        </div>
+
+        <div class="bg-slate-50 dark:bg-[#122338] p-3.5 rounded-2xl border border-black/[0.04] dark:border-white/[0.06] flex flex-col gap-1">
+          <div class="text-xs font-bold text-text-heading dark:text-white flex items-center gap-1.5">
+            ${escapeHtml(t.changelogFeat2Title)}
+          </div>
+          <p class="text-[11px] text-on-surface-variant dark:text-slate-400 leading-relaxed">
+            ${escapeHtml(t.changelogFeat2Desc)}
+          </p>
+        </div>
+
+        <div class="bg-slate-50 dark:bg-[#122338] p-3.5 rounded-2xl border border-black/[0.04] dark:border-white/[0.06] flex flex-col gap-1">
+          <div class="text-xs font-bold text-text-heading dark:text-white flex items-center gap-1.5">
+            ${escapeHtml(t.changelogFeat3Title)}
+          </div>
+          <p class="text-[11px] text-on-surface-variant dark:text-slate-400 leading-relaxed">
+            ${escapeHtml(t.changelogFeat3Desc)}
+          </p>
+        </div>
+
+        <div class="bg-slate-50 dark:bg-[#122338] p-3.5 rounded-2xl border border-black/[0.04] dark:border-white/[0.06] flex flex-col gap-1">
+          <div class="text-xs font-bold text-text-heading dark:text-white flex items-center gap-1.5">
+            ${escapeHtml(t.changelogFeat4Title)}
+          </div>
+          <p class="text-[11px] text-on-surface-variant dark:text-slate-400 leading-relaxed">
+            ${escapeHtml(t.changelogFeat4Desc)}
+          </p>
+        </div>
+      </div>
+
+      <div class="flex gap-2.5 pt-1">
+        <button type="button" id="changelog-stats-btn" class="flex-1 py-3 px-3 rounded-xl border border-black/[0.1] dark:border-white/[0.1] text-xs font-bold text-on-surface-variant dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge">
+          ${escapeHtml(t.changelogStatsBtn)}
+        </button>
+        <button type="button" id="changelog-close-btn" class="flex-1 py-3 px-3 rounded-xl bg-price-badge text-primary text-xs font-extrabold shadow-md hover:brightness-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          ${escapeHtml(t.changelogCloseBtn)}
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  syncAppInertState();
+  const cleanupTrap = trapFocus(modal);
+
+  const dismiss = () => {
+    localStorage.setItem('kstw_changelog_seen', CHANGELOG_VERSION);
+    if (modalState.cleanupChangelogModal) {
+      modalState.cleanupChangelogModal();
+    }
+  };
+
+  modalState.cleanupChangelogModal = () => {
+    cleanupTrap();
+    modal.remove();
+    modalState.cleanupChangelogModal = null;
+    syncAppInertState();
+  };
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      dismiss();
+    }
+  });
+
+  document.getElementById('changelog-x-btn')?.addEventListener('click', dismiss);
+  document.getElementById('changelog-close-btn')?.addEventListener('click', dismiss);
+
+  document.getElementById('changelog-stats-btn')?.addEventListener('click', () => {
+    dismiss();
+    if (typeof onOpenStats === 'function') {
+      onOpenStats();
+    }
+  });
+}
+
+/**
+ * Checks if the changelog for the current release has been seen.
+ * If not, displays the changelog modal after a short delay (post splash screen).
+ *
+ * @param {object} state
+ * @param {object} modalState
+ * @param {(() => void) | null} onOpenStats
+ */
+export function checkChangelogPrompt(state, modalState, onOpenStats = null) {
+  if (state.isFirstVisit) return;
+  if (localStorage.getItem('kstw_changelog_seen') === CHANGELOG_VERSION) return;
+  if (document.getElementById('changelog-modal')) return;
+
+  setTimeout(() => {
+    if (state.isFirstVisit) return;
+    if (localStorage.getItem('kstw_changelog_seen') === CHANGELOG_VERSION) return;
+    if (document.getElementById('changelog-modal')) return;
+    showChangelogModal(state, modalState, onOpenStats);
+  }, 600);
+}
+

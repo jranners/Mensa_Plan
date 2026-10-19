@@ -1,5 +1,6 @@
 import { CANTEENS } from '../../data/canteens.js';
 import { ALLERGEN_GROUPS } from '../lib/allergens.js';
+import { normalizeCanteenOrder } from '../lib/canteen-match.js';
 import { createSettingsDraft, setTariff } from '../lib/storage.js';
 import { trapFocus } from '../lib/a11y.js';
 import { escapeHtml } from '../lib/html.js';
@@ -30,10 +31,15 @@ export function initOnboardingUI(state, onApplyLanguage) {
       focusedSelector = `[data-action="onboarding-tariff"][data-tariff="${activeEl.getAttribute('data-tariff')}"]`;
     } else if (action === 'onboarding-exclude-pork') {
       focusedSelector = `[data-action="onboarding-exclude-pork"]`;
+    } else if (action === 'move-canteen-order') {
+      focusedSelector = `[data-action="move-canteen-order"][data-canteen-key="${activeEl.getAttribute('data-canteen-key')}"][data-dir="${activeEl.getAttribute('data-dir')}"]`;
+    } else if (activeEl.classList && activeEl.classList.contains('canteen-cb')) {
+      focusedSelector = `.canteen-cb[value="${activeEl.value}"]`;
     }
   }
 
   const draft = state.settingsDraft || state;
+  draft.selectedCanteens = normalizeCanteenOrder(draft.selectedCanteens || [], CANTEENS);
   const activeLang = draft.lang || draft.language || state.lang || 'de';
   const t = state.translations[activeLang] || state.translations.de;
 
@@ -68,27 +74,99 @@ export function initOnboardingUI(state, onApplyLanguage) {
     const mensen = Object.entries(CANTEENS).filter(([, c]) => c.type === 'mensa');
     const bistros = Object.entries(CANTEENS).filter(([, c]) => c.type === 'bistro');
 
-    const renderGroup = (title, items) => {
-      let html = `<div class="text-xs font-bold uppercase tracking-wider text-on-surface-variant dark:text-slate-400 mt-2 mb-1 px-1">${escapeHtml(title)}</div>`;
-      html += items
+    const selectedMensen = (draft.selectedCanteens || []).filter((k) => CANTEENS[k]?.type === 'mensa');
+    const selectedBistros = (draft.selectedCanteens || []).filter((k) => CANTEENS[k]?.type === 'bistro');
+
+    const renderOrderBox = (title, items) => {
+      if (!items || items.length === 0) return '';
+      const orderItemsHTML = items
+        .map((key, idx) => {
+          const c = CANTEENS[key] || { name: key };
+          const isFirst = idx === 0;
+          const isLast = idx === items.length - 1;
+
+          return `
+            <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50/70 dark:bg-[#122338]/60 border border-black/[0.03] dark:border-white/[0.03]">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <span class="w-6 h-6 rounded-lg bg-primary text-on-primary dark:bg-price-badge dark:text-primary font-extrabold text-xs flex items-center justify-center flex-shrink-0">#${idx + 1}</span>
+                <span class="font-bold text-xs text-text-heading dark:text-white truncate">${escapeHtml(c.name)}</span>
+              </div>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <button
+                  type="button"
+                  data-action="move-canteen-order"
+                  data-canteen-key="${escapeHtml(key)}"
+                  data-dir="up"
+                  aria-label="${escapeHtml(t.moveUpAria)}: ${escapeHtml(c.name)}"
+                  ${isFirst ? 'disabled' : ''}
+                  class="w-7 h-7 rounded-lg flex items-center justify-center border border-black/[0.06] dark:border-white/[0.08] bg-white dark:bg-[#182c44] text-text-heading dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-25 disabled:pointer-events-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge"
+                >
+                  <span class="text-xs flex items-center">${getIconHTML('arrow_upward')}</span>
+                </button>
+                <button
+                  type="button"
+                  data-action="move-canteen-order"
+                  data-canteen-key="${escapeHtml(key)}"
+                  data-dir="down"
+                  aria-label="${escapeHtml(t.moveDownAria)}: ${escapeHtml(c.name)}"
+                  ${isLast ? 'disabled' : ''}
+                  class="w-7 h-7 rounded-lg flex items-center justify-center border border-black/[0.06] dark:border-white/[0.08] bg-white dark:bg-[#182c44] text-text-heading dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-25 disabled:pointer-events-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge"
+                >
+                  <span class="text-xs flex items-center">${getIconHTML('arrow_downward')}</span>
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      return `
+        <div class="mb-2.5 p-3 bg-white dark:bg-[#182c44] rounded-2xl border border-black/[0.04] dark:border-white/[0.06] shadow-xs">
+          <div class="font-headline font-bold text-xs text-text-heading dark:text-white leading-tight mb-2.5">
+            ${escapeHtml(title)}
+          </div>
+          <div class="flex flex-col gap-1.5">
+            ${orderItemsHTML}
+          </div>
+        </div>
+      `;
+    };
+
+    const renderCheckboxes = (items, selectedGroupKeys) => {
+      return items
         .map(([key, c]) => {
-          const isChecked = draft.selectedCanteens.includes(key) ? 'checked' : '';
+          const selectedIndex = selectedGroupKeys.indexOf(key);
+          const isChecked = selectedIndex !== -1 ? 'checked' : '';
+          const rankPill = isChecked
+            ? `<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-primary text-on-primary dark:bg-price-badge dark:text-primary flex-shrink-0">#${selectedIndex + 1}</span>`
+            : '';
           return `
             <label class="flex items-center justify-between p-2.5 bg-white dark:bg-[#182c44] rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1f3856] transition-colors border border-black/[0.03] dark:border-white/[0.04]">
-              <div class="flex items-center gap-2.5">
-                <span class="text-primary-container dark:text-price-badge text-lg flex items-center">${getIconHTML('restaurant')}</span>
-                <span class="font-headline-sm text-headline-sm text-text-heading dark:text-white text-sm">${escapeHtml(c.name)}</span>
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="text-primary-container dark:text-price-badge text-lg flex items-center flex-shrink-0">${getIconHTML('restaurant')}</span>
+                <span class="font-headline-sm text-headline-sm text-text-heading dark:text-white text-sm truncate">${escapeHtml(c.name)}</span>
+                ${rankPill}
               </div>
-              <input type="checkbox" value="${escapeHtml(key)}" ${isChecked} class="canteen-cb custom-checkbox"/>
+              <input type="checkbox" value="${escapeHtml(key)}" ${isChecked} class="canteen-cb custom-checkbox flex-shrink-0"/>
             </label>
           `;
         })
         .join('');
-      return html;
     };
 
-    listContainer.innerHTML =
-      renderGroup(t.canteenGroupMensen, mensen) + renderGroup(t.canteenGroupBistros, bistros);
+    const mensaBlockHTML = `
+      <div class="text-xs font-bold uppercase tracking-wider text-on-surface-variant dark:text-slate-400 mt-2 mb-1 px-1">${escapeHtml(t.canteenGroupMensen)}</div>
+      ${renderOrderBox(t.canteenOrderMensenTitle, selectedMensen)}
+      ${renderCheckboxes(mensen, selectedMensen)}
+    `;
+
+    const bistroBlockHTML = `
+      <div class="text-xs font-bold uppercase tracking-wider text-on-surface-variant dark:text-slate-400 mt-4 mb-1 px-1">${escapeHtml(t.canteenGroupBistros)}</div>
+      ${renderOrderBox(t.canteenOrderBistrosTitle, selectedBistros)}
+      ${renderCheckboxes(bistros, selectedBistros)}
+    `;
+
+    listContainer.innerHTML = mensaBlockHTML + bistroBlockHTML;
   }
 
   // 2. Diet Selector + Pork Exclusion Toggle
@@ -237,8 +315,16 @@ export function initOnboardingUI(state, onApplyLanguage) {
   }
 
   if (focusedSelector && onboardingEl) {
-    const nextFocusEl = onboardingEl.querySelector(focusedSelector);
-    if (nextFocusEl && typeof nextFocusEl.focus === 'function') {
+    let nextFocusEl = onboardingEl.querySelector(focusedSelector);
+    if (nextFocusEl && nextFocusEl.disabled) {
+      const key = nextFocusEl.getAttribute('data-canteen-key');
+      if (key) {
+        nextFocusEl = onboardingEl.querySelector(
+          `[data-action="move-canteen-order"][data-canteen-key="${key}"]:not([disabled])`
+        );
+      }
+    }
+    if (nextFocusEl && typeof nextFocusEl.focus === 'function' && !nextFocusEl.disabled) {
       nextFocusEl.focus();
     }
   }
@@ -368,6 +454,13 @@ export function hideOnboarding(state, modalState, onSettingsSaved) {
     (cb) => cb.value
   );
 
+  let finalSelectedCanteens = checkedCanteens;
+  if (state.settingsDraft && Array.isArray(state.settingsDraft.selectedCanteens)) {
+    const draftOrder = state.settingsDraft.selectedCanteens.filter((k) => checkedCanteens.includes(k));
+    const extra = checkedCanteens.filter((k) => !draftOrder.includes(k));
+    finalSelectedCanteens = [...draftOrder, ...extra];
+  }
+
   if (state.settingsDraft) {
     state.lang = state.settingsDraft.lang || state.settingsDraft.language || state.lang || 'de';
     state.diet = state.settingsDraft.diet;
@@ -376,7 +469,7 @@ export function hideOnboarding(state, modalState, onSettingsSaved) {
     state.settingsDraft = null;
   }
 
-  state.selectedCanteens = checkedCanteens;
+  state.selectedCanteens = normalizeCanteenOrder(finalSelectedCanteens, CANTEENS);
   state.allergies = checkedAllergens;
   state.isFirstVisit = false;
 
@@ -411,6 +504,7 @@ export function hideOnboarding(state, modalState, onSettingsSaved) {
 export function checkAllergenPrompt(state, modalState, onOpenAllergenSettings) {
   if (state.isFirstVisit) return;
   if (localStorage.getItem('kstw_allergen_prompt_v1')) return;
+  if (document.getElementById('changelog-modal')) return;
 
   if (state.allergies && state.allergies.length > 0) {
     localStorage.setItem('kstw_allergen_prompt_v1', 'true');
@@ -418,6 +512,7 @@ export function checkAllergenPrompt(state, modalState, onOpenAllergenSettings) {
   }
 
   setTimeout(() => {
+    if (document.getElementById('changelog-modal')) return;
     const t = state.translations[state.lang];
     const promptOverlay = document.createElement('div');
     promptOverlay.id = 'allergen-prompt-overlay';

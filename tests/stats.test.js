@@ -521,6 +521,146 @@ describe('Statistics Module (Ultra-lightweight)', () => {
       expect(radar.recurrenceInsights[0].dishName).toBe('Currywurst');
       expect(radar.recurrenceInsights[0].avgIntervalDays).toBe(4); // Math.round(100 / 25)
     });
+
+    it('computes speciesCounts accurately for meat, fish, and welfare dishes', () => {
+      const meatMenuData = [
+        {
+          date: '2026-10-05',
+          dishes: [
+            { name_de: 'Hähnchenschnitzel', price: 3.50, custom_fields: [{ field_id: 'food_icon', value: 'G' }] },
+            { name_de: 'Rindergulasch', price: 4.20, custom_fields: [{ field_id: 'food_icon', value: 'R' }] },
+            { name_de: 'Seelachsfilet', price: 3.80, custom_fields: [{ field_id: 'food_icon', value: 'F' }] },
+            { name_de: 'Currywurst vom Schwein', price: 2.90, custom_fields: [{ field_id: 'food_icon', value: 'S' }] },
+            { name_de: 'Bratwurst Artgerecht', price: 3.10, custom_fields: [{ field_id: 'food_icon', value: 'NL' }] }
+          ]
+        }
+      ];
+      const stats = computeLiveMenuStats(meatMenuData);
+      expect(stats.speciesCounts.poultry).toBe(1);
+      expect(stats.speciesCounts.beef).toBe(1);
+      expect(stats.speciesCounts.fish).toBe(1);
+      expect(stats.speciesCounts.pork).toBe(1);
+      expect(stats.speciesCounts.neuland).toBe(1);
+    });
+
+    it('computes priceBuckets, cheapestDishes, and mostExpensiveDishes accurately', () => {
+      const priceMenuData = [
+        {
+          date: '2026-10-05',
+          dishes: [
+            { name_de: 'Suppe', price: 1.50 },
+            { name_de: 'Falafel-Bowl', price: 2.60 },
+            { name_de: 'Pasta Pesto', price: 3.40 },
+            { name_de: 'Steak', price: 4.90 }
+          ]
+        }
+      ];
+      const stats = computeLiveMenuStats(priceMenuData);
+      expect(stats.priceBuckets.under2).toBe(1);
+      expect(stats.priceBuckets.from2to3).toBe(1);
+      expect(stats.priceBuckets.from3to4).toBe(1);
+      expect(stats.priceBuckets.over4).toBe(1);
+      expect(stats.cheapestDishes[0].name).toBe('Suppe');
+      expect(stats.cheapestDishes[0].price).toBe(1.50);
+      expect(stats.mostExpensiveDishes[0].name).toBe('Steak');
+      expect(stats.mostExpensiveDishes[0].price).toBe(4.90);
+    });
+
+    it('computes personalMatch according to user diet and pork exclusion', () => {
+      const mixedData = [
+        {
+          date: '2026-10-05',
+          dishes: [
+            { name_de: 'Vegane Suppe', price: 2.00, custom_fields: [{ field_id: 'food_icon', value: 'VGN' }] },
+            { name_de: 'Käsebrot', price: 2.50, custom_fields: [{ field_id: 'food_icon', value: 'V' }] },
+            { name_de: 'Currywurst Schwein', price: 3.50, custom_fields: [{ field_id: 'food_icon', value: 'S' }] }
+          ]
+        }
+      ];
+      const veganStats = computeLiveMenuStats(mixedData, { userDiet: 'vegan' });
+      expect(veganStats.personalMatch.compatibleCount).toBe(1);
+      expect(veganStats.personalMatch.compatiblePct).toBe(33);
+      expect(veganStats.personalMatch.personalAvgPrice).toBe(2.00);
+
+      const porkExcludeStats = computeLiveMenuStats(mixedData, { userDiet: 'all', excludePork: true });
+      expect(porkExcludeStats.personalMatch.compatibleCount).toBe(2);
+      expect(porkExcludeStats.personalMatch.compatiblePct).toBe(67);
+    });
+
+    it('computes weekdayBreakdown and canteenComparison metrics', () => {
+      const stats = computeLiveMenuStats(complexMenuData, {
+        canteenScope: 'all',
+        category: 'main'
+      });
+      expect(stats.weekdayBreakdown).toHaveLength(5);
+      const monday = stats.weekdayBreakdown.find(w => w.dow === 1);
+      expect(monday.count).toBe(2); // 2026-10-05 and 2026-10-12
+      expect(monday.avgPrice).toBe(2.65); // (2.10 + 3.20) / 2
+      expect(monday.veganPct).toBe(50); // 1 vegan out of 2
+
+      expect(stats.canteenComparison.length).toBeGreaterThan(0);
+      const unimensa = stats.canteenComparison.find(c => c.key === 'unimensa');
+      expect(unimensa).toBeDefined();
+      expect(unimensa.totalDishes).toBeGreaterThan(0);
+    });
+
+    it('correctly filters for a specific canteen key in canteenScope', () => {
+      const unimensaOnly = computeLiveMenuStats(complexMenuData, {
+        canteenScope: 'unimensa',
+        category: 'main'
+      });
+      expect(unimensaOnly.totalDishes).toBe(3);
+      expect(unimensaOnly.topDishes.some(d => d.name === 'No Butter Chicken')).toBe(false);
+
+      const deutzOnly = computeLiveMenuStats(complexMenuData, {
+        canteenScope: 'iwz-deutz',
+        category: 'main'
+      });
+      expect(deutzOnly.totalDishes).toBe(1);
+      expect(deutzOnly.topDishes[0].name).toBe('No Butter Chicken');
+    });
+
+    it('renders interactive chart dots with data-action, data-month, data-diet, and highlights active points', () => {
+      const samplePriceHistory = [
+        {
+          month: '2026-05',
+          label: 'Mai',
+          tariffs: {
+            student: {
+              raw: { vegan: 2.50, vegetarian: 2.80, meat: 3.50 },
+              normalized: { vegan: 3.20, vegetarian: 3.50, meat: 4.20 }
+            }
+          }
+        },
+        {
+          month: '2026-06',
+          label: 'Jun',
+          tariffs: {
+            student: {
+              raw: { vegan: 2.60, vegetarian: 2.90, meat: 3.60 },
+              normalized: { vegan: 3.30, vegetarian: 3.60, meat: 4.30 }
+            }
+          }
+        }
+      ];
+
+      const svgNormal = generatePriceChartSvg(samplePriceHistory, {
+        mode: 'normalized',
+        tariff: 'student'
+      });
+      expect(svgNormal).toContain('data-action="stats-chart-point"');
+      expect(svgNormal).toContain('data-month="2026-05"');
+      expect(svgNormal).toContain('data-diet="vegan"');
+      expect(svgNormal).toContain('r="4.5"');
+
+      const svgSelected = generatePriceChartSvg(samplePriceHistory, {
+        mode: 'normalized',
+        tariff: 'student',
+        selectedPoint: { month: '2026-05', diet: 'vegan' }
+      });
+      expect(svgSelected).toContain('r="6.5"');
+      expect(svgSelected).toContain('stroke-width="2.5"');
+    });
   });
 });
 

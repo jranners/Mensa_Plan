@@ -7,7 +7,8 @@ import {
   getFetchDateRange,
   formatDateSelector,
   formatDateHeader,
-  pickActiveDate
+  pickActiveDate,
+  getAllowedMenuDates
 } from '../src/lib/dates.js';
 
 describe('dates module', () => {
@@ -53,27 +54,27 @@ describe('dates module', () => {
   });
 
   describe('getFetchDateRange', () => {
-    it('anchors to Monday on a Wednesday and spans 14 days', () => {
-      // Wednesday 2026-10-07
+    it('anchors to 3 days before Monday on a Wednesday and spans to Sunday 2 weeks later', () => {
+      // Wednesday 2026-10-07 -> Monday is 2026-10-05 -> 3 days before is Friday 2026-10-02
       const wednesday = new Date('2026-10-07T12:00:00Z');
       const { startDate, endDate } = getFetchDateRange(wednesday);
-      expect(startDate).toBe('2026-10-05'); // Monday
+      expect(startDate).toBe('2026-10-02'); // Friday before Monday
       expect(endDate).toBe('2026-10-18');   // Sunday 2 weeks later
     });
 
-    it('anchors to previous Monday on Sunday and spans to next Sunday', () => {
-      // Sunday 2026-10-11
+    it('anchors to 3 days before Monday on Sunday and spans to next Sunday', () => {
+      // Sunday 2026-10-11 -> Monday is 2026-10-05 -> 3 days before is Friday 2026-10-02
       const sunday = new Date('2026-10-11T12:00:00Z');
       const { startDate, endDate } = getFetchDateRange(sunday);
-      expect(startDate).toBe('2026-10-05'); // Monday of ending week
+      expect(startDate).toBe('2026-10-02'); // Friday before Monday of ending week
       expect(endDate).toBe('2026-10-18');   // Sunday of coming week
     });
 
     it('handles month transitions correctly', () => {
-      // Thursday 2026-10-01 (October 1)
+      // Thursday 2026-10-01 (October 1) -> Monday is 2026-09-28 -> 3 days before is Friday 2026-09-25
       const oct1 = new Date('2026-10-01T12:00:00Z');
       const { startDate, endDate } = getFetchDateRange(oct1);
-      expect(startDate).toBe('2026-09-28'); // Monday in September
+      expect(startDate).toBe('2026-09-25'); // Friday before Monday in September
       expect(endDate).toBe('2026-10-11');   // Sunday in October
     });
   });
@@ -83,9 +84,40 @@ describe('dates module', () => {
       expect(formatDateSelector('2026-10-05', '2026-10-05', 'de').dayName).toBe('Heute');
       expect(formatDateSelector('2026-10-05', '2026-10-05', 'en').dayName).toBe('Today');
       expect(formatDateSelector('2026-10-05', '2026-10-05', 'de').isToday).toBe(true);
+      expect(formatDateSelector('2026-10-05', '2026-10-05', 'de').isYesterday).toBe(false);
     });
 
-    it('formats other days with weekday and day number', () => {
+    it('formats yesterday as "Gestern" / "Yesterday"', () => {
+      const de = formatDateSelector('2026-10-05', '2026-10-06', 'de');
+      expect(de.dayName).toBe('Gestern');
+      expect(de.isYesterday).toBe(true);
+      expect(de.isToday).toBe(false);
+      expect(de.label).toBe('Gestern');
+
+      const en = formatDateSelector('2026-10-05', '2026-10-06', 'en');
+      expect(en.dayName).toBe('Yesterday');
+      expect(en.isYesterday).toBe(true);
+      expect(en.isToday).toBe(false);
+      expect(en.label).toBe('Yesterday');
+    });
+
+    it('formats past day before yesterday with weekday and number (e.g. Friday when today is Monday)', () => {
+      const de = formatDateSelector('2026-10-02', '2026-10-05', 'de');
+      expect(de.dayName).toBe('Fr');
+      expect(de.dayNum).toBe('2');
+      expect(de.label).toBe('Fr 2');
+      expect(de.isYesterday).toBe(false);
+      expect(de.isToday).toBe(false);
+
+      const en = formatDateSelector('2026-10-02', '2026-10-05', 'en');
+      expect(en.dayName).toBe('Fri');
+      expect(en.dayNum).toBe('2');
+      expect(en.label).toBe('Fri 2');
+      expect(en.isYesterday).toBe(false);
+      expect(en.isToday).toBe(false);
+    });
+
+    it('formats future days with weekday and day number', () => {
       const de = formatDateSelector('2026-10-06', '2026-10-05', 'de');
       expect(de.dayName).toBe('Di');
       expect(de.dayNum).toBe('6');
@@ -106,6 +138,51 @@ describe('dates module', () => {
       const headerEn = formatDateHeader('2026-10-05', 'en');
       expect(headerEn).toContain('Monday');
       expect(headerEn).toContain('October');
+    });
+  });
+
+  describe('getAllowedMenuDates', () => {
+    it('returns empty array for invalid inputs', () => {
+      expect(getAllowedMenuDates(null, '2026-10-05')).toEqual([]);
+      expect(getAllowedMenuDates([], '2026-10-05')).toEqual([]);
+      expect(getAllowedMenuDates([{ date: '2026-10-05', dishes: [] }], '')).toEqual([]);
+    });
+
+    it('excludes weekends and days without dishes', () => {
+      const days = [
+        { date: '2026-10-03', dishes: [{ id: 1 }] }, // Saturday
+        { date: '2026-10-04', dishes: [{ id: 2 }] }, // Sunday
+        { date: '2026-10-05', dishes: [] },           // Monday no dishes
+        { date: '2026-10-06', dishes: [{ id: 3 }] }  // Tuesday has dishes
+      ];
+      const result = getAllowedMenuDates(days, '2026-10-05');
+      expect(result.map(d => d.date)).toEqual(['2026-10-06']);
+    });
+
+    it('includes exactly 1 last past opening day plus all future open days', () => {
+      const days = [
+        { date: '2026-10-01', dishes: [{ id: 1 }] }, // Thursday (past day 1)
+        { date: '2026-10-02', dishes: [{ id: 2 }] }, // Friday (past day 2 - last past day!)
+        { date: '2026-10-05', dishes: [{ id: 3 }] }, // Monday (today)
+        { date: '2026-10-06', dishes: [{ id: 4 }] }, // Tuesday (future)
+        { date: '2026-10-07', dishes: [{ id: 5 }] }  // Wednesday (future)
+      ];
+      const result = getAllowedMenuDates(days, '2026-10-05');
+      expect(result.map(d => d.date)).toEqual([
+        '2026-10-02',
+        '2026-10-05',
+        '2026-10-06',
+        '2026-10-07'
+      ]);
+    });
+
+    it('handles case when there are no past days', () => {
+      const days = [
+        { date: '2026-10-05', dishes: [{ id: 1 }] },
+        { date: '2026-10-06', dishes: [{ id: 2 }] }
+      ];
+      const result = getAllowedMenuDates(days, '2026-10-05');
+      expect(result.map(d => d.date)).toEqual(['2026-10-05', '2026-10-06']);
     });
   });
 

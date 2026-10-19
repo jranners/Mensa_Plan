@@ -33,7 +33,6 @@ export function getCanteenKeyFromDish(dish, canteenKey, canteen) {
   // 1. Authoritative check on ort_id when dish provides a non-9999 ort_id
   if (dishOrtId && dishOrtId !== '9999') {
     if (canteenOrtId && dishOrtId === canteenOrtId) return true;
-    if (canteenKey === 'unimensa' && dishOrtId === '231') return true;
     if (canteenOrtId && dishOrtId !== canteenOrtId) return false;
     if (!canteenOrtId && canteen.type === 'bistro') return false;
   }
@@ -106,9 +105,8 @@ export function getCanteenKeyFromDish(dish, canteenKey, canteen) {
     }
   }
 
-  // 4. Shared kitchen production rules:
-  // Uni-Mensa Zülpicher Straße (ort_id 201) and Mensa Lindenthal (ort_id 231) share the central kitchen production
-  if ((canteenKey === 'unimensa' || canteenKey === 'robertkoch') && (dishOrtId === '231' || dishLocation === 'mensa lindenthal')) {
+  // 4. Mensa Lindenthal (Robert-Koch-Straße / ort_id 231)
+  if (canteenKey === 'robertkoch' && (dishOrtId === '231' || dishLocation === 'mensa lindenthal')) {
     return true;
   }
 
@@ -137,4 +135,204 @@ export function findCanteensForDish(dish, canteensDict) {
     }
   }
   return matched;
+}
+
+/**
+ * Calculates great-circle distance between two geographic coordinates using the Haversine formula.
+ *
+ * @param {number} lat1
+ * @param {number} lon1
+ * @param {number} lat2
+ * @param {number} lon2
+ * @returns {number|null} Distance in kilometers rounded to 3 decimal places, or null if invalid
+ */
+export function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  if (
+    typeof lat1 !== 'number' || !Number.isFinite(lat1) ||
+    typeof lon1 !== 'number' || !Number.isFinite(lon1) ||
+    typeof lat2 !== 'number' || !Number.isFinite(lat2) ||
+    typeof lon2 !== 'number' || !Number.isFinite(lon2)
+  ) {
+    return null;
+  }
+
+  const R = 6371; // Earth's mean radius in km
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+  return Math.round(d * 1000) / 1000;
+}
+
+/**
+ * Formats a distance in kilometers for display.
+ *
+ * @param {number|null|undefined} km
+ * @param {string} [lang='de']
+ * @returns {string}
+ */
+export function formatDistance(km, lang = 'de') {
+  if (km == null || typeof km !== 'number' || !Number.isFinite(km)) {
+    return '';
+  }
+  if (km < 1) {
+    return `${Math.max(10, Math.round(km * 100) * 10)} m`;
+  }
+  return `${km.toFixed(1).replace('.', lang === 'de' ? ',' : '.')} km`;
+}
+
+/**
+ * Sorts canteen keys by geographical distance to a user coordinate.
+ *
+ * @param {string[]} canteenKeys
+ * @param {Record<string, object>} canteensDict
+ * @param {number} userLat
+ * @param {number} userLon
+ * @returns {{ sortedKeys: string[], distancesKm: Record<string, number> }}
+ */
+export function sortCanteensByDistance(canteenKeys, canteensDict, userLat, userLon) {
+  if (!Array.isArray(canteenKeys)) {
+    return { sortedKeys: [], distancesKm: {} };
+  }
+  const dict = canteensDict || {};
+  const distancesKm = {};
+
+  for (const key of canteenKeys) {
+    const c = dict[key];
+    if (c && typeof c.latitude === 'number' && typeof c.longitude === 'number') {
+      const d = calculateDistanceKm(userLat, userLon, c.latitude, c.longitude);
+      if (d != null) {
+        distancesKm[key] = d;
+      }
+    }
+  }
+
+  const sortedKeys = [...canteenKeys].sort((a, b) => {
+    const distA = distancesKm[a];
+    const distB = distancesKm[b];
+    if (distA != null && distB != null) return distA - distB;
+    if (distA != null) return -1;
+    if (distB != null) return 1;
+    return 0;
+  });
+
+  return { sortedKeys, distancesKm };
+}
+
+/**
+ * Moves a canteen key up or down by one position in an array of canteen keys.
+ * If canteensDict is provided, movement is restricted to within the key's group (Mensen or Bistros).
+ *
+ * @param {string[]} canteenKeys
+ * @param {string} key
+ * @param {'up'|'down'} direction
+ * @param {Record<string, object>} [canteensDict=null]
+ * @returns {string[]} New copy of canteen keys
+ */
+export function moveCanteenInOrder(canteenKeys, key, direction, canteensDict = null) {
+  if (!Array.isArray(canteenKeys)) return [];
+  if (!canteensDict) {
+    const copy = [...canteenKeys];
+    const idx = copy.indexOf(key);
+    if (idx === -1) return copy;
+
+    if (direction === 'up' && idx > 0) {
+      const temp = copy[idx];
+      copy[idx] = copy[idx - 1];
+      copy[idx - 1] = temp;
+    } else if (direction === 'down' && idx < copy.length - 1) {
+      const temp = copy[idx];
+      copy[idx] = copy[idx + 1];
+      copy[idx + 1] = temp;
+    }
+
+    return copy;
+  }
+
+  const mensaKeys = canteenKeys.filter((k) => canteensDict[k]?.type !== 'bistro');
+  const bistroKeys = canteenKeys.filter((k) => canteensDict[k]?.type === 'bistro');
+
+  if (mensaKeys.includes(key)) {
+    const nextMensaKeys = moveCanteenInOrder(mensaKeys, key, direction, null);
+    return [...nextMensaKeys, ...bistroKeys];
+  } else if (bistroKeys.includes(key)) {
+    const nextBistroKeys = moveCanteenInOrder(bistroKeys, key, direction, null);
+    return [...mensaKeys, ...nextBistroKeys];
+  }
+
+  return [...canteenKeys];
+}
+
+/**
+ * Normalizes canteen order such that Mensen always precede Bistros.
+ *
+ * @param {string[]} canteenKeys
+ * @param {Record<string, object>} [canteensDict]
+ * @returns {string[]}
+ */
+export function normalizeCanteenOrder(canteenKeys, canteensDict) {
+  if (!Array.isArray(canteenKeys)) return [];
+  if (!canteensDict) return [...canteenKeys];
+
+  const mensaKeys = canteenKeys.filter((k) => canteensDict[k]?.type !== 'bistro');
+  const bistroKeys = canteenKeys.filter((k) => canteensDict[k]?.type === 'bistro');
+  return [...mensaKeys, ...bistroKeys];
+}
+
+/**
+ * Generates a cross-platform walking route URL for a canteen.
+ *
+ * @param {object} canteen
+ * @returns {string}
+ */
+export function getCanteenRouteUrl(canteen) {
+  if (
+    !canteen ||
+    typeof canteen.latitude !== 'number' ||
+    !Number.isFinite(canteen.latitude) ||
+    typeof canteen.longitude !== 'number' ||
+    !Number.isFinite(canteen.longitude)
+  ) {
+    return '';
+  }
+  return `https://www.google.com/maps/dir/?api=1&destination=${canteen.latitude},${canteen.longitude}&travelmode=walking`;
+}
+
+/**
+ * Computes distances in km from user coordinates to canteens without altering the input array order.
+ * Also identifies the nearest Mensa (type === 'mensa').
+ *
+ * @param {string[]} canteenKeys
+ * @param {Record<string, object>} canteensDict
+ * @param {number} userLat
+ * @param {number} userLon
+ * @returns {{ distancesKm: Record<string, number>, nearestMensaKey: string|null }}
+ */
+export function computeCanteenDistances(canteenKeys, canteensDict, userLat, userLon) {
+  const dict = canteensDict || {};
+  const keys = Array.isArray(canteenKeys) ? canteenKeys : Object.keys(dict);
+  const distancesKm = {};
+
+  let nearestMensaKey = null;
+  let minMensaDist = Infinity;
+
+  for (const key of keys) {
+    const c = dict[key];
+    if (c && typeof c.latitude === 'number' && typeof c.longitude === 'number') {
+      const d = calculateDistanceKm(userLat, userLon, c.latitude, c.longitude);
+      if (d != null) {
+        distancesKm[key] = d;
+        if (c.type === 'mensa' && d < minMensaDist) {
+          minMensaDist = d;
+          nearestMensaKey = key;
+        }
+      }
+    }
+  }
+
+  return { distancesKm, nearestMensaKey };
 }

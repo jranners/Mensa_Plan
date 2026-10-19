@@ -4,14 +4,18 @@ import {
   formatPrice,
   calculateBuffetPrice,
   cleanDishNameForFavorite,
-  getDishesServiceWindow
+  getDishDisplayName
 } from './src/lib/dish.js';
-import { getCanteenKeyFromDish } from './src/lib/canteen-match.js';
-import { getCanteenHoursForDay } from './src/lib/hours.js';
+import {
+  normalizeCanteenOrder,
+  moveCanteenInOrder,
+  computeCanteenDistances,
+  getCanteenKeyFromDish
+} from './src/lib/canteen-match.js';
 import {
   getBerlinTodayDate,
-  getDayOfWeekFromIso,
   getFetchDateRange,
+  getAllowedMenuDates,
   formatDateSelector,
   pickActiveDate
 } from './src/lib/dates.js';
@@ -78,7 +82,8 @@ import {
 import {
   registerSW,
   checkUpdatedToast,
-  initPullToRefresh
+  initPullToRefresh,
+  checkChangelogPrompt
 } from './src/ui/sw-update.js';
 
 // Run storage schema migration before reading state
@@ -107,8 +112,13 @@ export const state = {
   cacheTimestamp: null,
   lastFetchAttemptMs: 0,
   settingsDraft: null,
+  nearestMensaKey: null,
+  canteenDistancesKm: {},
+  dishSideCombos: {},
+  openComboDrawers: {},
   statsFilterCanteen: 'selected',
   statsFilterTimeframe: 'all',
+  statsFilterCategory: 'main',
   statsChartMode: 'normalized',
   statsSelectedPoint: null,
   allTimeStatsData: null,
@@ -124,6 +134,7 @@ const modalState = {
   cleanupStatsTrap: null,
   cleanupUpdateModal: null,
   cleanupAllergenPrompt: null,
+  cleanupChangelogModal: null,
   lastAllergensTriggerEl: null
 };
 
@@ -147,16 +158,19 @@ try {
 try {
   const savedCanteens = JSON.parse(localStorage.getItem('kstw_canteens'));
   if (Array.isArray(savedCanteens) && savedCanteens.length > 0) {
-    state.selectedCanteens = savedCanteens;
+    state.selectedCanteens = normalizeCanteenOrder(savedCanteens, CANTEENS);
     state.isFirstVisit = false;
   } else {
-    state.selectedCanteens = ['unimensa', 'eraum'];
+    state.selectedCanteens = normalizeCanteenOrder(['unimensa', 'eraum'], CANTEENS);
   }
   if (deepLinkCanteen && !state.selectedCanteens.includes(deepLinkCanteen)) {
-    state.selectedCanteens = [deepLinkCanteen, ...state.selectedCanteens];
+    state.selectedCanteens = normalizeCanteenOrder([deepLinkCanteen, ...state.selectedCanteens], CANTEENS);
   }
 } catch {
-  state.selectedCanteens = deepLinkCanteen ? [deepLinkCanteen, 'unimensa'] : ['unimensa', 'eraum'];
+  state.selectedCanteens = normalizeCanteenOrder(
+    deepLinkCanteen ? [deepLinkCanteen, 'unimensa'] : ['unimensa', 'eraum'],
+    CANTEENS
+  );
 }
 
 try {
@@ -367,11 +381,7 @@ export function renderFullApp() {
 }
 
 function selectTargetDate(days) {
-  const validDays = days.filter((d) => {
-    if (d.date < state.todayIso || !d.dishes || d.dishes.length === 0) return false;
-    const dow = getDayOfWeekFromIso(d.date);
-    return dow !== 0 && dow !== 6;
-  });
+  const validDays = getAllowedMenuDates(days, state.todayIso);
 
   if (deepLinkDate && validDays.some((d) => d.date === deepLinkDate)) {
     state.activeDate = deepLinkDate;
@@ -379,15 +389,14 @@ function selectTargetDate(days) {
     return;
   }
 
+  const validDates = validDays.map((d) => d.date);
+  const allDates = Array.isArray(days) ? days.map((d) => d.date) : validDates;
+
   state.activeDate = pickActiveDate({
-    validDays,
-    currentActiveDate: state.activeDate,
+    datesWithMeals: validDates,
+    allAvailableDates: allDates,
     todayIso: state.todayIso,
-    selectedCanteens: state.selectedCanteens,
-    canteensMap: CANTEENS,
-    getCanteenKeyFromDish,
-    getDishesServiceWindow,
-    getCanteenHoursForDay
+    previousActiveDate: state.activeDate
   });
 }
 
@@ -481,6 +490,65 @@ function findDishByKey(dishKey) {
     }
   }
   return null;
+}
+
+export function updateUserLocationDistances({ silent = false } = {}) {
+  const t = state.translations[state.lang] || TRANSLATIONS.de;
+  if (!navigator.geolocation || !navigator.geolocation.getCurrentPosition) {
+    if (!silent) {
+      showToast(t.geoErrorToast || 'Standortzugriff nicht verfügbar', 'warning', { closeLabel: t.closeBtn });
+    }
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      try {
+        sessionStorage.setItem('kstw_user_coords', JSON.stringify({ lat, lon }));
+      } catch {
+        // ignore sessionStorage errors
+      }
+
+      const { distancesKm, nearestMensaKey } = computeCanteenDistances(
+        Object.keys(CANTEENS),
+        CANTEENS,
+        lat,
+        lon
+      );
+      state.canteenDistancesKm = distancesKm;
+
+      const selectedMensaKeys = (state.selectedCanteens || []).filter(
+        (k) => CANTEENS[k]?.type === 'mensa'
+      );
+      let minMensaDist = Infinity;
+      let userNearestMensaKey = null;
+      for (const k of selectedMensaKeys) {
+        const d = distancesKm[k];
+        if (d != null && d < minMensaDist) {
+          minMensaDist = d;
+          userNearestMensaKey = k;
+        }
+      }
+      state.nearestMensaKey = userNearestMensaKey || nearestMensaKey;
+
+      if (!silent) {
+        showToast(t.sortedByDistanceToast || 'Entfernungen berechnet', 'check_circle', { closeLabel: t.closeBtn });
+      }
+
+      const dayObj = state.menuData
+        ? state.menuData.find((x) => x.date === state.activeDate)
+        : null;
+      renderCanteenMenu(dayObj, state);
+    },
+    (_err) => {
+      if (!silent) {
+        showToast(t.geoErrorToast || 'Standort konnte nicht ermittelt werden', 'warning', { closeLabel: t.closeBtn });
+      }
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
 }
 
 // --- EVENT LISTENERS ---
@@ -616,7 +684,39 @@ function setupEventListeners() {
         const mealName = actionBtn.getAttribute('data-meal-name') || '';
         const dish = findDishByKey(dishKey);
         if (dish) {
+          const wasOnTray = Array.isArray(state.tray) && state.tray.some((item) => item.key === dishKey);
           toggleTrayDish(state, dishKey, dish, canteenKey, mealName);
+          if (!wasOnTray && state.dishSideCombos && Array.isArray(state.dishSideCombos[dishKey])) {
+            const sideCleanNames = state.dishSideCombos[dishKey];
+            const activeDay = state.menuData
+              ? state.menuData.find((d) => d.date === state.activeDate)
+              : null;
+            if (activeDay && Array.isArray(activeDay.dishes)) {
+              for (const sName of sideCleanNames) {
+                const sideDish =
+                  activeDay.dishes.find(
+                    (d) =>
+                      cleanDishNameForFavorite(d) === sName &&
+                      (!canteenKey || getCanteenKeyFromDish(d, canteenKey, CANTEENS[canteenKey]))
+                  ) ||
+                  activeDay.dishes.find((d) => cleanDishNameForFavorite(d) === sName);
+
+                if (sideDish) {
+                  const sKey = `${sideDish.id}::${cleanDishNameForFavorite(sideDish)}`;
+                  const alreadyOnTray = state.tray.some((item) => item.key === sKey);
+                  if (!alreadyOnTray) {
+                    toggleTrayDish(
+                      state,
+                      sKey,
+                      sideDish,
+                      canteenKey,
+                      getDishDisplayName(sideDish, state.lang)
+                    );
+                  }
+                }
+              }
+            }
+          }
           const dayObj = state.menuData
             ? state.menuData.find((x) => x.date === state.activeDate)
             : null;
@@ -694,6 +794,14 @@ function setupEventListeners() {
           } else {
             renderStatsContent(state);
           }
+        }
+        break;
+      }
+      case 'stats-category': {
+        const cat = actionBtn.getAttribute('data-category');
+        if (cat && cat !== state.statsFilterCategory) {
+          state.statsFilterCategory = cat;
+          renderStatsContent(state);
         }
         break;
       }
@@ -872,6 +980,61 @@ function setupEventListeners() {
         }
         break;
       }
+      case 'request-user-location': {
+        updateUserLocationDistances({ silent: false });
+        break;
+      }
+      case 'move-canteen-order': {
+        const canteenKey = actionBtn.getAttribute('data-canteen-key');
+        const direction = actionBtn.getAttribute('data-dir');
+        if (canteenKey && direction) {
+          const draft = state.settingsDraft || state;
+          const currentOrder = Array.isArray(draft.selectedCanteens) ? [...draft.selectedCanteens] : [];
+          const nextOrder = moveCanteenInOrder(currentOrder, canteenKey, direction, CANTEENS);
+          if (state.settingsDraft) {
+            state.settingsDraft.selectedCanteens = nextOrder;
+          } else {
+            state.selectedCanteens = nextOrder;
+            localStorage.setItem('kstw_canteens', JSON.stringify(state.selectedCanteens));
+          }
+          initOnboardingUI(state, applyLanguage);
+          const dayObj = state.menuData
+            ? state.menuData.find((x) => x.date === state.activeDate)
+            : null;
+          renderCanteenMenu(dayObj, state);
+        }
+        break;
+      }
+      case 'toggle-combo-drawer': {
+        const dishKey = actionBtn.getAttribute('data-dish-key');
+        if (dishKey) {
+          if (!state.openComboDrawers) state.openComboDrawers = {};
+          state.openComboDrawers[dishKey] = !state.openComboDrawers[dishKey];
+          const dayObj = state.menuData
+            ? state.menuData.find((x) => x.date === state.activeDate)
+            : null;
+          renderCanteenMenu(dayObj, state);
+        }
+        break;
+      }
+      case 'toggle-dish-side-combo': {
+        const dishKey = actionBtn.getAttribute('data-dish-key');
+        const sideClean = actionBtn.getAttribute('data-side-clean');
+        if (dishKey && sideClean) {
+          if (!state.dishSideCombos) state.dishSideCombos = {};
+          const current = state.dishSideCombos[dishKey] || [];
+          if (current.includes(sideClean)) {
+            state.dishSideCombos[dishKey] = current.filter((x) => x !== sideClean);
+          } else {
+            state.dishSideCombos[dishKey] = [...current, sideClean];
+          }
+          const dayObj = state.menuData
+            ? state.menuData.find((x) => x.date === state.activeDate)
+            : null;
+          renderCanteenMenu(dayObj, state);
+        }
+        break;
+      }
     }
   });
 
@@ -893,10 +1056,24 @@ function setupEventListeners() {
       state.statsFilterCanteen = e.target.value;
       state.statsSelectedPoint = null;
       renderStatsContent(state);
-    } else if (e.target && e.target.classList.contains('canteen-cb') && state.settingsDraft) {
-      state.settingsDraft.selectedCanteens = Array.from(
-        document.querySelectorAll('.canteen-cb:checked')
-      ).map((cb) => cb.value);
+    } else if (e.target && e.target.classList.contains('canteen-cb')) {
+      const val = e.target.value;
+      const targetObj = state.settingsDraft || state;
+      const currentList = Array.isArray(targetObj.selectedCanteens)
+        ? [...targetObj.selectedCanteens]
+        : [];
+      if (e.target.checked) {
+        if (!currentList.includes(val)) {
+          currentList.push(val);
+        }
+      } else {
+        const idx = currentList.indexOf(val);
+        if (idx !== -1) {
+          currentList.splice(idx, 1);
+        }
+      }
+      targetObj.selectedCanteens = normalizeCanteenOrder(currentList, CANTEENS);
+      initOnboardingUI(state, applyLanguage);
     } else if (e.target && e.target.classList.contains('allergen-cb') && state.settingsDraft) {
       state.settingsDraft.allergies = Array.from(
         document.querySelectorAll('.allergen-cb:checked')
@@ -927,6 +1104,7 @@ function setupEventListeners() {
         selectTargetDate(state.menuData);
       }
       renderFullApp();
+      checkChangelogPrompt(state, modalState, () => showStatsModal(state, modalState));
     });
   });
 
@@ -950,6 +1128,10 @@ function setupEventListeners() {
     }
 
     if (e.key === 'Escape') {
+      if (modalState.cleanupChangelogModal) {
+        modalState.cleanupChangelogModal();
+        return;
+      }
       if (modalState.cleanupAllergenPrompt) {
         localStorage.setItem('kstw_allergen_prompt_v1', 'true');
         modalState.cleanupAllergenPrompt();
@@ -1053,6 +1235,53 @@ export async function init() {
   initOnboardingUI(state, applyLanguage);
   initInstallPrompt(state);
   setupEventListeners();
+
+  // Load cached user coords from sessionStorage if available
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const cachedCoordsRaw = sessionStorage.getItem('kstw_user_coords');
+      if (cachedCoordsRaw) {
+        const coords = JSON.parse(cachedCoordsRaw);
+        if (coords && typeof coords.lat === 'number' && typeof coords.lon === 'number') {
+          const { distancesKm, nearestMensaKey } = computeCanteenDistances(
+            Object.keys(CANTEENS),
+            CANTEENS,
+            coords.lat,
+            coords.lon
+          );
+          state.canteenDistancesKm = distancesKm;
+          const selectedMensaKeys = (state.selectedCanteens || []).filter(
+            (k) => CANTEENS[k]?.type === 'mensa'
+          );
+          let minMensaDist = Infinity;
+          let userNearestMensaKey = null;
+          for (const k of selectedMensaKeys) {
+            const d = distancesKm[k];
+            if (d != null && d < minMensaDist) {
+              minMensaDist = d;
+              userNearestMensaKey = k;
+            }
+          }
+          state.nearestMensaKey = userNearestMensaKey || nearestMensaKey;
+        }
+      }
+    }
+  } catch {
+    // ignore sessionStorage errors
+  }
+
+  // Check geolocation permission state and update in background if already granted
+  if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((result) => {
+        if (result && result.state === 'granted') {
+          updateUserLocationDistances({ silent: true });
+        }
+      })
+      .catch(() => {});
+  }
+
   registerSW(state, modalState);
   initPullToRefresh(async () => {
     await Promise.all([
@@ -1064,6 +1293,7 @@ export async function init() {
   if (state.isFirstVisit) {
     showOnboarding(true, state, modalState, applyLanguage);
   } else {
+    checkChangelogPrompt(state, modalState, () => showStatsModal(state, modalState));
     checkAllergenPrompt(state, modalState, () => {
       showOnboarding(false, state, modalState, applyLanguage);
       const detailsEl = document.getElementById('allergen-details-accordion');

@@ -15,7 +15,6 @@ import {
 } from '../lib/dish.js';
 import { getDishDietType, getDishMeatIcons } from '../lib/diet.js';
 import { getDishAllergens, evaluateDishAllergies } from '../lib/allergens.js';
-import { isSharedLindenthalDish } from '../lib/canteen-match.js';
 import { isFavoriteV2 } from '../lib/storage.js';
 import { formatDateHeader } from '../lib/dates.js';
 import { escapeHtml } from '../lib/html.js';
@@ -151,7 +150,7 @@ function renderSpeciesBadges(dish, t) {
  * @param {string} [canteenKey='']
  * @returns {string}
  */
-export function renderMainDishCard(dish, isUnavailable = false, state, canteenKey = '') {
+export function renderMainDishCard(dish, isUnavailable = false, state, canteenKey = '', availableSides = []) {
   const t = state.translations[state.lang];
   const customFields = getCustomFields(dish);
 
@@ -163,6 +162,95 @@ export function renderMainDishCard(dish, isUnavailable = false, state, canteenKe
   const buffetRate = isBuffet ? (getBuffetPricePer100g(dish, state.tariff) ?? rawPrice) : null;
   const priceFormatted = rawPrice !== null ? formatPrice(rawPrice) : '0,00 €';
   const unitLabel = isBuffet ? `<span class="text-[10px] font-normal ml-0.5">${escapeHtml(t.per100g)}</span>` : '';
+
+  const cleanName = cleanDishNameForFavorite(dish);
+  const dishKey = `${dish.id}::${cleanName}`;
+
+  // Side combo calculation
+  let sideComboSectionHTML = '';
+  let displayedPriceFormatted = priceFormatted;
+  let comboBasisBadgeHTML = '';
+
+  if (!isBuffet && rawPrice !== null && Array.isArray(availableSides) && availableSides.length > 0) {
+    const selectedSideNames = (state.dishSideCombos && state.dishSideCombos[dishKey]) || [];
+    const rawSideItems = availableSides
+      .map((s) => ({
+        dish: s,
+        clean: cleanDishNameForFavorite(s),
+        name: getDishDisplayName(s, state.lang),
+        price: getDishPrice(s, state.tariff) ?? 0
+      }))
+      .filter((s) => s.clean && s.price > 0);
+
+    const seenCleans = new Set();
+    const sideItems = [];
+    for (const s of rawSideItems) {
+      if (!seenCleans.has(s.clean)) {
+        seenCleans.add(s.clean);
+        sideItems.push(s);
+      }
+    }
+
+    if (sideItems.length > 0) {
+      const chosenSides = sideItems.filter((s) => selectedSideNames.includes(s.clean));
+      const freeSidesCount = detectIncludedSides(dish, state.activeDate);
+      const sortedChosenSides = [...chosenSides].sort((a, b) => a.price - b.price);
+      const extraSidesCost = sortedChosenSides.slice(freeSidesCount).reduce((sum, s) => sum + s.price, 0);
+      const totalComboPrice = Math.round((rawPrice + extraSidesCost) * 100) / 100;
+
+      if (chosenSides.length > 0) {
+        displayedPriceFormatted = formatPrice(totalComboPrice);
+        const basisLabel = (t.comboBasisBadge || 'Basis {price} + {count} Beil.')
+          .replace('{price}', priceFormatted)
+          .replace('{count}', String(chosenSides.length));
+        comboBasisBadgeHTML = `<div class="text-[9px] font-bold text-slate-500 dark:text-slate-400 text-right mt-0.5 whitespace-nowrap">${escapeHtml(basisLabel)}</div>`;
+      }
+
+      const isDrawerOpen = Boolean((state.openComboDrawers && state.openComboDrawers[dishKey]) || chosenSides.length > 0);
+      const drawerButtonText =
+        chosenSides.length === 0
+          ? `➕ ${escapeHtml(t.sideComboBtn || 'Beilagen kombinieren')}`
+          : `🍟 ${escapeHtml((t.sideComboSelected || '{count} Beilage(n) gewählt').replace('{count}', String(chosenSides.length)))} (+${formatPrice(extraSidesCost)})`;
+
+      sideComboSectionHTML = `
+        <div class="mt-3 pt-2.5 border-t border-black/[0.04] dark:border-white/[0.05]">
+          <button
+            type="button"
+            data-action="toggle-combo-drawer"
+            data-dish-key="${escapeHtml(dishKey)}"
+            class="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-price-badge transition-colors cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge"
+          >
+            <span>${drawerButtonText}</span>
+          </button>
+          <div class="mt-2 flex flex-wrap gap-1.5 ${isDrawerOpen ? '' : 'hidden'}">
+            ${sideItems
+              .map((s) => {
+                const isSideSelected = selectedSideNames.includes(s.clean);
+                return `
+                <button
+                  type="button"
+                  data-action="toggle-dish-side-combo"
+                  data-dish-key="${escapeHtml(dishKey)}"
+                  data-side-clean="${escapeHtml(s.clean)}"
+                  aria-pressed="${isSideSelected ? 'true' : 'false'}"
+                  class="px-2 py-1 rounded-lg text-[11px] border transition-all cursor-pointer flex items-center gap-1 ${
+                    isSideSelected
+                      ? 'bg-primary text-on-primary dark:bg-price-badge dark:text-primary border-primary dark:border-price-badge font-bold shadow-xs'
+                      : 'bg-slate-50 dark:bg-[#0b1926] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:bg-slate-100'
+                  }"
+                >
+                  <span>${isSideSelected ? '✓' : '+'}</span>
+                  <span class="truncate max-w-[130px]">${escapeHtml(s.name)}</span>
+                  <span class="opacity-80 font-semibold">${formatPrice(s.price)}</span>
+                </button>
+              `;
+              })
+              .join('')}
+          </div>
+        </div>
+      `;
+    }
+  }
 
   const includedSidesCount = detectIncludedSides(dish, state.activeDate);
   let includedSidesBadgeHTML = '';
@@ -225,11 +313,6 @@ export function renderMainDishCard(dish, isUnavailable = false, state, canteenKe
     ? `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 flex items-center">${escapeHtml(brandMeta.subTag)}</span>`
     : '';
 
-  const sharedLindenthalBadgeHTML =
-    canteenKey === 'unimensa' && isSharedLindenthalDish(dish)
-      ? `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800/60 inline-flex items-center gap-1">${getIconHTML('location_on', 'text-[11px]')} ${escapeHtml(t.sharedWithLindenthal)}</span>`
-      : '';
-
   const allergyEval = evaluateDishAllergies(dish, state.allergies);
   let warningBadge = '';
   if (state.allergies && state.allergies.length > 0 && allergyEval.status === 'unknown') {
@@ -237,8 +320,6 @@ export function renderMainDishCard(dish, isUnavailable = false, state, canteenKe
   }
 
   const dishAllergens = getDishAllergens(dish);
-  const cleanName = cleanDishNameForFavorite(dish);
-  const dishKey = `${dish.id}::${cleanName}`;
   const isFav = isFavoriteV2(cleanName);
   const isOnTray = Array.isArray(state.tray) && state.tray.some((item) => item.key === dishKey);
 
@@ -268,7 +349,7 @@ export function renderMainDishCard(dish, isUnavailable = false, state, canteenKe
   const servingMeta = getDishServingMeta(dish, canteenKey, state);
   const isSoldOut = dish.is_available === false;
   const effectivelyUnavailable = isUnavailable || isSoldOut;
-  const unavailableClasses = effectivelyUnavailable ? 'opacity-60 grayscale-[40%]' : '';
+  const unavailableClasses = effectivelyUnavailable ? 'opacity-80' : '';
 
   const timeBadgeHTML = servingMeta.timeLabel
     ? `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-md ${effectivelyUnavailable ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60' : 'bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60'} border flex items-center gap-1">${getIconHTML('schedule', 'text-[12px]')} ${escapeHtml(servingMeta.timeLabel)}${effectivelyUnavailable ? ` · ${escapeHtml(t.dishTimeEnded)}` : ''}</span>`
@@ -296,7 +377,6 @@ export function renderMainDishCard(dish, isUnavailable = false, state, canteenKe
             ${includedSidesBadgeHTML}
             ${timeBadgeHTML}
             ${counterBadgeHTML}
-            ${sharedLindenthalBadgeHTML}
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
             <button
@@ -346,8 +426,11 @@ export function renderMainDishCard(dish, isUnavailable = false, state, canteenKe
             >
               <span class="text-[17px] flex items-center">${getIconHTML(isFav ? 'favorite' : 'favorite_border')}</span>
             </button>
-            <div class="bg-price-badge text-primary font-label-md text-label-md px-2.5 py-1 rounded-md shadow-xs font-extrabold whitespace-nowrap">
-              ${priceFormatted}${unitLabel}
+            <div class="flex flex-col items-end flex-shrink-0">
+              <div class="bg-price-badge text-primary font-label-md text-label-md px-2.5 py-1 rounded-md shadow-xs font-extrabold whitespace-nowrap">
+                ${displayedPriceFormatted}${unitLabel}
+              </div>
+              ${comboBasisBadgeHTML}
             </div>
           </div>
         </div>
@@ -364,6 +447,7 @@ export function renderMainDishCard(dish, isUnavailable = false, state, canteenKe
           ${imageHTML}
         </div>
         ${buffetCalcHTML}
+        ${sideComboSectionHTML}
       </div>
 
       <!-- Card Footer -->
@@ -419,7 +503,7 @@ export function renderCompactDishCard(dish, isUnavailable = false, state, cantee
   const servingMeta = getDishServingMeta(dish, canteenKey, state);
   const isSoldOut = dish.is_available === false;
   const effectivelyUnavailable = isUnavailable || isSoldOut;
-  const unavailableClasses = effectivelyUnavailable ? 'opacity-60 grayscale-[40%]' : '';
+  const unavailableClasses = effectivelyUnavailable ? 'opacity-80' : '';
   const compactMetaBadges = [];
   if (servingMeta.timeLabel) {
     compactMetaBadges.push(

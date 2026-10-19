@@ -97,9 +97,10 @@ export function getFetchDateRange(now = new Date()) {
   const daysSinceMonday = dayOfWeek === 0 ? 6 : (dayOfWeek - 1);
 
   const monday = new Date(parts.year, parts.month - 1, parts.day - daysSinceMonday, 12, 0, 0);
+  const fetchStart = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 3, 12, 0, 0);
   const sundayTwoWeeksLater = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 13, 12, 0, 0);
 
-  const startDate = getBerlinTodayDate(monday);
+  const startDate = getBerlinTodayDate(fetchStart);
   const endDate = getBerlinTodayDate(sundayTwoWeeksLater);
   return {
     startDate,
@@ -110,17 +111,40 @@ export function getFetchDateRange(now = new Date()) {
 }
 
 /**
+ * Filters menu data to only show valid weekday days, allowing at most
+ * 1 past open day (e.g. yesterday or previous Friday if today is Monday)
+ * plus all current and future open days.
+ *
+ * @param {Array<object>} days - Array of day objects with dishes
+ * @param {string} todayIso - Current Berlin date in ISO format
+ * @returns {Array<object>}
+ */
+export function getAllowedMenuDates(days, todayIso) {
+  if (!Array.isArray(days) || !todayIso) return [];
+  const validWeekdayDays = days.filter((d) => {
+    if (!d || !d.date || !Array.isArray(d.dishes) || d.dishes.length === 0) return false;
+    const dow = getDayOfWeekFromIso(d.date);
+    return dow !== 0 && dow !== 6;
+  });
+  validWeekdayDays.sort((a, b) => a.date.localeCompare(b.date));
+  const pastDays = validWeekdayDays.filter((d) => d.date < todayIso);
+  const currentAndFutureDays = validWeekdayDays.filter((d) => d.date >= todayIso);
+  const lastPastDay = pastDays.length > 0 ? [pastDays[pastDays.length - 1]] : [];
+  return [...lastPastDay, ...currentAndFutureDays];
+}
+
+/**
  * Formats an ISO date string for display in the horizontal date picker.
- * e.g. "Heute" / "Today", "Mo 5", "Di 6".
+ * e.g. "Heute" / "Today", "Gestern" / "Yesterday", "Mo 5", "Di 6".
  *
  * @param {string} isoDate
  * @param {string} todayIso
  * @param {string} [lang="de"]
- * @returns {string}
+ * @returns {{ dayName: string, dayNum: string, label: string, isToday: boolean, isYesterday: boolean }}
  */
 export function formatDateSelector(isoDate, todayIso, lang = 'de') {
   const parts = parseIsoParts(isoDate);
-  if (!parts) return { dayName: String(isoDate || ''), dayNum: '', label: String(isoDate || ''), isToday: false };
+  if (!parts) return { dayName: String(isoDate || ''), dayNum: '', label: String(isoDate || ''), isToday: false, isYesterday: false };
 
   const dt = new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0);
   const dayNames = {
@@ -129,15 +153,31 @@ export function formatDateSelector(isoDate, todayIso, lang = 'de') {
   };
   const dayStr = (dayNames[lang] || dayNames.de)[dt.getDay()];
   const isToday = isoDate === todayIso;
-  const dayName = isToday ? (lang === 'de' ? 'Heute' : 'Today') : dayStr;
+
+  let yesterdayIso = '';
+  const todayParts = parseIsoParts(todayIso);
+  if (todayParts) {
+    const yDate = new Date(todayParts.year, todayParts.month - 1, todayParts.day - 1, 12, 0, 0);
+    yesterdayIso = getBerlinTodayDate(yDate);
+  }
+  const isYesterday = !isToday && isoDate === yesterdayIso;
+
+  let dayName = dayStr;
+  if (isToday) {
+    dayName = lang === 'de' ? 'Heute' : 'Today';
+  } else if (isYesterday) {
+    dayName = lang === 'de' ? 'Gestern' : 'Yesterday';
+  }
+
   const dayNum = String(parts.day);
-  const label = isToday ? dayName : `${dayName} ${dayNum}`;
+  const label = isToday || isYesterday ? dayName : `${dayName} ${dayNum}`;
 
   return {
     dayName,
     dayNum,
     label,
-    isToday
+    isToday,
+    isYesterday
   };
 }
 

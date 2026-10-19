@@ -20,9 +20,11 @@ import {
 import {
   renderAnnouncements,
   renderDateSelector,
-  renderQuickFilterBar
+  renderQuickFilterBar,
+  renderCanteenMenu
 } from '../src/ui/feed.js';
 import { showAllergens } from '../src/ui/modals.js';
+import { cleanDishNameForFavorite } from '../src/lib/dish.js';
 
 describe('ES Module & UI Component Smoke Test', () => {
   it('loads SVG_ICONS properly with aria-hidden and new Stage 3 icons', () => {
@@ -193,6 +195,8 @@ describe('ES Module & UI Component Smoke Test', () => {
     beforeEach(() => {
       elementsMap = {
         'app-container': createMockElement('app-container'),
+        'main-feed': createMockElement('main-feed'),
+        'active-date-container': createMockElement('active-date-container'),
         'tray-bar-container': createMockElement('tray-bar-container'),
         'date-selector-container': createMockElement('date-selector-container'),
         'quick-filter-container': createMockElement('quick-filter-container'),
@@ -224,7 +228,7 @@ describe('ES Module & UI Component Smoke Test', () => {
       delete globalThis.window;
     });
 
-    it('renders main dish card with species badges, shared Lindenthal badge, and tray/calendar buttons', () => {
+    it('renders main dish card with species badges and tray/calendar buttons without Lindenthal merging badge', () => {
       const dish = {
         id: '900',
         name_de: 'Hähnchenbrust (11a, 20)',
@@ -232,7 +236,7 @@ describe('ES Module & UI Component Smoke Test', () => {
         custom_fields: [
           { field_id: 'menu_type', value: 'HEIMSPIEL' },
           { field_id: 'food_icon', value: 'G,NL' },
-          { field_id: 'ort_id', value: '231' },
+          { field_id: 'ort_id', value: '201' },
           { field_id: 'allergens_numbers', value: '11a, 20' }
         ]
       };
@@ -241,9 +245,83 @@ describe('ES Module & UI Component Smoke Test', () => {
       expect(html).not.toContain('(11a, 20)');
       expect(html).toContain('Geflügel');
       expect(html).toContain('Artgerecht (NL)');
-      expect(html).toContain('Auch in Mensa Lindenthal');
+      expect(html).not.toContain('Auch in Mensa Lindenthal');
       expect(html).toContain('data-action="tray-toggle"');
       expect(html).toContain('data-action="export-calendar"');
+    });
+
+    it('renders side combo drawer and updates price badge when dishSideCombos has selections', () => {
+      const mainDish = {
+        id: '900',
+        name_de: 'Hähnchenbrust',
+        price_student: 3.5,
+        custom_fields: [
+          { field_id: 'menu_type', value: 'HEIMSPIEL' },
+          { field_id: 'ort_id', value: '201' }
+        ]
+      };
+      const side1 = {
+        id: '910',
+        name_de: 'Pommes frites',
+        price_student: 0.9,
+        custom_fields: [{ field_id: 'menu_type', value: 'BEILAGE' }]
+      };
+      const side2 = {
+        id: '911',
+        name_de: 'Beilagensalat',
+        price_student: 0.8,
+        custom_fields: [{ field_id: 'menu_type', value: 'BEILAGE' }]
+      };
+
+      const availableSides = [side1, side2];
+      const dishKey = `${mainDish.id}::${cleanDishNameForFavorite(mainDish)}`;
+
+      // 1. Without sides selected
+      const stateWithoutSides = {
+        ...mockState,
+        dishSideCombos: {},
+        openComboDrawers: {}
+      };
+      const htmlInitial = renderMainDishCard(mainDish, false, stateWithoutSides, 'unimensa', availableSides);
+      expect(htmlInitial).toContain('data-action="toggle-combo-drawer"');
+      expect(htmlInitial).toContain('Beilagen kombinieren');
+      expect(htmlInitial).toContain('Pommes frites');
+      expect(htmlInitial).toContain('Beilagensalat');
+      expect(htmlInitial).toContain('3,50 €');
+      expect(htmlInitial).not.toContain('Basis 3,50 €');
+
+      // 2. Post-Sept 2026 (no included sides): 1 side added -> 3.50 + 0.90 = 4.40 €
+      const statePostSept = {
+        ...mockState,
+        activeDate: '2026-10-19',
+        dishSideCombos: {
+          [dishKey]: [cleanDishNameForFavorite(side1)]
+        },
+        openComboDrawers: {
+          [dishKey]: true
+        }
+      };
+      const htmlPostSept = renderMainDishCard(mainDish, false, statePostSept, 'unimensa', availableSides);
+      expect(htmlPostSept).toContain('4,40 €'); // 3.50 + 0.90
+      expect(htmlPostSept).toContain('Basis 3,50 € + 1 Beil.');
+      expect(htmlPostSept).toContain('1 Beilage(n) gewählt');
+      expect(htmlPostSept).toContain('aria-pressed="true"');
+
+      // 3. Pre-Sept 2026 (2 included sides in old system): 2 sides added -> both free -> 3.50 €
+      const statePreSeptTwoSides = {
+        ...mockState,
+        activeDate: '2026-04-20',
+        dishSideCombos: {
+          [dishKey]: [cleanDishNameForFavorite(side1), cleanDishNameForFavorite(side2)]
+        },
+        openComboDrawers: {
+          [dishKey]: true
+        }
+      };
+      const htmlPreSept = renderMainDishCard(mainDish, false, statePreSeptTwoSides, 'unimensa', availableSides);
+      expect(htmlPreSept).toContain('3,50 €');
+      expect(htmlPreSept).toContain('Basis 3,50 € + 2 Beil.');
+      expect(htmlPreSept).toContain('2 Beilage(n) gewählt (+0,00 €)');
     });
 
     it('renders compact dish card cleanly', () => {
@@ -297,6 +375,67 @@ describe('ES Module & UI Component Smoke Test', () => {
       expect(elementsMap['allergens-modal-list'].innerHTML).toContain('Enthält Schalenfrüchte');
       expect(elementsMap['allergens-modal-list'].innerHTML).toContain('Spezialzutat');
       expect(elementsMap['app-container'].inert).toBe(true);
+    });
+
+    it('renders canteen feed with walking route overview bar, direct route links, and normalized mensa-bistro order without collapse', () => {
+      const dayData = {
+        date: '2026-04-20',
+        dishes: [
+          {
+            id: '1',
+            name_de: 'Pasta Bolognese',
+            price_student: 2.8,
+            custom_fields: [{ field_id: 'ort_id', value: '201' }, { field_id: 'menu_type', value: 'HEIMSPIEL' }]
+          },
+          {
+            id: '2',
+            name_de: 'Bistro Sandwich',
+            price_student: 2.2,
+            menu_group_name: 'Bistro E-Raum',
+            custom_fields: [{ field_id: 'menu_type', value: 'BISTRO' }]
+          }
+        ]
+      };
+
+      // 1. Without GPS distances computed yet
+      const stateWithoutDist = {
+        ...mockState,
+        selectedCanteens: ['eraum', 'unimensa'], // Intentionally bistro first to verify normalization
+        canteenDistancesKm: {},
+        nearestMensaKey: null
+      };
+      renderCanteenMenu(dayData, stateWithoutDist);
+      const html1 = elementsMap['main-feed'].innerHTML;
+      expect(html1).toContain('data-action="request-user-location"');
+      expect(html1).toContain('Route anzeigen');
+      expect(html1).toContain('https://www.google.com/maps/dir/?api=1');
+      expect(html1).toContain('travelmode=walking');
+      expect(html1).not.toContain('toggle-collapse-canteen');
+      expect(html1).not.toContain('focus-canteen');
+
+      // Check that unimensa (Mensa) is rendered before eraum (Bistro) despite selectedCanteens input
+      const unimensaIdx = html1.indexOf('Mensa Zülpicher Straße');
+      const eraumIdx = html1.indexOf('Bistro Uni E-Raum');
+      expect(unimensaIdx).toBeGreaterThan(-1);
+      expect(eraumIdx).toBeGreaterThan(-1);
+      expect(unimensaIdx).toBeLessThan(eraumIdx);
+
+      // 2. With GPS distances computed
+      const stateWithDist = {
+        ...mockState,
+        selectedCanteens: ['unimensa', 'eraum'],
+        canteenDistancesKm: {
+          unimensa: 0.35,
+          eraum: 1.2
+        },
+        nearestMensaKey: 'unimensa'
+      };
+      renderCanteenMenu(dayData, stateWithDist);
+      const html2 = elementsMap['main-feed'].innerHTML;
+      expect(html2).not.toContain('data-action="request-user-location"');
+      expect(html2).toContain('350 m · Route ↗');
+      expect(html2).toContain('1,2 km · Route ↗');
+      expect(html2).toContain('Nächste Mensa');
     });
   });
 });

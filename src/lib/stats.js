@@ -1,4 +1,6 @@
-import { getDishDietType } from './diet.js';
+import { CANTEENS } from '../../data/canteens.js';
+import { getDishDietType, getDishMeatIcons, dishContainsPork } from './diet.js';
+import { evaluateDishAllergies } from './allergens.js';
 import {
   getDishPrice,
   cleanDishNameForFavorite,
@@ -15,7 +17,8 @@ import { getCanteenKeyFromDish } from './canteen-match.js';
 import {
   getBerlinTodayDate,
   parseIsoParts,
-  formatDateRange
+  formatDateRange,
+  getDayOfWeekFromIso
 } from './dates.js';
 
 export const STATS_KEY = 'kstw_stats_v1';
@@ -32,11 +35,21 @@ export function getInitialStats() {
     vegetarianCount: 0,
     otherCount: 0,
     meatCount: 0,
+    veganPct: 0,
+    vegetarianPct: 0,
+    meatPct: 0,
     priceSum: 0,
     priceCount: 0,
     minPrice: null,
     maxPrice: null,
     avgPrice: null,
+    speciesCounts: { poultry: 0, beef: 0, fish: 0, pork: 0, neuland: 0 },
+    priceBuckets: { under2: 0, from2to3: 0, from3to4: 0, over4: 0 },
+    cheapestDishes: [],
+    mostExpensiveDishes: [],
+    personalMatch: { compatibleCount: 0, compatiblePct: 0, personalAvgPrice: null },
+    weekdayBreakdown: [],
+    canteenComparison: [],
     dishCounts: {},
     recordedDates: [],
     priceHistory: [],
@@ -44,13 +57,19 @@ export function getInitialStats() {
     allDishes: [],
     matchedFavorites: [],
     activeFavoritesCount: 0,
+    dataTimestamp: null,
     timeframe: {
       mode: 'all',
       startDate: '',
       endDate: '',
       formattedRange: '',
       activeDaysCount: 0
-    }
+    },
+    dateRange: { start: '', end: '' },
+    daysCount: 0,
+    veganDishes: 0,
+    vegetarianDishes: 0,
+    meatDishes: 0
   };
 }
 
@@ -220,10 +239,28 @@ export function computeLiveMenuStats(menuData, options = {}) {
     category = 'main',
     tariff = 'student',
     favorites = [],
-    todayIso = getBerlinTodayDate()
+    todayIso = getBerlinTodayDate(),
+    userDiet = 'all',
+    userAllergies = [],
+    excludePork = false,
+    isFavoriteFn = null
   } = options;
 
   const live = getInitialStats();
+  const effectiveCanteensMap = canteensMap || CANTEENS;
+
+  const effectiveCanteens =
+    canteenScope === 'all'
+      ? null
+      : canteenScope === 'selected'
+        ? (Array.isArray(selectedCanteens) && selectedCanteens.length > 0 ? selectedCanteens : null)
+        : [canteenScope];
+
+  const speciesCounts = { poultry: 0, beef: 0, fish: 0, pork: 0, neuland: 0 };
+  const priceBuckets = { under2: 0, from2to3: 0, from3to4: 0, over4: 0 };
+  let personalCompatibleCount = 0;
+  let personalPriceSum = 0;
+  let personalPriceCount = 0;
 
   // Special branch: All-Time mode with pre-aggregated historical database
   if (timeframe === 'all-time' && allTimeData && Array.isArray(allTimeData.dishes)) {
@@ -252,9 +289,9 @@ export function computeLiveMenuStats(menuData, options = {}) {
 
       // Canteen scope filter
       let effectiveCount = dish.count || 0;
-      if (canteenScope === 'selected' && Array.isArray(selectedCanteens) && selectedCanteens.length > 0) {
+      if (effectiveCanteens) {
         effectiveCount = 0;
-        selectedCanteens.forEach(cKey => {
+        effectiveCanteens.forEach(cKey => {
           if (dish.canteens && dish.canteens[cKey]) {
             effectiveCount += dish.canteens[cKey];
           }
@@ -288,6 +325,48 @@ export function computeLiveMenuStats(menuData, options = {}) {
         priceCount += effectiveCount;
         if (live.minPrice == null || price < live.minPrice) live.minPrice = price;
         if (live.maxPrice == null || price > live.maxPrice) live.maxPrice = price;
+
+        if (price < 2.0) priceBuckets.under2 += effectiveCount;
+        else if (price < 3.0) priceBuckets.from2to3 += effectiveCount;
+        else if (price < 4.0) priceBuckets.from3to4 += effectiveCount;
+        else priceBuckets.over4 += effectiveCount;
+      }
+
+      // Species count
+      if (Array.isArray(dish.species) && dish.species.length > 0) {
+        dish.species.forEach(code => {
+          if (code === 'G') speciesCounts.poultry += effectiveCount;
+          else if (code === 'R') speciesCounts.beef += effectiveCount;
+          else if (code === 'F') speciesCounts.fish += effectiveCount;
+          else if (code === 'S') speciesCounts.pork += effectiveCount;
+          else if (code === 'NL') speciesCounts.neuland += effectiveCount;
+        });
+      } else if (diet === 'all') {
+        const dName = (dish.name || '').toLowerCase();
+        if (/hähnchen|huhn|hühner|puten|geflügel|chicken|turkey/.test(dName)) speciesCounts.poultry += effectiveCount;
+        else if (/rind|beef|kalb|rinder/.test(dName)) speciesCounts.beef += effectiveCount;
+        else if (/fisch|lachs|forelle|seelachs|kabeljau|thunfisch|garnelen/.test(dName)) speciesCounts.fish += effectiveCount;
+        else if (/schwein|pork|bacon|speck|bratwurst|currywurst|schinken/.test(dName)) speciesCounts.pork += effectiveCount;
+      }
+
+      // Personal match
+      let isCompatible = true;
+      if (userDiet === 'vegan' && diet !== 'vegan') {
+        isCompatible = false;
+      } else if (userDiet === 'vegetarian' && diet !== 'vegan' && diet !== 'vegetarian') {
+        isCompatible = false;
+      }
+      if (isCompatible && excludePork) {
+        const isPork = (Array.isArray(dish.species) && dish.species.includes('S')) ||
+          /schwein|pork|bacon|speck|bratwurst|currywurst|schinken/i.test(dish.name || '');
+        if (isPork) isCompatible = false;
+      }
+      if (isCompatible) {
+        personalCompatibleCount += effectiveCount;
+        if (price != null && price > 0) {
+          personalPriceSum += price * effectiveCount;
+          personalPriceCount += effectiveCount;
+        }
       }
 
       dishMap[dish.clean] = {
@@ -301,6 +380,14 @@ export function computeLiveMenuStats(menuData, options = {}) {
       };
     });
 
+    if (allTimeData.speciesBreakdown && speciesCounts.poultry === 0 && speciesCounts.beef === 0 && speciesCounts.fish === 0 && speciesCounts.pork === 0) {
+      speciesCounts.poultry = allTimeData.speciesBreakdown.G || 0;
+      speciesCounts.beef = allTimeData.speciesBreakdown.R || 0;
+      speciesCounts.fish = allTimeData.speciesBreakdown.F || 0;
+      speciesCounts.pork = allTimeData.speciesBreakdown.S || 0;
+      speciesCounts.neuland = allTimeData.speciesBreakdown.NL || 0;
+    }
+
     const sortedDishes = Object.values(dishMap)
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .map((item, idx) => ({
@@ -311,7 +398,8 @@ export function computeLiveMenuStats(menuData, options = {}) {
         diet: item.diet,
         price: item.price,
         category: item.category,
-        dates: item.dates
+        dates: item.dates,
+        lastSeen: item.dates[item.dates.length - 1] || null
       }));
 
     const dishCounts = {};
@@ -320,12 +408,79 @@ export function computeLiveMenuStats(menuData, options = {}) {
     });
 
     const favSet = new Set(Array.isArray(favorites) ? favorites.map(f => cleanDishNameForFavorite(f)) : []);
-    const matchedFavorites = sortedDishes.filter(d => favSet.has(d.clean));
+    const checkFav = typeof isFavoriteFn === 'function'
+      ? (cleanName) => Boolean(cleanName && isFavoriteFn(cleanName))
+      : (cleanName) => Boolean(cleanName && favSet.has(cleanName));
+    const matchedFavorites = sortedDishes.filter(d => checkFav(d.clean));
 
     const veganPct = live.totalDishes > 0 ? Math.round((live.veganCount / live.totalDishes) * 100) : 0;
     const vegPct = live.totalDishes > 0 ? Math.round((live.vegetarianCount / live.totalDishes) * 100) : 0;
     const meatPct = Math.max(0, 100 - veganPct - vegPct);
     const avgPrice = priceCount > 0 ? Math.round((priceSum / priceCount) * 100) / 100 : null;
+
+    const pricedDishes = sortedDishes.filter(d => d.price != null && d.price > 0);
+    const cheapestDishes = [...pricedDishes]
+      .sort((a, b) => a.price - b.price || b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 3);
+    const mostExpensiveDishes = [...pricedDishes]
+      .sort((a, b) => b.price - a.price || b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 3);
+
+    const personalMatch = {
+      compatibleCount: personalCompatibleCount,
+      compatiblePct: live.totalDishes > 0 ? Math.round((personalCompatibleCount / live.totalDishes) * 100) : 0,
+      personalAvgPrice: personalPriceCount > 0 ? Math.round((personalPriceSum / personalPriceCount) * 100) / 100 : avgPrice
+    };
+
+    const dowLabels = {
+      1: { de: 'Mo', en: 'Mon' },
+      2: { de: 'Di', en: 'Tue' },
+      3: { de: 'Mi', en: 'Wed' },
+      4: { de: 'Do', en: 'Thu' },
+      5: { de: 'Fr', en: 'Fri' }
+    };
+    const weekdayBreakdown = Array.isArray(allTimeData.weekdayStats)
+      ? allTimeData.weekdayStats.map(ws => {
+          let p = ws.avgPriceStudent;
+          if (tariff === 'employee') {
+            p = ws.avgPriceEmployee != null ? ws.avgPriceEmployee : (ws.avgPriceStudent ? Math.round(ws.avgPriceStudent * tariffRatio * 100) / 100 : null);
+          } else if (tariff === 'guest' || tariff === 'external') {
+            p = ws.avgPriceGuest != null ? ws.avgPriceGuest : (ws.avgPriceStudent ? Math.round(ws.avgPriceStudent * tariffRatio * 100) / 100 : null);
+          }
+          return {
+            dow: ws.dow,
+            labelDe: dowLabels[ws.dow]?.de || String(ws.dow),
+            labelEn: dowLabels[ws.dow]?.en || String(ws.dow),
+            count: ws.count,
+            veganPct: ws.veganPct != null ? ws.veganPct : (ws.count > 0 ? Math.round(((ws.veganCount || 0) / ws.count) * 100) : 0),
+            avgPrice: p
+          };
+        })
+      : [1, 2, 3, 4, 5].map(d => ({ dow: d, labelDe: dowLabels[d].de, labelEn: dowLabels[d].en, count: 0, veganPct: 0, avgPrice: null }));
+
+    let canteenComparison = Array.isArray(allTimeData.canteenStats)
+      ? allTimeData.canteenStats.map(cs => {
+          let p = cs.avgPriceStudent;
+          if (tariff === 'employee') {
+            p = cs.avgPriceEmployee != null ? cs.avgPriceEmployee : (cs.avgPriceStudent ? Math.round(cs.avgPriceStudent * tariffRatio * 100) / 100 : null);
+          } else if (tariff === 'guest' || tariff === 'external') {
+            p = cs.avgPriceGuest != null ? cs.avgPriceGuest : (cs.avgPriceStudent ? Math.round(cs.avgPriceStudent * tariffRatio * 100) / 100 : null);
+          }
+          return {
+            key: cs.key,
+            name: cs.name || (canteensMap?.[cs.key]?.name) || cs.key,
+            totalDishes: cs.totalDishes || cs.mainDishes || 0,
+            veganPct: cs.veganPct || 0,
+            vegetarianPct: cs.vegetarianPct || 0,
+            avgPrice: p,
+            topDish: cs.topDish || ''
+          };
+        })
+      : [];
+    if (effectiveCanteens && effectiveCanteens.length > 0) {
+      const effSet = new Set(effectiveCanteens);
+      canteenComparison = canteenComparison.filter(c => effSet.has(c.key));
+    }
 
     return {
       version: 1,
@@ -336,6 +491,11 @@ export function computeLiveMenuStats(menuData, options = {}) {
         formattedRange,
         activeDaysCount
       },
+      dateRange: { start: startDate, end: endDate },
+      daysCount: activeDaysCount,
+      veganDishes: live.veganCount,
+      vegetarianDishes: live.vegetarianCount,
+      meatDishes: live.otherCount,
       canteenScope,
       category,
       tariff,
@@ -352,13 +512,21 @@ export function computeLiveMenuStats(menuData, options = {}) {
       avgPrice,
       minPrice: live.minPrice,
       maxPrice: live.maxPrice,
-      topDishes: sortedDishes.slice(0, 5),
+      speciesCounts,
+      priceBuckets,
+      cheapestDishes,
+      mostExpensiveDishes,
+      personalMatch,
+      weekdayBreakdown,
+      canteenComparison,
+      topDishes: sortedDishes.slice(0, 8),
       allDishes: sortedDishes,
       matchedFavorites,
       activeFavoritesCount: matchedFavorites.length,
       dishCounts,
       recordedDates: [startDate, endDate],
-      priceHistory: (allTimeData && Array.isArray(allTimeData.monthlyPriceHistory)) ? allTimeData.monthlyPriceHistory : []
+      priceHistory: (allTimeData && Array.isArray(allTimeData.monthlyPriceHistory)) ? allTimeData.monthlyPriceHistory : [],
+      dataTimestamp: allTimeData?.generatedAt || null
     };
   }
 
@@ -404,14 +572,42 @@ export function computeLiveMenuStats(menuData, options = {}) {
   let priceSum = 0;
   let priceCount = 0;
 
+  const weekdayBuckets = {
+    1: { dow: 1, labelDe: 'Mo', labelEn: 'Mon', count: 0, veganCount: 0, priceSum: 0, priceCount: 0 },
+    2: { dow: 2, labelDe: 'Di', labelEn: 'Tue', count: 0, veganCount: 0, priceSum: 0, priceCount: 0 },
+    3: { dow: 3, labelDe: 'Mi', labelEn: 'Wed', count: 0, veganCount: 0, priceSum: 0, priceCount: 0 },
+    4: { dow: 4, labelDe: 'Do', labelEn: 'Thu', count: 0, veganCount: 0, priceSum: 0, priceCount: 0 },
+    5: { dow: 5, labelDe: 'Fr', labelEn: 'Fri', count: 0, veganCount: 0, priceSum: 0, priceCount: 0 }
+  };
+
+  const canteenStatsMap = {};
+  if (effectiveCanteensMap) {
+    const cKeysToTrack = effectiveCanteens || Object.keys(effectiveCanteensMap);
+    cKeysToTrack.forEach(cKey => {
+      canteenStatsMap[cKey] = {
+        key: cKey,
+        name: effectiveCanteensMap[cKey]?.name || cKey,
+        totalDishes: 0,
+        veganCount: 0,
+        vegetarianCount: 0,
+        priceSum: 0,
+        priceCount: 0,
+        dishCounts: {}
+      };
+    });
+  }
+
   filteredDays.forEach(day => {
     if (!day || !Array.isArray(day.dishes)) return;
+    const dow = getDayOfWeekFromIso(day.date);
+
     day.dishes.forEach(dish => {
       if (!dish) return;
 
       // Canteen scope filter
-      if (canteenScope === 'selected' && Array.isArray(selectedCanteens) && selectedCanteens.length > 0 && canteensMap) {
-        const matches = selectedCanteens.some(cKey => getCanteenKeyFromDish(dish, cKey, canteensMap[cKey]));
+      if (effectiveCanteens) {
+        if (!effectiveCanteensMap) return;
+        const matches = effectiveCanteens.some(cKey => getCanteenKeyFromDish(dish, cKey, effectiveCanteensMap[cKey]));
         if (!matches) return;
       }
 
@@ -439,6 +635,78 @@ export function computeLiveMenuStats(menuData, options = {}) {
         priceCount++;
         if (live.minPrice == null || price < live.minPrice) live.minPrice = price;
         if (live.maxPrice == null || price > live.maxPrice) live.maxPrice = price;
+
+        if (price < 2.0) priceBuckets.under2++;
+        else if (price < 3.0) priceBuckets.from2to3++;
+        else if (price < 4.0) priceBuckets.from3to4++;
+        else priceBuckets.over4++;
+      }
+
+      // Species counts
+      const meatIcons = getDishMeatIcons(dish);
+      meatIcons.forEach(icon => {
+        if (icon.code === 'G') speciesCounts.poultry++;
+        else if (icon.code === 'R') speciesCounts.beef++;
+        else if (icon.code === 'F') speciesCounts.fish++;
+        else if (icon.code === 'S') speciesCounts.pork++;
+        else if (icon.code === 'NL') speciesCounts.neuland++;
+      });
+
+      // Personal match
+      let isCompatible = true;
+      if (userDiet === 'vegan' && diet !== 'vegan') {
+        isCompatible = false;
+      } else if (userDiet === 'vegetarian' && diet !== 'vegan' && diet !== 'vegetarian') {
+        isCompatible = false;
+      }
+      if (isCompatible && excludePork && dishContainsPork(dish)) {
+        isCompatible = false;
+      }
+      if (isCompatible && Array.isArray(userAllergies) && userAllergies.length > 0) {
+        const allergyEval = evaluateDishAllergies(dish, userAllergies);
+        if (allergyEval.shouldExclude) {
+          isCompatible = false;
+        }
+      }
+      if (isCompatible) {
+        personalCompatibleCount++;
+        if (price != null && price > 0) {
+          personalPriceSum += price;
+          personalPriceCount++;
+        }
+      }
+
+      // Weekday breakdown bucket
+      if (weekdayBuckets[dow]) {
+        weekdayBuckets[dow].count++;
+        if (diet === 'vegan') weekdayBuckets[dow].veganCount++;
+        if (price != null && price > 0) {
+          weekdayBuckets[dow].priceSum += price;
+          weekdayBuckets[dow].priceCount++;
+        }
+      }
+
+      // Canteen comparison tracking
+      if (effectiveCanteensMap) {
+        const cKeysToTrack = effectiveCanteens || Object.keys(effectiveCanteensMap);
+        for (const cKey of cKeysToTrack) {
+          if (getCanteenKeyFromDish(dish, cKey, effectiveCanteensMap[cKey])) {
+            const cs = canteenStatsMap[cKey];
+            if (cs) {
+              cs.totalDishes++;
+              if (diet === 'vegan') cs.veganCount++;
+              else if (diet === 'vegetarian') cs.vegetarianCount++;
+              if (price != null && price > 0) {
+                cs.priceSum += price;
+                cs.priceCount++;
+              }
+              const cName = cleanDishNameForFavorite(dish);
+              if (cName) {
+                cs.dishCounts[cName] = (cs.dishCounts[cName] || 0) + 1;
+              }
+            }
+          }
+        }
       }
 
       const clean = cleanDishNameForFavorite(dish);
@@ -473,16 +741,20 @@ export function computeLiveMenuStats(menuData, options = {}) {
 
   const sortedDishes = Object.values(dishMap)
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-    .map((item, idx) => ({
-      rank: idx + 1,
-      clean: item.clean,
-      name: item.name,
-      count: item.count,
-      diet: item.diet,
-      price: item.price,
-      category: item.category,
-      dates: Array.from(item.dates).sort()
-    }));
+    .map((item, idx) => {
+      const datesArr = Array.from(item.dates).sort();
+      return {
+        rank: idx + 1,
+        clean: item.clean,
+        name: item.name,
+        count: item.count,
+        diet: item.diet,
+        price: item.price,
+        category: item.category,
+        dates: datesArr,
+        lastSeen: datesArr.length > 0 ? datesArr[datesArr.length - 1] : null
+      };
+    });
 
   const dishCounts = {};
   sortedDishes.forEach(d => {
@@ -490,12 +762,67 @@ export function computeLiveMenuStats(menuData, options = {}) {
   });
 
   const favSet = new Set(Array.isArray(favorites) ? favorites.map(f => cleanDishNameForFavorite(f)) : []);
-  const matchedFavorites = sortedDishes.filter(d => favSet.has(d.clean));
+  const checkFav = typeof isFavoriteFn === 'function'
+    ? (cleanName) => Boolean(cleanName && isFavoriteFn(cleanName))
+    : (cleanName) => Boolean(cleanName && favSet.has(cleanName));
+  const matchedFavorites = sortedDishes.filter(d => checkFav(d.clean));
 
   const veganPct = live.totalDishes > 0 ? Math.round((live.veganCount / live.totalDishes) * 100) : 0;
   const vegPct = live.totalDishes > 0 ? Math.round((live.vegetarianCount / live.totalDishes) * 100) : 0;
   const meatPct = Math.max(0, 100 - veganPct - vegPct);
   const avgPrice = priceCount > 0 ? Math.round((priceSum / priceCount) * 100) / 100 : null;
+
+  const pricedDishes = sortedDishes.filter(d => d.price != null && d.price > 0);
+  const cheapestDishes = [...pricedDishes]
+    .sort((a, b) => a.price - b.price || b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 3);
+  const mostExpensiveDishes = [...pricedDishes]
+    .sort((a, b) => b.price - a.price || b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 3);
+
+  const personalMatch = {
+    compatibleCount: personalCompatibleCount,
+    compatiblePct: live.totalDishes > 0 ? Math.round((personalCompatibleCount / live.totalDishes) * 100) : 0,
+    personalAvgPrice: personalPriceCount > 0 ? Math.round((personalPriceSum / personalPriceCount) * 100) / 100 : avgPrice
+  };
+
+  const weekdayBreakdown = [1, 2, 3, 4, 5].map(d => {
+    const b = weekdayBuckets[d];
+    return {
+      dow: b.dow,
+      labelDe: b.labelDe,
+      labelEn: b.labelEn,
+      count: b.count,
+      veganPct: b.count > 0 ? Math.round((b.veganCount / b.count) * 100) : 0,
+      avgPrice: b.priceCount > 0 ? Math.round((b.priceSum / b.priceCount) * 100) / 100 : null
+    };
+  });
+
+  const canteenComparison = Object.values(canteenStatsMap)
+    .filter(cs => cs.totalDishes > 0)
+    .map(cs => {
+      let topDish = '';
+      let maxCount = 0;
+      for (const [dClean, cnt] of Object.entries(cs.dishCounts)) {
+        if (cnt > maxCount) {
+          maxCount = cnt;
+          topDish = dClean;
+        }
+      }
+      if (topDish && dishMap[topDish]) {
+        topDish = dishMap[topDish].name || topDish;
+      }
+      return {
+        key: cs.key,
+        name: cs.name,
+        totalDishes: cs.totalDishes,
+        veganPct: Math.round((cs.veganCount / cs.totalDishes) * 100),
+        vegetarianPct: Math.round((cs.vegetarianCount / cs.totalDishes) * 100),
+        avgPrice: cs.priceCount > 0 ? Math.round((cs.priceSum / cs.priceCount) * 100) / 100 : null,
+        topDish
+      };
+    })
+    .sort((a, b) => b.totalDishes - a.totalDishes);
 
   return {
     version: 1,
@@ -506,6 +833,11 @@ export function computeLiveMenuStats(menuData, options = {}) {
       formattedRange,
       activeDaysCount
     },
+    dateRange: { start: startDate, end: endDate },
+    daysCount: activeDaysCount,
+    veganDishes: live.veganCount,
+    vegetarianDishes: live.vegetarianCount,
+    meatDishes: live.otherCount,
     canteenScope,
     category,
     tariff,
@@ -522,13 +854,21 @@ export function computeLiveMenuStats(menuData, options = {}) {
     avgPrice,
     minPrice: live.minPrice,
     maxPrice: live.maxPrice,
-    topDishes: sortedDishes.slice(0, 5),
+    speciesCounts,
+    priceBuckets,
+    cheapestDishes,
+    mostExpensiveDishes,
+    personalMatch,
+    weekdayBreakdown,
+    canteenComparison,
+    topDishes: sortedDishes.slice(0, 8),
     allDishes: sortedDishes,
     matchedFavorites,
     activeFavoritesCount: matchedFavorites.length,
     dishCounts,
     recordedDates: datesWithMeals,
-    priceHistory: computeLivePriceHistory(filteredDays, tariff, selectedCanteens, canteensMap, canteenScope)
+    priceHistory: computeLivePriceHistory(filteredDays, tariff, selectedCanteens, effectiveCanteensMap, canteenScope),
+    dataTimestamp: allTimeData?.generatedAt || null
   };
 }
 
@@ -544,6 +884,14 @@ export function computeLiveMenuStats(menuData, options = {}) {
  */
 export function computeLivePriceHistory(menuData, tariff = 'student', selectedCanteens = [], canteensMap = null, canteenScope = 'all') {
   if (!Array.isArray(menuData) || menuData.length === 0) return [];
+
+  const effectiveCanteensMap = canteensMap || CANTEENS;
+  const effectiveCanteens =
+    canteenScope === 'all'
+      ? null
+      : canteenScope === 'selected'
+        ? (Array.isArray(selectedCanteens) && selectedCanteens.length > 0 ? selectedCanteens : null)
+        : [canteenScope];
 
   const dateBuckets = {};
   const sideCost = SIDE_PRICES_BY_TARIFF[tariff] || 0.70;
@@ -563,8 +911,9 @@ export function computeLivePriceHistory(menuData, tariff = 'student', selectedCa
       const cls = classifyDish(dish);
       if (cls !== 'main' && cls !== 'meisterwerk') return;
 
-      if (canteenScope === 'selected' && Array.isArray(selectedCanteens) && selectedCanteens.length > 0 && canteensMap) {
-        const matches = selectedCanteens.some(cKey => getCanteenKeyFromDish(dish, cKey, canteensMap[cKey]));
+      if (effectiveCanteens) {
+        if (!effectiveCanteensMap) return;
+        const matches = effectiveCanteens.some(cKey => getCanteenKeyFromDish(dish, cKey, effectiveCanteensMap[cKey]));
         if (!matches) return;
       }
 
@@ -636,6 +985,7 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
     tariff = 'student',
     mode = 'normalized',
     activeMonth = null,
+    selectedPoint = null,
     t = {}
   } = options;
 
@@ -722,11 +1072,14 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
     return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
   }
 
-  function buildDots(points, color, dietLabel) {
+  function buildDots(points, color, dietLabel, dietKey) {
     const escapedDietLabel = escapeHtml(dietLabel);
     return points.map(p => {
-      const isCurrent = activeMonth && (p.item.month === activeMonth || p.item.label === activeMonth);
-      const r = isCurrent ? 6 : 4.5;
+      const isCurrent = Boolean(
+        (selectedPoint && selectedPoint.month === p.item.month && selectedPoint.diet === dietKey) ||
+        (activeMonth && (p.item.month === activeMonth || p.item.label === activeMonth))
+      );
+      const r = isCurrent ? 6.5 : 4.5;
       const sw = isCurrent ? 2.5 : 1.5;
       const formattedPrice = p.val.toFixed(2).replace('.', ',');
       const escapedMonth = escapeHtml(p.item.month || p.item.label || '');
@@ -734,7 +1087,7 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
       return `
         <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="${color}" stroke="#ffffff" stroke-width="${sw}"
           class="cursor-pointer transition-transform hover:scale-125"
-          data-action="select-chart-month" data-month="${escapedMonth}"
+          data-action="stats-chart-point" data-month="${escapedMonth}" data-diet="${escapeHtml(dietKey)}"
           role="button"
           tabindex="0"
           aria-label="${escapedDietLabel}: ${formattedPrice} € (${escapedLabel})"
@@ -759,9 +1112,9 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
       ${vegPoints.length > 1 ? `<path d="${buildPath(vegPoints)}" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />` : ''}
       ${meatPoints.length > 1 ? `<path d="${buildPath(meatPoints)}" fill="none" stroke="#f43f5e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />` : ''}
       <!-- Interactive Dots -->
-      ${buildDots(veganPoints, '#10b981', t.statsVegan || 'Vegan')}
-      ${buildDots(vegPoints, '#f59e0b', t.statsVegetarian || 'Vegetarisch')}
-      ${buildDots(meatPoints, '#f43f5e', t.statsMeat || 'Fleisch & Fisch')}
+      ${buildDots(veganPoints, '#10b981', t.statsVegan || 'Vegan', 'vegan')}
+      ${buildDots(vegPoints, '#f59e0b', t.statsVegetarian || 'Vegetarisch', 'vegetarian')}
+      ${buildDots(meatPoints, '#f43f5e', t.statsMeat || 'Fleisch & Fisch', 'meat')}
       <!-- X-Labels -->
       ${xLabels}
     </svg>

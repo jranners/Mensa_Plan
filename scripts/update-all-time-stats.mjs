@@ -24,9 +24,9 @@ const cfg = {
 
 import { CANTEENS } from '../data/canteens.js';
 import { findCanteensForDish } from '../src/lib/canteen-match.js';
-import { getDishDietType } from '../src/lib/diet.js';
+import { getDishDietType, getDishMeatIcons } from '../src/lib/diet.js';
+import { getDayOfWeekFromIso } from '../src/lib/dates.js';
 import {
-  getCustomFields,
   getDishPrice,
   cleanDishNameForFavorite,
   classifyDish,
@@ -97,6 +97,30 @@ export async function generateAllTimeStats() {
   const dishMap = {};
   let totalDishes = 0;
 
+  const weekdayBuckets = {
+    1: { count: 0, veganCount: 0, vegetarianCount: 0, pricesStudent: [], pricesEmployee: [], pricesGuest: [] },
+    2: { count: 0, veganCount: 0, vegetarianCount: 0, pricesStudent: [], pricesEmployee: [], pricesGuest: [] },
+    3: { count: 0, veganCount: 0, vegetarianCount: 0, pricesStudent: [], pricesEmployee: [], pricesGuest: [] },
+    4: { count: 0, veganCount: 0, vegetarianCount: 0, pricesStudent: [], pricesEmployee: [], pricesGuest: [] },
+    5: { count: 0, veganCount: 0, vegetarianCount: 0, pricesStudent: [], pricesEmployee: [], pricesGuest: [] }
+  };
+
+  const canteenBuckets = {};
+  Object.keys(CANTEENS).forEach(k => {
+    canteenBuckets[k] = {
+      totalDishes: 0,
+      mainDishes: 0,
+      veganCount: 0,
+      vegetarianCount: 0,
+      pricesStudent: [],
+      pricesEmployee: [],
+      pricesGuest: [],
+      dishCounts: {}
+    };
+  });
+
+  const speciesBreakdown = { G: 0, R: 0, F: 0, S: 0, NL: 0 };
+
   allDays.forEach(day => {
     if (!day || !Array.isArray(day.dishes) || day.dishes.length === 0) return;
     datesWithMeals.add(day.date);
@@ -105,10 +129,56 @@ export async function generateAllTimeStats() {
       if (!dish) return;
       totalDishes++;
       const cls = classifyDish(dish);
+      const isMain = cls === 'main' || cls === 'meisterwerk';
       const clean = cleanDishNameForFavorite(dish);
-      if (!clean) return;
-
       const diet = getDishDietType(dish);
+      const speciesList = getDishMeatIcons(dish).map(m => m.code);
+
+      // Canteen tracking
+      const matchedCanteens = findCanteensForDish(dish, CANTEENS);
+      matchedCanteens.forEach(cKey => {
+        if (canteenBuckets[cKey]) {
+          canteenBuckets[cKey].totalDishes++;
+          if (isMain) {
+            canteenBuckets[cKey].mainDishes++;
+            if (diet === 'vegan') canteenBuckets[cKey].veganCount++;
+            else if (diet === 'vegetarian') canteenBuckets[cKey].vegetarianCount++;
+            const sP = getDishPrice(dish, 'student');
+            if (sP > 0) canteenBuckets[cKey].pricesStudent.push(sP);
+            const eP = getDishPrice(dish, 'employee');
+            if (eP > 0) canteenBuckets[cKey].pricesEmployee.push(eP);
+            const gP = getDishPrice(dish, 'guest');
+            if (gP > 0) canteenBuckets[cKey].pricesGuest.push(gP);
+            if (clean) {
+              canteenBuckets[cKey].dishCounts[clean] = (canteenBuckets[cKey].dishCounts[clean] || 0) + 1;
+            }
+          }
+        }
+      });
+
+      // Weekday & Species tracking for main dishes
+      if (isMain) {
+        const dow = getDayOfWeekFromIso(day.date);
+        if (weekdayBuckets[dow]) {
+          weekdayBuckets[dow].count++;
+          if (diet === 'vegan') weekdayBuckets[dow].veganCount++;
+          else if (diet === 'vegetarian') weekdayBuckets[dow].vegetarianCount++;
+          const sP = getDishPrice(dish, 'student');
+          if (sP > 0) weekdayBuckets[dow].pricesStudent.push(sP);
+          const eP = getDishPrice(dish, 'employee');
+          if (eP > 0) weekdayBuckets[dow].pricesEmployee.push(eP);
+          const gP = getDishPrice(dish, 'guest');
+          if (gP > 0) weekdayBuckets[dow].pricesGuest.push(gP);
+        }
+
+        speciesList.forEach(code => {
+          if (speciesBreakdown[code] !== undefined) {
+            speciesBreakdown[code]++;
+          }
+        });
+      }
+
+      if (!clean) return;
 
       if (!dishMap[clean]) {
         let name = stripAllergenCodes(dish.name_de || dish.name_en || '');
@@ -121,6 +191,7 @@ export async function generateAllTimeStats() {
           clean,
           category: cls,
           diet,
+          species: speciesList,
           priceStudent: getDishPrice(dish, 'student'),
           priceEmployee: getDishPrice(dish, 'employee'),
           priceGuest: getDishPrice(dish, 'guest'),
@@ -133,6 +204,9 @@ export async function generateAllTimeStats() {
 
       dishMap[clean].totalCount++;
       dishMap[clean].lastSeen = day.date;
+      if (speciesList.length > 0 && (!dishMap[clean].species || dishMap[clean].species.length === 0)) {
+        dishMap[clean].species = speciesList;
+      }
       const studentPrice = getDishPrice(dish, 'student');
       if (studentPrice > 0) {
         dishMap[clean].priceStudent = studentPrice;
@@ -146,18 +220,6 @@ export async function generateAllTimeStats() {
         dishMap[clean].priceGuest = guestPrice;
       }
 
-      // Record which canteens it appeared at (without double-counting Lindenthal on unimensa)
-      const cf = getCustomFields(dish);
-      const dishOrtId = (cf['ort_id'] || '').trim();
-      const dishLocation = (cf['location'] || '').trim().toLowerCase();
-      let matchedCanteens = findCanteensForDish(dish, CANTEENS);
-      if (
-        matchedCanteens.includes('unimensa') &&
-        matchedCanteens.includes('robertkoch') &&
-        (dishOrtId === '231' || dishLocation === 'mensa lindenthal')
-      ) {
-        matchedCanteens = ['robertkoch'];
-      }
       matchedCanteens.forEach(cKey => {
         dishMap[clean].canteens[cKey] = (dishMap[clean].canteens[cKey] || 0) + 1;
       });
@@ -283,6 +345,7 @@ export async function generateAllTimeStats() {
       clean: d.clean,
       count: d.totalCount,
       diet: d.diet,
+      species: d.species || [],
       price: d.priceStudent,
       priceEmployee: d.priceEmployee,
       priceGuest: d.priceGuest,
@@ -292,6 +355,47 @@ export async function generateAllTimeStats() {
       lastSeen: d.lastSeen
     }));
 
+  const weekdayStats = [1, 2, 3, 4, 5].map(dow => {
+    const b = weekdayBuckets[dow];
+    return {
+      dow,
+      count: b.count,
+      veganCount: b.veganCount,
+      vegetarianCount: b.vegetarianCount,
+      veganPct: b.count > 0 ? Math.round((b.veganCount / b.count) * 100) : 0,
+      avgPriceStudent: avg(b.pricesStudent),
+      avgPriceEmployee: avg(b.pricesEmployee),
+      avgPriceGuest: avg(b.pricesGuest)
+    };
+  });
+
+  const canteenStats = Object.keys(CANTEENS).map(key => {
+    const b = canteenBuckets[key];
+    let topDish = '';
+    let maxCount = 0;
+    for (const [dClean, cnt] of Object.entries(b.dishCounts)) {
+      if (cnt > maxCount) {
+        maxCount = cnt;
+        topDish = dClean;
+      }
+    }
+    if (topDish && dishMap[topDish]) {
+      topDish = dishMap[topDish].name || topDish;
+    }
+    return {
+      key,
+      name: CANTEENS[key]?.name || key,
+      totalDishes: b.totalDishes,
+      mainDishes: b.mainDishes,
+      veganPct: b.mainDishes > 0 ? Math.round((b.veganCount / b.mainDishes) * 100) : 0,
+      vegetarianPct: b.mainDishes > 0 ? Math.round((b.vegetarianCount / b.mainDishes) * 100) : 0,
+      avgPriceStudent: avg(b.pricesStudent),
+      avgPriceEmployee: avg(b.pricesEmployee),
+      avgPriceGuest: avg(b.pricesGuest),
+      topDish
+    };
+  });
+
   const payload = {
     generatedAt: new Date().toISOString(),
     startDate,
@@ -299,6 +403,9 @@ export async function generateAllTimeStats() {
     openingDaysCount: datesWithMeals.size,
     totalDishes,
     dishesCount: dishesList.length,
+    speciesBreakdown,
+    weekdayStats,
+    canteenStats,
     monthlyPriceHistory,
     dishes: dishesList
   };
