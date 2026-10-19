@@ -4,3 +4,6 @@ const SUPABASE_CONFIG = {
   apiKey: "sb_publishable_G6p4Gfhzcx2AM5ToCWAChA_pY-PKF2a",
   orgId: "4c89c35f-16ac-413f-af04-ec9ffe610f67"
 };
+if (typeof window !== 'undefined') {
+  window.SUPABASE_CONFIG = SUPABASE_CONFIG;
+}

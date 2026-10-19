@@ -7,9 +7,10 @@ import {
   parseDishAllergens,
   getDishAllergens,
   evaluateDishAllergies,
-  shouldExcludeDish
+  shouldExcludeDish,
+  parseAllergensNamesMap
 } from '../src/lib/allergens.js';
-import { getDishDietType } from '../src/lib/diet.js';
+import { getDishDietType, getDishMeatIcons, dishContainsPork } from '../src/lib/diet.js';
 import { getCustomFields, stripAllergenCodes, cleanDPName, isPureDessert } from '../src/lib/dish.js';
 
 describe('isValidAllergenCode', () => {
@@ -39,14 +40,16 @@ describe('isValidAllergenCode', () => {
   });
 });
 
-describe('getDishDietType', () => {
-  it('correctly detects vegan from uppercase, lowercase and mixed tokens', () => {
+describe('getDishDietType & Meat Helpers (Bug D-02)', () => {
+  it('correctly detects vegan from uppercase and lowercase tokens', () => {
     expect(getDishDietType({ custom_fields: [{ field_id: 'food_icon', value: 'VGN' }] })).toBe('vegan');
     expect(getDishDietType({ custom_fields: [{ field_id: 'food_icon', value: 'vgn' }] })).toBe('vegan');
-    expect(getDishDietType({ custom_fields: [{ field_id: 'food_icon', value: 'vgt,Vgn' }] })).toBe('vegan');
   });
 
-  it('correctly detects vegetarian from VGT and V', () => {
+  it('resolves mixed vgt,Vgn tokens and vegan/vegetarisch menu_type conservatively to vegetarian (Bug D-02)', () => {
+    expect(getDishDietType({ custom_fields: [{ field_id: 'food_icon', value: 'vgt,Vgn' }] })).toBe('vegetarian');
+    expect(getDishDietType({ custom_fields: [{ field_id: 'menu_type', value: 'Aktion vegan/vegetarisch' }] })).toBe('vegetarian');
+    expect(getDishDietType({ custom_fields: [{ field_id: 'VGT' }] })).toBe('all');
     expect(getDishDietType({ custom_fields: [{ field_id: 'food_icon', value: 'VGT' }] })).toBe('vegetarian');
     expect(getDishDietType({ custom_fields: [{ field_id: 'food_icon', value: 'vgt' }] })).toBe('vegetarian');
     expect(getDishDietType({ custom_fields: [{ field_id: 'food_icon', value: 'V' }] })).toBe('vegetarian');
@@ -57,6 +60,30 @@ describe('getDishDietType', () => {
     expect(getDishDietType({ name_de: 'Käsespätzle (vegetarisch)', custom_fields: [] })).toBe('vegetarian');
     expect(getDishDietType({ custom_fields: [{ field_id: 'menu_type', value: 'QUERBEET VEGAN ST' }] })).toBe('vegan');
     expect(getDishDietType({ name_de: 'Rindergulasch', custom_fields: [] })).toBe('all');
+  });
+
+  it('detects meat icons and pork content accurately', () => {
+    const porkDish = { name_de: 'Schnitzel', custom_fields: [{ field_id: 'food_icon', value: 'S, R' }] };
+    expect(getDishMeatIcons(porkDish).map(i => i.code)).toEqual(['S', 'R']);
+    expect(dishContainsPork(porkDish)).toBe(true);
+
+    const speckDish = { name_de: 'Bratkartoffeln mit Speck', custom_fields: [] };
+    expect(dishContainsPork(speckDish)).toBe(true);
+
+    const poultryDish = { name_de: 'Hähnchenbrust', custom_fields: [{ field_id: 'food_icon', value: 'G' }] };
+    expect(getDishMeatIcons(poultryDish).map(i => i.code)).toEqual(['G']);
+    expect(dishContainsPork(poultryDish)).toBe(false);
+  });
+
+  it('parses allergens_names string into localized code-to-name map', () => {
+    const sampleNames = '13=Enthält Eier | contains eggs, 11w=Weizen | wheat';
+    const mapDe = parseAllergensNamesMap(sampleNames, 'de');
+    expect(mapDe['13']).toBe('Enthält Eier');
+    expect(mapDe['11w']).toBe('Weizen');
+
+    const mapEn = parseAllergensNamesMap(sampleNames, 'en');
+    expect(mapEn['13']).toBe('contains eggs');
+    expect(mapEn['11w']).toBe('wheat');
   });
 });
 

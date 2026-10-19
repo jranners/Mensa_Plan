@@ -42,7 +42,7 @@ async function run() {
     }
     
     for (const src of scriptUrls) {
-      const fullUrl = src.startsWith("http") ? src : `https://app.cloudmensa.io${src}`;
+      const fullUrl = new URL(src, targetUrl).href;
       console.log(`Checking script: ${fullUrl}`);
       
       try {
@@ -78,20 +78,21 @@ const SUPABASE_CONFIG = {
   apiKey: "${newKey}",
   orgId: "${newOrgId}"
 };
+if (typeof window !== 'undefined') {
+  window.SUPABASE_CONFIG = SUPABASE_CONFIG;
+}
 `;
           fs.writeFileSync(configPath, newConfigContent);
           console.log("data/config.js successfully written.");
 
-          // Synchronize Service Worker API_HOST and bump CACHE_NAME if sw.js exists
+          // Bump Service Worker CACHE_NAME if sw.js exists
           if (fs.existsSync(swPath)) {
             let swContent = fs.readFileSync(swPath, 'utf8');
-            const newHost = new URL(newUrl).hostname;
-            swContent = swContent.replace(/const API_HOST = '[^']+';/, `const API_HOST = '${newHost}';`);
             swContent = swContent.replace(/const CACHE_NAME = 'kstw-mensa-v(\d+)';/, (m, v) => {
               return `const CACHE_NAME = 'kstw-mensa-v${parseInt(v, 10) + 1}';`;
             });
             fs.writeFileSync(swPath, swContent);
-            console.log("sw.js cache version and API host synchronized.");
+            console.log("sw.js cache version synchronized.");
           }
 
           return;

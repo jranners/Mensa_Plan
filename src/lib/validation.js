@@ -11,18 +11,28 @@
  *   dishes: Array< {
  *     id: string | number,
  *     name_de: string,
- *     custom_fields?: Array
+ *     custom_fields?: Array,
+ *     screens?: Array | null,
+ *     category?: object | null
  *   } >
  * } >
  *
  * @param {any} data
+ * @param {{ requireNonEmptyDays?: boolean }} [options={}]
  * @returns {{ valid: boolean, error?: string }}
  */
-export function validateWeekMenu(data) {
+export function validateWeekMenu(data, options = {}) {
   if (!Array.isArray(data)) {
     return {
       valid: false,
       error: 'Menu data must be an array of days'
+    };
+  }
+
+  if (options && options.requireNonEmptyDays && data.length === 0) {
+    return {
+      valid: false,
+      error: 'Menu payload contains 0 days'
     };
   }
 
@@ -78,6 +88,20 @@ export function validateWeekMenu(data) {
           error: `Dish at index ${dishIdx} on ${day.date} custom_fields must be an array`
         };
       }
+
+      if (dish.screens != null && !Array.isArray(dish.screens)) {
+        return {
+          valid: false,
+          error: `Dish at index ${dishIdx} on ${day.date} screens must be an array`
+        };
+      }
+
+      if (dish.category != null && (typeof dish.category !== 'object' || Array.isArray(dish.category))) {
+        return {
+          valid: false,
+          error: `Dish at index ${dishIdx} on ${day.date} category must be an object`
+        };
+      }
     }
   }
 
@@ -97,5 +121,28 @@ export function validateAnnouncements(data) {
       error: 'Announcements data must be an array'
     };
   }
+
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return {
+        valid: false,
+        error: `Announcement at index ${i} must be a non-null object`
+      };
+    }
+
+    const hasValidSchema =
+      (typeof item.topic === 'string' && typeof item.content === 'string') ||
+      typeof item.title === 'string' ||
+      typeof item.text === 'string';
+
+    if (!hasValidSchema) {
+      return {
+        valid: false,
+        error: `Announcement at index ${i} is missing valid topic/content, title, or text fields`
+      };
+    }
+  }
+
   return { valid: true };
 }

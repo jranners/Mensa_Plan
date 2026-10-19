@@ -70,4 +70,37 @@ describe('Accessibility (a11y) Helpers', () => {
     release();
     expect(container.removeEventListener).toHaveBeenCalledWith('keydown', expect.any(Function));
   });
+
+  it('includes SVG/custom elements with getClientRects and avoids jumping to submit button on initial focus', () => {
+    const firstInput = { id: 'search-input', offsetWidth: 100, offsetHeight: 30, focus: vi.fn() };
+    const submitBtn = { id: 'submit-btn', offsetWidth: 80, offsetHeight: 30, focus: vi.fn() };
+    const svgFocusable = {
+      id: 'chart-point',
+      offsetWidth: undefined,
+      offsetHeight: undefined,
+      getClientRects: () => [{ width: 10, height: 10 }],
+      focus: vi.fn()
+    };
+
+    globalThis.document = { activeElement: null };
+    const origRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb) => cb();
+
+    const container = {
+      querySelectorAll: vi.fn().mockReturnValue([firstInput, svgFocusable, submitBtn]),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      contains: vi.fn().mockReturnValue(false)
+    };
+
+    const release = trapFocus(container);
+    // Should focus firstInput instead of submitBtn
+    expect(firstInput.focus).toHaveBeenCalled();
+    expect(submitBtn.focus).not.toHaveBeenCalled();
+
+    release();
+    globalThis.requestAnimationFrame = origRaf;
+    delete globalThis.document;
+  });
 });
+

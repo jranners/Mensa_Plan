@@ -84,4 +84,20 @@ describe('Hours Module', () => {
     expect(statusClosedDay.isOpen).toBe(false);
     expect(statusClosedDay.isClosed).toBe(true);
   });
+
+  it('does not match Mo - Do infokurz fallback on Friday (dayOfWeek = 5)', () => {
+    const customCanteen = {
+      infokurz: 'Mo - Do 11:30 - 15:00 Uhr'
+    };
+
+    const thuHours = getCanteenHoursForDay('custom-canteen', 4, customCanteen, 'de');
+    expect(thuHours.isOpenToday).toBe(true);
+    expect(thuHours.startHour).toBe(11.5);
+    expect(thuHours.endHour).toBe(15.0);
+
+    const friHours = getCanteenHoursForDay('custom-canteen', 5, customCanteen, 'de');
+    expect(friHours.isOpenToday).toBe(false);
+    expect(friHours.formatted).toBe('Geschlossen');
+  });
 });
+

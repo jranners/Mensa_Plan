@@ -48,7 +48,7 @@ async function main() {
   }
 
   const data = await response.json();
-  const validation = validateWeekMenu(data);
+  const validation = validateWeekMenu(data, { requireNonEmptyDays: true });
 
   if (!validation.valid) {
     console.error(`RPC response failed schema validation: ${validation.error}`);

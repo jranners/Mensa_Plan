@@ -353,3 +353,48 @@ export function evaluateDishAllergies(dish, selectedAllergyGroups = []) {
 export function shouldExcludeDish(dish, selectedAllergyGroups) {
   return evaluateDishAllergies(dish, selectedAllergyGroups).shouldExclude;
 }
+
+/**
+ * Parses customFields.allergens_names (format "13=Enthält Eier | contains eggs, 20=...")
+ * into a Record<string, string> mapping lowercase code to localized description.
+ *
+ * @param {string|object} allergensNamesText - Raw allergens_names string or dish object
+ * @param {'de'|'en'} [language='de']
+ * @returns {Record<string, string>}
+ */
+export function parseAllergensNamesMap(allergensNamesText, language = 'de') {
+  const allergenMap = {};
+  const rawText = (allergensNamesText && typeof allergensNamesText === 'object')
+    ? (getCustomFields(allergensNamesText).allergens_names || '')
+    : allergensNamesText;
+
+  if (!rawText || typeof rawText !== 'string') {
+    return allergenMap;
+  }
+
+  const parts = rawText
+    .split(/,\s*(?=[0-9]{1,2}[a-z]{0,3}\s*=)/i)
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  for (const part of parts) {
+    const eqIdx = part.indexOf('=');
+    if (eqIdx !== -1) {
+      const code = part.substring(0, eqIdx).trim();
+      const val = part.substring(eqIdx + 1).trim();
+
+      const pipeIdx = val.indexOf('|');
+      let nameDe = val;
+      let nameEn = val;
+      if (pipeIdx !== -1) {
+        nameDe = val.substring(0, pipeIdx).trim();
+        nameEn = val.substring(pipeIdx + 1).trim();
+      }
+      if (isValidAllergenCode(code)) {
+        allergenMap[code.toLowerCase()] = language === 'en' ? (nameEn || nameDe) : (nameDe || nameEn);
+      }
+    }
+  }
+
+  return allergenMap;
+}

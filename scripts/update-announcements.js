@@ -13,6 +13,23 @@ function cleanText(text) {
     .trim();
 }
 
+function extractValidUntil(text) {
+  if (!text) return null;
+  const regex = /\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/g;
+  let match;
+  let latestIso = null;
+  while ((match = regex.exec(text)) !== null) {
+    const dd = match[1].padStart(2, '0');
+    const mm = match[2].padStart(2, '0');
+    const yyyy = match[3];
+    const iso = `${yyyy}-${mm}-${dd}`;
+    if (!latestIso || iso > latestIso) {
+      latestIso = iso;
+    }
+  }
+  return latestIso;
+}
+
 async function run() {
   const url = "https://www.kstw.de/";
   const outputPath = path.join(__dirname, '../data/announcements.json');
@@ -61,20 +78,18 @@ async function run() {
       // Content is the rest of the inner HTML
       const contentHtml = innerHtml.replace(topicRegex, '');
       const content = cleanText(contentHtml);
+      const rawText = cleanText(innerHtml);
+      const validUntil = extractValidUntil(`${topic} ${content}`);
       
       // Check if this announcement already exists
       const existing = existingAnnouncements.find(a => a.topic === topic && a.content === content);
-      const now = Date.now();
-      const existingDate = existing && existing.dateFetched ? new Date(existing.dateFetched).getTime() : 0;
-      // Preserve timestamp if under 12 hours old to prevent commit spam
-      const dateFetched = (existing && (now - existingDate < 12 * 60 * 60 * 1000))
-        ? existing.dateFetched
-        : new Date().toISOString();
+      const dateFetched = existing?.dateFetched || new Date().toISOString();
 
       announcements.push({
         topic,
         content,
-        rawText: cleanText(innerHtml),
+        rawText,
+        validUntil,
         dateFetched
       });
     }

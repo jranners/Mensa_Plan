@@ -131,7 +131,8 @@ export function getCanteenHoursForDay(canteenKey, dayOfWeek, canteen = null, lan
     for (const line of lines) {
       const lineLower = line.toLowerCase();
       const matchesDay = searchTerms.some(term => lineLower.includes(term)) ||
-        (dayOfWeek >= 1 && dayOfWeek <= 5 && (lineLower.includes('mo - fr') || lineLower.includes('mo - do')));
+        (dayOfWeek >= 1 && dayOfWeek <= 5 && lineLower.includes('mo - fr')) ||
+        (dayOfWeek >= 1 && dayOfWeek <= 4 && lineLower.includes('mo - do'));
 
       if (matchesDay) {
         const match = line.match(/(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})/);

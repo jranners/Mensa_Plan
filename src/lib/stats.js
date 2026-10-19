@@ -6,6 +6,8 @@ import {
   stripAllergenCodes,
   cleanDPName,
   detectIncludedSides,
+  extractDishCounter,
+  getDishDisplayName,
   SIDE_PRICES_BY_TARIFF
 } from './dish.js';
 import { escapeHtml } from './html.js';
@@ -162,16 +164,43 @@ export function aggregateMenuStats(menuData, existingStats = null) {
 
   if (hasNewData) {
     stats.recordedDates = Array.from(recordedSet);
-    stats.lastUpdated = new Date().toISOString().split('T')[0];
+    stats.lastUpdated = getBerlinTodayDate();
     return saveStats(stats);
   }
 
   return stats;
 }
 
+function getAllTimeTariffRatio(monthlyPriceHistory, tariff) {
+  if (!tariff || tariff === 'student') return 1;
+  const targetKey = (tariff === 'guest' || tariff === 'external') ? 'guest' : 'employee';
+  const fallbackRatio = targetKey === 'employee' ? 1.42 : 1.88;
+
+  if (!Array.isArray(monthlyPriceHistory) || monthlyPriceHistory.length === 0) {
+    return fallbackRatio;
+  }
+
+  const ratios = [];
+  for (const m of monthlyPriceHistory) {
+    const sRaw = m?.tariffs?.student?.raw;
+    const tRaw = m?.tariffs?.[targetKey]?.raw;
+    if (!sRaw || !tRaw) continue;
+    for (const dietKey of ['vegan', 'vegetarian', 'meat']) {
+      const sVal = sRaw[dietKey];
+      const tVal = tRaw[dietKey];
+      if (typeof sVal === 'number' && sVal > 0 && typeof tVal === 'number' && tVal > 0) {
+        ratios.push(tVal / sVal);
+      }
+    }
+  }
+
+  if (ratios.length === 0) return fallbackRatio;
+  return ratios.reduce((a, b) => a + b, 0) / ratios.length;
+}
+
 /**
  * Computes live instant stats for loaded menu days with rich filtering options:
- * - timeframe ('all' | 'week')
+ * - timeframe ('all' | 'week' | 'all-time')
  * - category ('main' | 'side' | 'dessert' | 'all')
  * - canteenScope ('all' | 'selected')
  *
@@ -202,6 +231,7 @@ export function computeLiveMenuStats(menuData, options = {}) {
     const endDate = allTimeData.endDate || todayIso;
     const activeDaysCount = allTimeData.openingDaysCount || 0;
     const formattedRange = formatDateRange(startDate, endDate);
+    const tariffRatio = getAllTimeTariffRatio(allTimeData.monthlyPriceHistory, tariff);
 
     const dishMap = {};
     let priceSum = 0;
@@ -238,7 +268,21 @@ export function computeLiveMenuStats(menuData, options = {}) {
       else if (diet === 'vegetarian') live.vegetarianCount += effectiveCount;
       else live.otherCount += effectiveCount;
 
-      const price = dish.price;
+      let price = dish.price;
+      if (tariff === 'employee') {
+        if (dish.priceEmployee != null && dish.priceEmployee > 0) {
+          price = dish.priceEmployee;
+        } else if (price != null && price > 0) {
+          price = Math.round(price * tariffRatio * 100) / 100;
+        }
+      } else if (tariff === 'guest' || tariff === 'external') {
+        if (dish.priceGuest != null && dish.priceGuest > 0) {
+          price = dish.priceGuest;
+        } else if (price != null && price > 0) {
+          price = Math.round(price * tariffRatio * 100) / 100;
+        }
+      }
+
       if (price != null && price > 0) {
         priceSum += price * effectiveCount;
         priceCount += effectiveCount;
@@ -484,9 +528,7 @@ export function computeLiveMenuStats(menuData, options = {}) {
     activeFavoritesCount: matchedFavorites.length,
     dishCounts,
     recordedDates: datesWithMeals,
-    priceHistory: (allTimeData && Array.isArray(allTimeData.monthlyPriceHistory))
-      ? allTimeData.monthlyPriceHistory
-      : computeLivePriceHistory(filteredDays, tariff, selectedCanteens, canteensMap, canteenScope)
+    priceHistory: computeLivePriceHistory(filteredDays, tariff, selectedCanteens, canteensMap, canteenScope)
   };
 }
 
@@ -645,7 +687,7 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
     const y = getY(p);
     return `
       <line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${(width - padRight).toFixed(1)}" y2="${y.toFixed(1)}" stroke="currentColor" stroke-opacity="0.1" stroke-dasharray="3 3" />
-      <text x="${(padLeft - 6).toFixed(1)}" y="${(y + 3).toFixed(1)}" font-size="8.5" fill="currentColor" opacity="0.6" text-anchor="end" font-weight="600">${p.toFixed(2).replace('.', ',')}€</text>
+      <text x="${(padLeft - 6).toFixed(1)}" y="${(y + 3).toFixed(1)}" font-size="9.5" fill="currentColor" opacity="0.6" text-anchor="end" font-weight="600">${p.toFixed(2).replace('.', ',')}€</text>
     `;
   }).join('');
 
@@ -653,7 +695,7 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
     const x = getX(i);
     const isCurrentActive = activeMonth && (d.month === activeMonth || d.label === activeMonth);
     const fillClass = isCurrentActive ? 'font-bold fill-primary-container dark:fill-price-badge opacity-100' : 'fill-currentColor opacity-65';
-    return `<text x="${x.toFixed(1)}" y="${(height - 8).toFixed(1)}" font-size="9" class="${fillClass}" text-anchor="middle">${escapeHtml(d.label || d.month)}</text>`;
+    return `<text x="${x.toFixed(1)}" y="${(height - 8).toFixed(1)}" font-size="10" class="${fillClass}" text-anchor="middle">${escapeHtml(d.label || d.month)}</text>`;
   }).join('');
 
   let transitionMarker = '';
@@ -663,7 +705,7 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
     const transNote = t.statsChartTransitionNote || "⚡ Sep: Umstellung";
     transitionMarker = `
       <line x1="${sepX.toFixed(1)}" y1="${padTop}" x2="${sepX.toFixed(1)}" y2="${(padTop + chartH).toFixed(1)}" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.75" />
-      <text x="${sepX.toFixed(1)}" y="${(padTop - 5).toFixed(1)}" font-size="7.5" fill="#f59e0b" text-anchor="middle" font-weight="700">${escapeHtml(transNote)}</text>
+      <text x="${sepX.toFixed(1)}" y="${(padTop - 5).toFixed(1)}" font-size="9.5" fill="#f59e0b" text-anchor="middle" font-weight="700">${escapeHtml(transNote)}</text>
     `;
   }
 
@@ -681,20 +723,23 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
   }
 
   function buildDots(points, color, dietLabel) {
+    const escapedDietLabel = escapeHtml(dietLabel);
     return points.map(p => {
       const isCurrent = activeMonth && (p.item.month === activeMonth || p.item.label === activeMonth);
-      const r = isCurrent ? 5 : 3.5;
+      const r = isCurrent ? 6 : 4.5;
       const sw = isCurrent ? 2.5 : 1.5;
       const formattedPrice = p.val.toFixed(2).replace('.', ',');
+      const escapedMonth = escapeHtml(p.item.month || p.item.label || '');
+      const escapedLabel = escapeHtml(p.item.label || p.item.month || '');
       return `
         <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="${color}" stroke="#ffffff" stroke-width="${sw}"
           class="cursor-pointer transition-transform hover:scale-125"
-          data-action="select-chart-month" data-month="${p.item.month || p.item.label}"
+          data-action="select-chart-month" data-month="${escapedMonth}"
           role="button"
           tabindex="0"
-          aria-label="${dietLabel}: ${formattedPrice} € (${p.item.label})"
+          aria-label="${escapedDietLabel}: ${formattedPrice} € (${escapedLabel})"
         >
-          <title>${dietLabel} (${p.item.label}): ${formattedPrice} €</title>
+          <title>${escapedDietLabel} (${escapedLabel}): ${formattedPrice} €</title>
         </circle>
       `;
     }).join('');
@@ -703,9 +748,10 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
   const veganPoints = getLineData('vegan');
   const vegPoints = getLineData('vegetarian');
   const meatPoints = getLineData('meat');
+  const chartTitle = escapeHtml(t.statsPriceChartTitle || t.statsChartTitle || 'Preisentwicklung');
 
   return `
-    <svg viewBox="0 0 ${width} ${height}" class="w-full h-auto text-slate-700 dark:text-slate-300 select-none overflow-visible" role="img" aria-label="Preisentwicklung">
+    <svg viewBox="0 0 ${width} ${height}" class="w-full h-auto text-slate-700 dark:text-slate-300 select-none overflow-visible" role="group" aria-label="${chartTitle}">
       ${gridLines}
       ${transitionMarker}
       <!-- Lines -->
@@ -713,12 +759,121 @@ export function generatePriceChartSvg(priceHistory, options = {}) {
       ${vegPoints.length > 1 ? `<path d="${buildPath(vegPoints)}" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />` : ''}
       ${meatPoints.length > 1 ? `<path d="${buildPath(meatPoints)}" fill="none" stroke="#f43f5e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />` : ''}
       <!-- Interactive Dots -->
-      ${buildDots(veganPoints, '#10b981', 'Vegan')}
-      ${buildDots(vegPoints, '#f59e0b', 'Vegetarisch')}
-      ${buildDots(meatPoints, '#f43f5e', 'Fleisch & Fisch')}
+      ${buildDots(veganPoints, '#10b981', t.statsVegan || 'Vegan')}
+      ${buildDots(vegPoints, '#f59e0b', t.statsVegetarian || 'Vegetarisch')}
+      ${buildDots(meatPoints, '#f43f5e', t.statsMeat || 'Fleisch & Fisch')}
       <!-- X-Labels -->
       ${xLabels}
     </svg>
   `;
+}
+
+/**
+ * Scans upcoming menuData across selectedCanteens for favorite dishes and computes
+ * historical recurrence insights from allTimeData.
+ *
+ * @param {Array<{ date: string, dishes: Array }>} menuData
+ * @param {object|null} allTimeData
+ * @param {object} [options={}]
+ * @returns {{
+ *   upcomingHits: Array<{ date: string, dishName: string, price: number|null, canteenKey: string, canteenName: string, counter: string, diet: string }>,
+ *   recurrenceInsights: Array<{ dishName: string, count: number, avgIntervalDays: number, lastSeen: string, diet: string }>
+ * }}
+ */
+export function computeFavoritesRadar(menuData, allTimeData = null, options = {}) {
+  const {
+    favorites = [],
+    isFavoriteFn = null,
+    selectedCanteens = [],
+    canteensMap = null,
+    tariff = 'student',
+    language = 'de',
+    todayIso = null
+  } = options;
+
+  const favSet = new Set(Array.isArray(favorites) ? favorites.map(f => cleanDishNameForFavorite(f)).filter(Boolean) : []);
+  const checkFav = typeof isFavoriteFn === 'function'
+    ? (cleanName) => Boolean(cleanName && isFavoriteFn(cleanName))
+    : (cleanName) => Boolean(cleanName && favSet.has(cleanName));
+
+  const upcomingHits = [];
+  if (Array.isArray(menuData) && menuData.length > 0) {
+    const sortedDays = [...menuData]
+      .filter(d => d && d.date && Array.isArray(d.dishes) && (!todayIso || d.date >= todayIso))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    for (const day of sortedDays) {
+      if (canteensMap && typeof canteensMap === 'object') {
+        const canteenKeys = (Array.isArray(selectedCanteens) && selectedCanteens.length > 0)
+          ? selectedCanteens
+          : Object.keys(canteensMap);
+
+        for (const cKey of canteenKeys) {
+          const canteen = canteensMap[cKey];
+          if (!canteen) continue;
+          const seenClean = new Set();
+
+          for (const dish of day.dishes) {
+            if (!dish) continue;
+            if (!getCanteenKeyFromDish(dish, cKey, canteen)) continue;
+            const cleanName = cleanDishNameForFavorite(dish);
+            if (!cleanName || seenClean.has(cleanName)) continue;
+            if (checkFav(cleanName)) {
+              seenClean.add(cleanName);
+              upcomingHits.push({
+                date: day.date,
+                dishName: getDishDisplayName(dish, language) || dish.name_de || cleanName,
+                price: getDishPrice(dish, tariff),
+                canteenKey: cKey,
+                canteenName: canteen.name || cKey,
+                counter: extractDishCounter(dish, cKey),
+                diet: getDishDietType(dish)
+              });
+            }
+          }
+        }
+      } else {
+        const seenClean = new Set();
+        const fallbackCanteenKey = (Array.isArray(selectedCanteens) && selectedCanteens[0]) || '';
+        for (const dish of day.dishes) {
+          if (!dish) continue;
+          const cleanName = cleanDishNameForFavorite(dish);
+          if (!cleanName || seenClean.has(cleanName)) continue;
+          if (checkFav(cleanName)) {
+            seenClean.add(cleanName);
+            upcomingHits.push({
+              date: day.date,
+              dishName: getDishDisplayName(dish, language) || dish.name_de || cleanName,
+              price: getDishPrice(dish, tariff),
+              canteenKey: fallbackCanteenKey,
+              canteenName: fallbackCanteenKey,
+              counter: extractDishCounter(dish, fallbackCanteenKey),
+              diet: getDishDietType(dish)
+            });
+          }
+        }
+      }
+    }
+  }
+
+  const recurrenceInsights = [];
+  if (allTimeData && Array.isArray(allTimeData.dishes)) {
+    const openingDays = allTimeData.openingDaysCount || 200;
+    for (const d of allTimeData.dishes) {
+      if (!d || !d.count || d.count <= 0) continue;
+      const cleanName = d.clean || cleanDishNameForFavorite(d.name || '');
+      if (checkFav(cleanName)) {
+        recurrenceInsights.push({
+          dishName: d.name || cleanName,
+          count: d.count,
+          avgIntervalDays: Math.max(1, Math.round(openingDays / d.count)),
+          lastSeen: d.lastSeen || '',
+          diet: d.diet || 'all'
+        });
+      }
+    }
+  }
+
+  return { upcomingHits, recurrenceInsights };
 }
 

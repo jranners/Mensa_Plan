@@ -83,11 +83,49 @@ describe('Schema Validation (validateWeekMenu)', () => {
     expect(validateWeekMenu(badCustomFields).valid).toBe(false);
   });
 
-  it('validates announcements array', () => {
+  it('enforces requireNonEmptyDays when option is set', () => {
+    expect(validateWeekMenu([]).valid).toBe(true);
+    const res = validateWeekMenu([], { requireNonEmptyDays: true });
+    expect(res.valid).toBe(false);
+    expect(res.error).toBe('Menu payload contains 0 days');
+  });
+
+  it('rejects dishes with invalid screens or category types', () => {
+    const badScreens = [
+      {
+        date: '2026-10-05',
+        dishes: [{ id: '123', name_de: 'Pasta', screens: 'not-an-array' }]
+      }
+    ];
+    expect(validateWeekMenu(badScreens).valid).toBe(false);
+
+    const badCategoryArray = [
+      {
+        date: '2026-10-05',
+        dishes: [{ id: '123', name_de: 'Pasta', category: ['not-an-object'] }]
+      }
+    ];
+    expect(validateWeekMenu(badCategoryArray).valid).toBe(false);
+
+    const badCategoryPrimitive = [
+      {
+        date: '2026-10-05',
+        dishes: [{ id: '123', name_de: 'Pasta', category: 'Beilage' }]
+      }
+    ];
+    expect(validateWeekMenu(badCategoryPrimitive).valid).toBe(false);
+  });
+
+  it('validates announcements array and rejects malformed entries', () => {
     expect(validateAnnouncements([]).valid).toBe(true);
+    expect(validateAnnouncements([{ topic: 'Mensa Info', content: 'Heute geschlossen', dateFetched: '2026-10-19T10:00:00Z' }]).valid).toBe(true);
     expect(validateAnnouncements([{ title: 'Info' }]).valid).toBe(true);
+    expect(validateAnnouncements([{ text: 'Hinweis' }]).valid).toBe(true);
     expect(validateAnnouncements(null).valid).toBe(false);
     expect(validateAnnouncements('text').valid).toBe(false);
+    expect(validateAnnouncements([null]).valid).toBe(false);
+    expect(validateAnnouncements([123]).valid).toBe(false);
+    expect(validateAnnouncements([{}]).valid).toBe(false);
   });
 });
 

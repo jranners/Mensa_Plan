@@ -9,6 +9,10 @@ import {
   calculateBuffetPrice
 } from '../src/lib/dish.js';
 import {
+  dishMatchesSearchAndQuickFilters,
+  hasMatchingFavoriteOnDay
+} from '../src/lib/filters.js';
+import {
   getFavoritesV2,
   toggleFavoriteV2,
   isFavoriteV2,
@@ -18,12 +22,16 @@ import {
   FAVORITES_V2_KEY
 } from '../src/lib/storage.js';
 
-describe('Dish Features (Favorites, Tariffs, Buffet)', () => {
+describe('Dish Features (Favorites, Tariffs, Buffet, Quick Filters)', () => {
   describe('cleanDishNameForFavorite', () => {
-    it('normalizes dish names by stripping allergens, markers and lowercasing', () => {
+    it('normalizes dish names by stripping allergens, markers, ERP suffixes and lowercasing', () => {
       expect(cleanDishNameForFavorite({ name_de: 'Spaghetti Bolognese (13, 20)' })).toBe('spaghetti bolognese');
       expect(cleanDishNameForFavorite({ name_de: 'Pommes Frites [TK]' })).toBe('pommes frites');
+      expect(cleanDishNameForFavorite({ name_de: 'Pommes Frites 8 mm frisch Vegan' })).toBe('pommes frites');
+      expect(cleanDishNameForFavorite({ name_de: 'Kartoffelspalten 1 / 4 Schnitt frisch' })).toBe('kartoffelspalten');
+      expect(cleanDishNameForFavorite({ name_de: 'Milchreis Eigenproduktion Standard' })).toBe('milchreis');
       expect(cleanDishNameForFavorite({ name_de: 'Veganes Chili (Eigenproduktion) [Vegan]' })).toBe('veganes chili');
+      expect(cleanDishNameForFavorite({ name_de: 'Currywurst (2, 3, 20) mit Pommes' })).toBe('currywurst mit pommes');
       expect(cleanDishNameForFavorite('  Gemüsepfanne   (17, 18)  ')).toBe('gemüsepfanne');
     });
 
@@ -160,4 +168,78 @@ describe('Dish Features (Favorites, Tariffs, Buffet)', () => {
       expect(getTariff(storage)).toBe('student');
     });
   });
+
+  describe('Search and Quick Filters (src/lib/filters.js)', () => {
+    const veganMain = {
+      name_de: 'No Butter Chicken',
+      description_de: 'Mit Basmatireis',
+      price: 2.45,
+      custom_fields: [
+        { field_id: 'food_icon', value: 'VGN' },
+        { field_id: 'ort_id', value: '201' }
+      ]
+    };
+
+    const porkMain = {
+      name_de: 'Schweineschnitzel Wiener Art',
+      price: 3.90,
+      custom_fields: [
+        { field_id: 'food_icon', value: 'S' },
+        { field_id: 'ort_id', value: '201' }
+      ]
+    };
+
+    const dessertDish = {
+      name_de: 'Schokopudding',
+      price: 0.80,
+      category: { name_de: 'Dessert' },
+      custom_fields: [{ field_id: 'ort_id', value: '201' }]
+    };
+
+    it('evaluates quick filters (under250, excludePork, favoritesOnly, diet) and search query', () => {
+      expect(dishMatchesSearchAndQuickFilters(veganMain, {
+        under250: true,
+        excludePork: true,
+        searchQuery: 'butter'
+      })).toBe(true);
+
+      expect(dishMatchesSearchAndQuickFilters(porkMain, {
+        under250: true
+      })).toBe(false);
+
+      expect(dishMatchesSearchAndQuickFilters(porkMain, {
+        excludePork: true
+      })).toBe(false);
+
+      expect(dishMatchesSearchAndQuickFilters(dessertDish, {
+        diet: 'vegan'
+      })).toBe(false);
+
+      expect(dishMatchesSearchAndQuickFilters(veganMain, {
+        favoritesOnly: true,
+        favorites: ['no butter chicken']
+      })).toBe(true);
+
+      expect(dishMatchesSearchAndQuickFilters(veganMain, {
+        favoritesOnly: true,
+        favorites: ['spaghetti bolognese']
+      })).toBe(false);
+    });
+
+    it('detects matching favorites on a day scoped to canteen and diet', () => {
+      const day = { date: '2026-10-05', dishes: [veganMain, porkMain] };
+      expect(hasMatchingFavoriteOnDay(day, {
+        favorites: ['no butter chicken'],
+        selectedCanteens: ['unimensa'],
+        diet: 'vegan'
+      })).toBe(true);
+
+      expect(hasMatchingFavoriteOnDay(day, {
+        favorites: ['schweineschnitzel wiener art'],
+        selectedCanteens: ['unimensa'],
+        diet: 'vegan'
+      })).toBe(false);
+    });
+  });
 });
+

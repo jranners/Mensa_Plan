@@ -10,6 +10,13 @@ const berlinDateFormatter = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit'
 });
 
+const berlinTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Berlin',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false
+});
+
 /**
  * Returns today's ISO date string (YYYY-MM-DD) in Europe/Berlin timezone.
  *
@@ -18,6 +25,27 @@ const berlinDateFormatter = new Intl.DateTimeFormat('en-CA', {
  */
 export function getBerlinTodayDate(date = new Date()) {
   return berlinDateFormatter.format(date);
+}
+
+/**
+ * Returns the current hour as a decimal number in Europe/Berlin timezone (e.g. 12.5 for 12:30).
+ *
+ * @param {Date} [now=new Date()]
+ * @returns {number}
+ */
+export function getBerlinHourDecimal(now = new Date()) {
+  const parts = berlinTimeFormatter.formatToParts(now);
+  let hours = 0;
+  let minutes = 0;
+  for (const p of parts) {
+    if (p.type === 'hour') {
+      hours = parseInt(p.value, 10);
+      if (hours === 24) hours = 0;
+    } else if (p.type === 'minute') {
+      minutes = parseInt(p.value, 10);
+    }
+  }
+  return hours + minutes / 60;
 }
 
 /**
@@ -71,9 +99,13 @@ export function getFetchDateRange(now = new Date()) {
   const monday = new Date(parts.year, parts.month - 1, parts.day - daysSinceMonday, 12, 0, 0);
   const sundayTwoWeeksLater = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 13, 12, 0, 0);
 
+  const startDate = getBerlinTodayDate(monday);
+  const endDate = getBerlinTodayDate(sundayTwoWeeksLater);
   return {
-    startDate: getBerlinTodayDate(monday),
-    endDate: getBerlinTodayDate(sundayTwoWeeksLater)
+    startDate,
+    endDate,
+    startIso: startDate,
+    endIso: endDate
   };
 }
 
@@ -87,11 +119,8 @@ export function getFetchDateRange(now = new Date()) {
  * @returns {string}
  */
 export function formatDateSelector(isoDate, todayIso, lang = 'de') {
-  if (isoDate === todayIso) {
-    return lang === 'de' ? 'Heute' : 'Today';
-  }
   const parts = parseIsoParts(isoDate);
-  if (!parts) return isoDate;
+  if (!parts) return { dayName: String(isoDate || ''), dayNum: '', label: String(isoDate || ''), isToday: false };
 
   const dt = new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0);
   const dayNames = {
@@ -99,7 +128,17 @@ export function formatDateSelector(isoDate, todayIso, lang = 'de') {
     en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   };
   const dayStr = (dayNames[lang] || dayNames.de)[dt.getDay()];
-  return `${dayStr} ${parts.day}`;
+  const isToday = isoDate === todayIso;
+  const dayName = isToday ? (lang === 'de' ? 'Heute' : 'Today') : dayStr;
+  const dayNum = String(parts.day);
+  const label = isToday ? dayName : `${dayName} ${dayNum}`;
+
+  return {
+    dayName,
+    dayNum,
+    label,
+    isToday
+  };
 }
 
 /**

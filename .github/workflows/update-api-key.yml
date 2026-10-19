@@ -6,6 +6,10 @@ on:
     - cron: '0 0,12 * * *'       # Zweimal täglich als Fallback für den API-Key (täglich um 00:00 und 12:00 Uhr)
   workflow_dispatch:            # Ermöglicht manuellen Start im GitHub-Interface
 
+concurrency:
+  group: 'update-api-key'
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -31,11 +35,14 @@ jobs:
         continue-on-error: true
 
       - name: Run All-Time Stats Aggregator
+        if: github.event.schedule == '0 0,12 * * *' || github.event_name == 'workflow_dispatch'
         run: node scripts/update-all-time-stats.mjs
         continue-on-error: true
 
+      - name: Validate RPC Health
+        run: node scripts/check-rpc.mjs
+
       - name: Commit and Push Changes
-        if: always()
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -47,6 +54,3 @@ jobs:
           else
             echo "No changes in credentials or announcements detected."
           fi
-
-      - name: Validate RPC Health
-        run: node scripts/check-rpc.mjs

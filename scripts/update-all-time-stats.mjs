@@ -5,20 +5,35 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Read Supabase config
+// Read Supabase config safely via regex
 const configPath = path.join(__dirname, '../data/config.js');
 const src = fs.readFileSync(configPath, 'utf8');
-const cfg = new Function(src + '; return SUPABASE_CONFIG;')();
+const urlMatch = src.match(/url:\s*["']([^"']+)["']/);
+const keyMatch = src.match(/apiKey:\s*["']([^"']+)["']/);
+const orgMatch = src.match(/orgId:\s*["']([^"']+)["']/);
+
+if (!urlMatch || !keyMatch || !orgMatch) {
+  throw new Error('Failed to parse SUPABASE_CONFIG from data/config.js');
+}
+
+const cfg = {
+  url: urlMatch[1],
+  apiKey: keyMatch[1],
+  orgId: orgMatch[1]
+};
 
 import { CANTEENS } from '../data/canteens.js';
-import { getCanteenKeyFromDish } from '../src/lib/canteen-match.js';
+import { findCanteensForDish } from '../src/lib/canteen-match.js';
 import { getDishDietType } from '../src/lib/diet.js';
 import {
+  getCustomFields,
   getDishPrice,
   cleanDishNameForFavorite,
   classifyDish,
   stripAllergenCodes,
-  cleanDPName
+  cleanDPName,
+  detectIncludedSides,
+  SIDE_PRICES_BY_TARIFF
 } from '../src/lib/dish.js';
 
 async function fetchInterval(start, end) {
@@ -36,8 +51,7 @@ async function fetchInterval(start, end) {
     })
   });
   if (!res.ok) {
-    console.error(`Error fetching ${start}..${end}: HTTP ${res.status}`);
-    return [];
+    throw new Error(`Error fetching ${start}..${end}: HTTP ${res.status}`);
   }
   return await res.json();
 }
@@ -51,23 +65,33 @@ export async function generateAllTimeStats() {
   const currentMonth = now.getMonth() + 1; // 1-12
 
   const intervals = [];
-  // Database starts around 2026-01-20
-  intervals.push(['2026-01-20', '2026-01-31']);
-
-  for (let m = 2; m <= currentMonth; m++) {
-    const startStr = `${currentYear}-${String(m).padStart(2, '0')}-01`;
-    const nextMonth = m === 12 ? 1 : m + 1;
-    const nextYear = m === 12 ? currentYear + 1 : currentYear;
-    // For current month, query up to end of next week (or month end)
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
-    intervals.push([startStr, endStr]);
+  for (let year = 2026; year <= currentYear; year++) {
+    const endMonth = year === currentYear ? currentMonth : 12;
+    for (let month = 1; month <= endMonth; month++) {
+      if (year === 2026 && month === 1) {
+        // Database starts around 2026-01-20
+        intervals.push(['2026-01-20', '2026-01-31']);
+      } else {
+        const lastDay = new Date(year, month, 0).getDate();
+        const mm = String(month).padStart(2, '0');
+        const dd = String(lastDay).padStart(2, '0');
+        intervals.push([`${year}-${mm}-01`, `${year}-${mm}-${dd}`]);
+      }
+    }
   }
 
-  const allDays = [];
+  const dayMap = new Map();
   for (const [s, e] of intervals) {
     const days = await fetchInterval(s, e);
-    allDays.push(...days);
+    if (Array.isArray(days)) {
+      for (const day of days) {
+        if (day && day.date) {
+          dayMap.set(day.date, day);
+        }
+      }
+    }
   }
+  const allDays = Array.from(dayMap.values());
 
   const datesWithMeals = new Set();
   const dishMap = {};
@@ -98,6 +122,8 @@ export async function generateAllTimeStats() {
           category: cls,
           diet,
           priceStudent: getDishPrice(dish, 'student'),
+          priceEmployee: getDishPrice(dish, 'employee'),
+          priceGuest: getDishPrice(dish, 'guest'),
           totalCount: 0,
           canteens: {},
           firstSeen: day.date,
@@ -108,15 +134,32 @@ export async function generateAllTimeStats() {
       dishMap[clean].totalCount++;
       dishMap[clean].lastSeen = day.date;
       const studentPrice = getDishPrice(dish, 'student');
-      if (!dishMap[clean].priceStudent && studentPrice) {
+      if (studentPrice > 0) {
         dishMap[clean].priceStudent = studentPrice;
       }
+      const employeePrice = getDishPrice(dish, 'employee');
+      if (employeePrice > 0) {
+        dishMap[clean].priceEmployee = employeePrice;
+      }
+      const guestPrice = getDishPrice(dish, 'guest');
+      if (guestPrice > 0) {
+        dishMap[clean].priceGuest = guestPrice;
+      }
 
-      // Record which canteens it appeared at
-      Object.keys(CANTEENS).forEach(cKey => {
-        if (getCanteenKeyFromDish(dish, cKey, CANTEENS[cKey])) {
-          dishMap[clean].canteens[cKey] = (dishMap[clean].canteens[cKey] || 0) + 1;
-        }
+      // Record which canteens it appeared at (without double-counting Lindenthal on unimensa)
+      const cf = getCustomFields(dish);
+      const dishOrtId = (cf['ort_id'] || '').trim();
+      const dishLocation = (cf['location'] || '').trim().toLowerCase();
+      let matchedCanteens = findCanteensForDish(dish, CANTEENS);
+      if (
+        matchedCanteens.includes('unimensa') &&
+        matchedCanteens.includes('robertkoch') &&
+        (dishOrtId === '231' || dishLocation === 'mensa lindenthal')
+      ) {
+        matchedCanteens = ['robertkoch'];
+      }
+      matchedCanteens.forEach(cKey => {
+        dishMap[clean].canteens[cKey] = (dishMap[clean].canteens[cKey] || 0) + 1;
       });
     });
   });
@@ -127,7 +170,6 @@ export async function generateAllTimeStats() {
 
   // Compute monthly price history per diet and tariff (raw vs normalized)
   const monthBuckets = {};
-  const { detectIncludedSides, SIDE_PRICES_BY_TARIFF } = await import('../src/lib/dish.js');
 
   allDays.forEach(day => {
     if (!day || !Array.isArray(day.dishes) || !day.date) return;
@@ -165,11 +207,13 @@ export async function generateAllTimeStats() {
 
   const avg = arr => arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100 : null;
 
-  const monthLabels = {
-    '2026-01': 'Jan', '2026-02': 'Feb', '2026-03': 'Mär', '2026-04': 'Apr',
-    '2026-05': 'Mai', '2026-06': 'Jun', '2026-07': 'Jul', '2026-08': 'Aug',
-    '2026-09': 'Sep', '2026-10': 'Okt', '2026-11': 'Nov', '2026-12': 'Dez'
-  };
+  const shortMonthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+  const monthLabels = {};
+  Object.keys(monthBuckets).forEach(mKey => {
+    const [year, monthStr] = mKey.split('-');
+    const baseName = shortMonthNames[parseInt(monthStr, 10) - 1] || mKey;
+    monthLabels[mKey] = year !== '2026' ? `${baseName} ${year.slice(2)}` : baseName;
+  });
 
   const monthlyPriceHistory = Object.keys(monthBuckets).sort().map(mKey => {
     const b = monthBuckets[mKey];
@@ -240,6 +284,8 @@ export async function generateAllTimeStats() {
       count: d.totalCount,
       diet: d.diet,
       price: d.priceStudent,
+      priceEmployee: d.priceEmployee,
+      priceGuest: d.priceGuest,
       category: d.category,
       canteens: d.canteens,
       firstSeen: d.firstSeen,
@@ -256,6 +302,20 @@ export async function generateAllTimeStats() {
     monthlyPriceHistory,
     dishes: dishesList
   };
+
+  if (fs.existsSync(outputPath)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+      const { generatedAt: _a, ...restNew } = payload;
+      const { generatedAt: _b, ...restOld } = existing;
+      if (JSON.stringify(restNew) === JSON.stringify(restOld)) {
+        console.log('All-time stats unchanged, skipping file write to prevent git noise.');
+        return existing;
+      }
+    } catch {
+      // Ignore parse errors on existing file and overwrite
+    }
+  }
 
   fs.writeFileSync(outputPath, JSON.stringify(payload), 'utf8');
   const sizeKb = (Buffer.byteLength(JSON.stringify(payload)) / 1024).toFixed(1);

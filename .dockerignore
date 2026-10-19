@@ -12,3 +12,8 @@ README.md
 .DS_Store
 .agents
 .gemini
+docs
+tests
+Design_Rework
+eslint.config.mjs
+vitest.config.mjs

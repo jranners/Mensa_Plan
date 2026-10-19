@@ -1,5 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v61';
-const API_HOST = 'axxiebkvmfjmiaanviob.supabase.co';
+const CACHE_NAME = 'kstw-mensa-v62';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -11,6 +10,8 @@ const STATIC_ASSETS = [
   './fonts/hanken-grotesk-latin.woff2',
   './fonts/hanken-grotesk-latin-ext.woff2',
   './styles.css',
+  './data/config.js',
+  './data/announcements.json',
   './data/icons.js',
   './data/canteens.js',
   './data/translations.js',
@@ -27,23 +28,32 @@ const STATIC_ASSETS = [
   './src/lib/hours.js',
   './src/lib/a11y.js',
   './src/lib/stats.js',
+  './src/lib/logger.js',
+  './src/lib/filters.js',
+  './src/ui/icons.js',
+  './src/ui/toast.js',
+  './src/ui/tray-calendar.js',
+  './src/ui/cards.js',
+  './src/ui/feed.js',
+  './src/ui/modals.js',
+  './src/ui/stats-modal.js',
+  './src/ui/settings.js',
+  './src/ui/sw-update.js',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
 
 // Install Service Worker and cache static shell assets
-self.addEventListener('install', event => {
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async cache => {
-      console.log('Service Worker: Caching App Shell...');
-      
-      const cachePromises = STATIC_ASSETS.map(async asset => {
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cachePromises = STATIC_ASSETS.map(async (asset) => {
         const cleanRequest = asset instanceof Request ? asset : new Request(asset);
-        
-        // Only apply cache busting to local assets (same origin)
+
+        // Apply cache busting to local assets (same origin) during install
         let fetchRequest = cleanRequest;
         const isLocal = cleanRequest.url.includes(self.location.origin);
-        
+
         if (isLocal) {
           const separator = cleanRequest.url.includes('?') ? '&' : '?';
           const cacheBustUrl = cleanRequest.url + separator + '_cb=' + Date.now();
@@ -55,7 +65,7 @@ self.addEventListener('install', event => {
             redirect: cleanRequest.redirect
           });
         }
-        
+
         const response = await fetch(fetchRequest);
         if (response.ok || response.type === 'opaque') {
           await cache.put(cleanRequest, response);
@@ -63,55 +73,65 @@ self.addEventListener('install', event => {
           throw new Error(`Failed to cache ${cleanRequest.url} - status ${response.status}`);
         }
       });
-      
+
       await Promise.all(cachePromises);
-      console.log('Service Worker: App Shell caching complete.');
     })
   );
 });
 
 // Activate Service Worker and clean up old caches
-self.addEventListener('activate', event => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            console.log('Service Worker: Clearing Old Cache...', cache);
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames.map((cache) => {
+            if (cache !== CACHE_NAME) {
+              return caches.delete(cache);
+            }
+          })
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
 // Fetch Interceptor
-self.addEventListener('fetch', event => {
+self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
   const pathname = url.pathname;
 
-  // Strategie 1: Dynamische Konfiguration & Ankündigungen → Network-First mit Cache-Fallback
-  if (pathname.endsWith('data/config.js') || pathname.endsWith('data/announcements.json') || pathname.endsWith('data/stats_all_time.json')) {
+  // Strategy 1: Dynamic configuration, announcements & all-time stats -> Network-First with canonical Cache-Fallback
+  if (
+    pathname.endsWith('data/config.js') ||
+    pathname.endsWith('data/announcements.json') ||
+    pathname.endsWith('data/stats_all_time.json')
+  ) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE_NAME);
+        const cleanUrl = new URL(event.request.url);
+        cleanUrl.search = '';
+        const canonicalKey = cleanUrl.toString();
+
+        const controller = new AbortController();
+        const timerId = setTimeout(() => controller.abort(), 2500);
         try {
-          // Frische Daten vom Netzwerk mit 2.5s Timeout laden
-          const networkPromise = fetch(event.request);
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Network timeout')), 2500)
-          );
-          const response = await Promise.race([networkPromise, timeoutPromise]);
+          const response = await fetch(event.request, {
+            cache: 'no-store',
+            signal: controller.signal
+          });
+          clearTimeout(timerId);
           if (response.ok) {
-            cache.put(event.request, response.clone());
+            await cache.put(canonicalKey, response.clone());
           }
           return response;
         } catch (err) {
-          // Fallback auf gecachte Version bei Offline / Timeout
-          const cached = await cache.match(event.request, { ignoreSearch: true });
+          clearTimeout(timerId);
+          const cached = await cache.match(canonicalKey, { ignoreSearch: true });
           if (cached) return cached;
           throw err;
         }
@@ -120,22 +140,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Strategie 2: Statische Assets (App Shell) → Cache-First
+  // Strategy 2: Static App Shell Assets -> Cache-First
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
+    caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
-      return fetch(event.request).then(response => {
-        if (url.hostname.includes('gstatic.com') || url.hostname.includes('fonts.googleapis.com')) {
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()));
-        }
-        return response;
-      });
+      return fetch(event.request);
     })
   );
 });
 
 // Message listener to trigger skipWaiting manually when requested by the client app
-self.addEventListener('message', event => {
+self.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'skipWaiting') {
     self.skipWaiting();
   }

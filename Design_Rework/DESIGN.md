@@ -154,7 +154,7 @@ Die Mensa Plan PWA ist eine native-artige progressive Web-App für das Kölner S
 - **Barrierefreiheit:** Schließen per X-Button, Klick auf Backdrop oder `Escape`-Taste; vollständige Fokusfalle (`trapFocus`).
 
 ### 5.8 Statistik-Modal (`#stats-modal`)
-- **Speicher-Footprint:** Streng **< 2 KB lokal** (`kstw_stats_v1` in `localStorage`), keine externen Tracker.
+- **Speicher-Footprint:** Streng **0 KB Extra-Speicher** (`localStorage` bleibt sauber, 100% lokal aus dem Menü-Cache berechnet), keine externen Tracker.
 - **Zeitraum- & Mensen-Steuerung:**
   - **Zeitraum:** Umschaltbar zwischen `2 Wochen` (aktueller Datenbestand), `Diese Woche` und `All-Time` (historischer Gesamtzeitraum seit Januar 2026, On-Demand gestreamt und im ServiceWorker gecacht, ~20 KB gzip).
   - **Mensen-Scope:** Filterung nach `Meine Mensen` (aktive Auswahl) oder `Alle Mensen`.
@@ -169,7 +169,7 @@ Die Mensa Plan PWA ist eine native-artige progressive Web-App für das Kölner S
   - Segmentierter Verteilungsbalken (Vegan, Vegetarisch, Fleisch & Fisch) mit Prozenten und absoluten Zählern.
   - 3-Spalten-Raster für *Durchschnittspreis*, *Günstigstes Gericht* und *Teuerstes Gericht* (basierend auf gewähltem Tarif).
   - Automatische Favoriten-Erkennung mit Trefferzähler.
-- **Speicher-Badge:** Grünes Pill-Badge: *„🌱 Extrem speicherplatzsparend (< 2 KB lokal)“*.
+- **Speicher-Badge:** Grünes Pill-Badge: *„🌱 100% lokal berechnet (0 KB Extra-Speicher)“*.
 
 ### 5.9 Einstellungs- & Onboarding-Modal (`#onboarding`)
 - **Sprachumschalter:** Dual-Pill für Deutsch & English.

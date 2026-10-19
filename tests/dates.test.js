@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   getBerlinTodayDate,
+  getBerlinHourDecimal,
   parseIsoParts,
   getDayOfWeekFromIso,
   getFetchDateRange,
@@ -10,17 +11,25 @@ import {
 } from '../src/lib/dates.js';
 
 describe('dates module', () => {
-  describe('getBerlinTodayDate', () => {
+  describe('getBerlinTodayDate and getBerlinHourDecimal', () => {
     it('correctly formats Berlin date across UTC boundaries (CEST UTC+2)', () => {
       // 2026-10-04 22:30:00 UTC is 2026-10-05 00:30:00 in Berlin (CEST)
       const dateInUtc = new Date('2026-10-04T22:30:00Z');
       expect(getBerlinTodayDate(dateInUtc)).toBe('2026-10-05');
+      expect(getBerlinHourDecimal(dateInUtc)).toBe(0.5);
     });
 
-    it('correctly formats Berlin date during CET (winter time UTC+1)', () => {
+    it('correctly formats Berlin date and decimal hour during CET (winter time UTC+1)', () => {
       // 2026-12-15 23:30:00 UTC is 2026-12-16 00:30:00 in Berlin (CET)
       const dateInUtc = new Date('2026-12-15T23:30:00Z');
       expect(getBerlinTodayDate(dateInUtc)).toBe('2026-12-16');
+      expect(getBerlinHourDecimal(dateInUtc)).toBe(0.5);
+    });
+
+    it('calculates midday Berlin decimal hour accurately', () => {
+      // 2026-10-05 10:15:00 UTC is 12:15 in Berlin (CEST UTC+2) -> 12.25
+      const middayUtc = new Date('2026-10-05T10:15:00Z');
+      expect(getBerlinHourDecimal(middayUtc)).toBe(12.25);
     });
   });
 
@@ -71,13 +80,21 @@ describe('dates module', () => {
 
   describe('formatDateSelector and formatDateHeader', () => {
     it('formats today as "Heute" / "Today"', () => {
-      expect(formatDateSelector('2026-10-05', '2026-10-05', 'de')).toBe('Heute');
-      expect(formatDateSelector('2026-10-05', '2026-10-05', 'en')).toBe('Today');
+      expect(formatDateSelector('2026-10-05', '2026-10-05', 'de').dayName).toBe('Heute');
+      expect(formatDateSelector('2026-10-05', '2026-10-05', 'en').dayName).toBe('Today');
+      expect(formatDateSelector('2026-10-05', '2026-10-05', 'de').isToday).toBe(true);
     });
 
     it('formats other days with weekday and day number', () => {
-      expect(formatDateSelector('2026-10-06', '2026-10-05', 'de')).toBe('Di 6');
-      expect(formatDateSelector('2026-10-06', '2026-10-05', 'en')).toBe('Tue 6');
+      const de = formatDateSelector('2026-10-06', '2026-10-05', 'de');
+      expect(de.dayName).toBe('Di');
+      expect(de.dayNum).toBe('6');
+      expect(de.label).toBe('Di 6');
+
+      const en = formatDateSelector('2026-10-06', '2026-10-05', 'en');
+      expect(en.dayName).toBe('Tue');
+      expect(en.dayNum).toBe('6');
+      expect(en.label).toBe('Tue 6');
     });
 
     it('formats date header in German and English', () => {

@@ -2,10 +2,14 @@ import { describe, it, expect } from 'vitest';
 import {
   resetAppStorage,
   createSettingsDraft,
+  migrateStorage,
+  compactMenuPayload,
+  FAVORITES_V2_KEY,
+  STATS_KEY,
   PREFERENCE_KEYS,
-  CACHE_KEYS,
-  PRESERVED_KEYS
+  CACHE_KEYS
 } from '../src/lib/storage.js';
+import { validateWeekMenu } from '../src/lib/validation.js';
 
 class MockStorage {
   constructor() {
@@ -86,6 +90,7 @@ describe('Storage Module & Scoped App Reset', () => {
     const draft = createSettingsDraft(state);
 
     expect(draft).toEqual({
+      lang: 'de',
       language: 'de',
       selectedCanteens: ['unimensa', 'bistro_uni'],
       diet: 'vegetarian',
@@ -105,5 +110,66 @@ describe('Storage Module & Scoped App Reset', () => {
     expect(state.diet).toBe('vegetarian');
     expect(state.language).toBe('de');
     expect(state.tariff).toBe('employee');
+  });
+
+  it('migrates or removes legacy kstw_favorites and deletes kstw_stats_v1 in migrateStorage', () => {
+    const storage1 = new MockStorage();
+    storage1.setItem('kstw_favorites', JSON.stringify(['pasta bolognese', 'linseneintopf']));
+    storage1.setItem(STATS_KEY, JSON.stringify({ days: 10 }));
+
+    migrateStorage(storage1);
+
+    expect(storage1.getItem('kstw_favorites')).toBeNull();
+    expect(storage1.getItem(FAVORITES_V2_KEY)).toBe(JSON.stringify(['pasta bolognese', 'linseneintopf']));
+    expect(storage1.getItem(STATS_KEY)).toBeNull();
+
+    // When kstw_favorites_v2 already exists, legacy kstw_favorites is removed without overwriting v2
+    const storage2 = new MockStorage();
+    storage2.setItem('kstw_favorites', JSON.stringify(['old_dish']));
+    storage2.setItem(FAVORITES_V2_KEY, JSON.stringify(['new_dish']));
+    storage2.setItem(STATS_KEY, '{"obsolete":true}');
+
+    migrateStorage(storage2);
+
+    expect(storage2.getItem('kstw_favorites')).toBeNull();
+    expect(storage2.getItem(FAVORITES_V2_KEY)).toBe(JSON.stringify(['new_dish']));
+    expect(storage2.getItem(STATS_KEY)).toBeNull();
+  });
+
+  it('compacts menu payload by stripping empty custom_fields, EDIT_INFO, and dispo_id while remaining valid', () => {
+    const rawPayload = [
+      {
+        date: '2026-10-05',
+        dishes: [
+          {
+            id: 'dish-1',
+            name_de: 'Blumenkohl-Kichererbsencurry',
+            price: 1.5,
+            screens: [{ id: 's1', location: 'Mensa Zollstock' }],
+            category: { id: 'c1', name_de: 'Hauptgericht' },
+            custom_fields: [
+              { field_id: 'dispo_id', value: '413792' },
+              { field_id: 'ort_id', value: '201' },
+              { field_id: 'location', value: 'Mensa Zülpicher Straße' },
+              { field_id: 'food_icon', value: 'VGN' },
+              { field_id: 'dish_ger_2', value: '' },
+              { field_id: 'dish_ger_3', value: '' },
+              { field_id: 'EDIT_INFO', value: 'internal' },
+              { field_id: 'price_2', value: '2,55' }
+            ]
+          }
+        ]
+      }
+    ];
+
+    const compacted = compactMenuPayload(rawPayload);
+
+    expect(validateWeekMenu(compacted, { requireNonEmptyDays: true }).valid).toBe(true);
+    const fields = compacted[0].dishes[0].custom_fields;
+    expect(fields.map(f => f.field_id)).toEqual(['ort_id', 'location', 'food_icon', 'price_2']);
+
+    // Ensure deep clone (mutating compacted does not mutate input)
+    fields[0].value = '999';
+    expect(rawPayload[0].dishes[0].custom_fields[1].value).toBe('201');
   });
 });

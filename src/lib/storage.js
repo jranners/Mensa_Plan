@@ -118,7 +118,77 @@ export function migrateStorage(storage = (typeof window !== 'undefined' ? window
     storage.setItem(SCHEMA_VERSION_KEY, String(CURRENT_SCHEMA_VERSION));
   }
 
+  // Legacy cleanup: migrate/remove 'kstw_favorites' and remove obsolete 'kstw_stats_v1'
+  try {
+    const legacyFavsRaw = storage.getItem('kstw_favorites');
+    if (legacyFavsRaw !== null) {
+      if (storage.getItem(FAVORITES_V2_KEY) === null) {
+        try {
+          const parsedLegacy = JSON.parse(legacyFavsRaw);
+          if (Array.isArray(parsedLegacy)) {
+            const validStrings = parsedLegacy.filter(item => typeof item === 'string' && item.trim().length > 0);
+            storage.setItem(FAVORITES_V2_KEY, JSON.stringify(validStrings));
+          }
+        } catch {
+          // ignore malformed legacy favorites
+        }
+      }
+      storage.removeItem('kstw_favorites');
+    }
+  } catch {
+    // ignore storage errors
+  }
+
+  try {
+    if (storage.getItem(STATS_KEY) !== null) {
+      storage.removeItem(STATS_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+
   return CURRENT_SCHEMA_VERSION;
+}
+
+/**
+ * Compacts a week menu payload before storing in localStorage by filtering out
+ * empty custom_fields entries and internal-only fields ('EDIT_INFO', 'dispo_id').
+ *
+ * @param {Array} data
+ * @returns {Array}
+ */
+export function compactMenuPayload(data) {
+  if (!Array.isArray(data)) return [];
+  return data.map(day => {
+    if (!day || typeof day !== 'object') return day;
+    return {
+      ...day,
+      dishes: Array.isArray(day.dishes)
+        ? day.dishes.map(dish => {
+            if (!dish || typeof dish !== 'object') return dish;
+            const compactedDish = { ...dish };
+            if (Array.isArray(dish.custom_fields)) {
+              compactedDish.custom_fields = dish.custom_fields
+                .filter(
+                  f =>
+                    f &&
+                    f.value !== '' &&
+                    f.field_id !== 'EDIT_INFO' &&
+                    f.field_id !== 'dispo_id'
+                )
+                .map(f => ({ ...f }));
+            }
+            if (Array.isArray(dish.screens)) {
+              compactedDish.screens = dish.screens.map(s => (s && typeof s === 'object' ? { ...s } : s));
+            }
+            if (dish.category && typeof dish.category === 'object' && !Array.isArray(dish.category)) {
+              compactedDish.category = { ...dish.category };
+            }
+            return compactedDish;
+          })
+        : day.dishes
+    };
+  });
 }
 
 /**
@@ -152,8 +222,10 @@ export function resetAppStorage(storage = (typeof window !== 'undefined' ? windo
  * @returns {object}
  */
 export function createSettingsDraft(state) {
+  const lang = state.lang || state.language || 'de';
   return {
-    language: state.language || 'de',
+    lang,
+    language: lang,
     selectedCanteens: Array.isArray(state.selectedCanteens) ? [...state.selectedCanteens] : ['unimensa'],
     diet: state.diet || 'all',
     allergies: Array.isArray(state.allergies) ? [...state.allergies] : [],

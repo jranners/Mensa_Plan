@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import {
   STATS_KEY,
   getInitialStats,
@@ -7,7 +9,8 @@ import {
   aggregateMenuStats,
   computeLiveMenuStats,
   computeLivePriceHistory,
-  generatePriceChartSvg
+  generatePriceChartSvg,
+  computeFavoritesRadar
 } from '../src/lib/stats.js';
 import { detectIncludedSides } from '../src/lib/dish.js';
 
@@ -415,13 +418,109 @@ describe('Statistics Module (Ultra-lightweight)', () => {
       // Raw mode SVG
       const svgRaw = generatePriceChartSvg(sampleHistory, {
         tariff: 'student',
-        mode: 'raw'
+        mode: 'raw',
+        lang: 'en'
       });
       expect(svgRaw).toContain('<svg');
-      expect(svgRaw).toContain('role="img"');
+      expect(svgRaw).toContain('role="group"');
+      expect(svgRaw).toContain('r="4.5"');
 
       // Returns empty string for empty input
       expect(generatePriceChartSvg([])).toBe('');
     });
+
+    it('scales all-time prices by tariff and computes live priceHistory for week/all timeframes', () => {
+      const mockAllTimeData = {
+        startDate: '2026-01-22',
+        endDate: '2026-10-27',
+        openingDaysCount: 100,
+        priceHistory: [{ month: '2026-01', label: 'Jan', tariffs: {} }],
+        dishes: [
+          {
+            name: 'Currywurst',
+            clean: 'currywurst',
+            count: 50,
+            diet: 'all',
+            price: 3.00,
+            category: 'main',
+            canteens: { unimensa: 50 }
+          }
+        ]
+      };
+
+      const empAllTime = computeLiveMenuStats([], {
+        timeframe: 'all-time',
+        allTimeData: mockAllTimeData,
+        tariff: 'employee'
+      });
+      expect(empAllTime.avgPrice).toBe(4.26); // 3.00 * 1.42
+
+      // When timeframe is 'week', priceHistory should be computed from live menuData, not allTimeData
+      const weekWithAllTimeLoaded = computeLiveMenuStats(complexMenuData, {
+        timeframe: 'week',
+        todayIso: '2026-10-05',
+        allTimeData: mockAllTimeData
+      });
+      expect(weekWithAllTimeLoaded.priceHistory.length).toBeGreaterThan(0);
+      expect(weekWithAllTimeLoaded.priceHistory[0].month).toBe('2026-10-05');
+    });
+
+    it('computes non-zero main dish stats for eraum and unimensa from real docs/rpc-sample.json (Bug B-01)', () => {
+      const samplePath = resolve(process.cwd(), 'docs/rpc-sample.json');
+      const rpcDays = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+      const eraumStats = computeLiveMenuStats(rpcDays, {
+        category: 'main',
+        timeframe: 'all',
+        canteenScope: 'selected',
+        selectedCanteens: ['eraum']
+      });
+      expect(eraumStats.totalDishes).toBeGreaterThan(0);
+
+      const unimensaStats = computeLiveMenuStats(rpcDays, {
+        category: 'main',
+        timeframe: 'all',
+        canteenScope: 'selected',
+        selectedCanteens: ['unimensa']
+      });
+      expect(unimensaStats.totalDishes).toBeGreaterThan(30);
+    });
+
+    it('computes Favorites Radar for upcoming hits and recurrence insights', () => {
+      const mockAllTimeData = {
+        openingDaysCount: 100,
+        dishes: [
+          {
+            name: 'Currywurst',
+            clean: 'currywurst',
+            count: 25,
+            diet: 'all',
+            price: 3.25
+          },
+          {
+            name: 'No Butter Chicken',
+            clean: 'no butter chicken',
+            count: 20,
+            diet: 'vegan',
+            price: 2.45
+          }
+        ]
+      };
+
+      const radar = computeFavoritesRadar(complexMenuData, mockAllTimeData, {
+        favorites: ['no butter chicken', 'currywurst'],
+        todayIso: '2026-10-05',
+        tariff: 'student'
+      });
+
+      expect(radar.upcomingHits.length).toBe(1);
+      expect(radar.upcomingHits[0].dishName).toBe('No Butter Chicken');
+      expect(radar.upcomingHits[0].date).toBe('2026-10-06');
+
+      expect(radar.recurrenceInsights.length).toBe(2);
+      expect(radar.recurrenceInsights[0].dishName).toBe('Currywurst');
+      expect(radar.recurrenceInsights[0].avgIntervalDays).toBe(4); // Math.round(100 / 25)
+    });
   });
 });
+

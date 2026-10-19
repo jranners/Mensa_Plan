@@ -19,10 +19,13 @@ export function trapFocus(container) {
   const getFocusableElements = () => {
     const activeEl = (typeof document !== 'undefined') ? document.activeElement : null;
     return Array.from(container.querySelectorAll(
-      'button:not([disabled]):not([hidden]), [href], input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), textarea:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+      'button:not([disabled]):not([hidden]), [href], input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), textarea:not([disabled]):not([hidden]), summary:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"]):not([disabled])'
     )).filter(el => {
-      // Element is visible
-      return el.offsetWidth > 0 || el.offsetHeight > 0 || (activeEl && el === activeEl);
+      // Element is visible (including SVG elements with getClientRects)
+      return el.offsetWidth > 0 ||
+             el.offsetHeight > 0 ||
+             (typeof el.getClientRects === 'function' && el.getClientRects().length > 0) ||
+             (activeEl && el === activeEl);
     });
   };
 
@@ -57,7 +60,7 @@ export function trapFocus(container) {
   // Focus initial element inside container
   const focusables = getFocusableElements();
   if (focusables.length > 0) {
-    const preferred = focusables.find(el => el.id && (el.id.includes('close') || el.id.includes('submit'))) || focusables[0];
+    const preferred = focusables.find(el => el.id && el.id.includes('close')) || focusables[0];
     if (preferred && typeof preferred.focus === 'function') {
       try {
         preferred.focus();

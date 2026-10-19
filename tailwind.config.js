@@ -79,10 +79,27 @@ module.exports = {
         "stack-lg": "24px"
       },
       fontFamily: {
-        sans: ["Hanken Grotesk", "sans-serif"],
-        label: ["Hanken Grotesk", "sans-serif"],
-        body: ["Hanken Grotesk", "sans-serif"],
-        headline: ["Hanken Grotesk", "sans-serif"]
+        sans: ['"Hanken Grotesk"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        label: ['"Hanken Grotesk"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        body: ['"Hanken Grotesk"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        headline: ['"Hanken Grotesk"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif']
+      },
+      fontSize: {
+        'headline-lg': ['1.125rem', { lineHeight: '1.25', fontWeight: '700' }],
+        'headline-sm': ['0.9375rem', { lineHeight: '1.35', fontWeight: '700' }],
+        'label-lg': ['0.875rem', { lineHeight: '1.2', fontWeight: '800' }],
+        'label-md': ['0.8125rem', { lineHeight: '1.2', fontWeight: '700' }],
+        'label-sm': ['0.6875rem', { lineHeight: '1.0', fontWeight: '600' }],
+        'body-lg': ['1rem', { lineHeight: '1.5', fontWeight: '400' }],
+        'body-md': ['0.8125rem', { lineHeight: '1.45', fontWeight: '400' }],
+        'body-sm': ['0.75rem', { lineHeight: '1.35', fontWeight: '500' }]
+      },
+      boxShadow: {
+        xs: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+      },
+      scale: {
+        '98': '0.98',
+        '102': '1.02'
       }
     }
   },
