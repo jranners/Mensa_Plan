@@ -532,6 +532,90 @@ export function renderCanteenMenu(dayData, state) {
       return true;
     });
 
+    let hoursBadgeHTML = '';
+    const displayHours = dayHours || serviceWindow;
+    if (displayHours && displayHours.isOpenToday !== false) {
+      const hoursText = displayHours.formatted || `${displayHours.label || ''}${t.hoursSuffix}`;
+      if (isViewingToday) {
+        const status = getCanteenOpenStatus(displayHours, currentDecimalHour);
+        const effectiveEndHour = Math.max(
+          displayHours.endHour || 0,
+          serviceWindow ? serviceWindow.endHour : 0
+        );
+        if (status === 'open') {
+          hoursBadgeHTML = `
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60 shadow-xs">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>${escapeHtml(t.statusOpen)} · ${escapeHtml(hoursText)}</span>
+            </span>
+          `;
+        } else if (status === 'closing-soon') {
+          hoursBadgeHTML = `
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60 shadow-xs">
+              <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              <span>${escapeHtml(t.statusClosingSoon)} · ${escapeHtml(hoursText)}</span>
+            </span>
+          `;
+        } else {
+          const isEnded = currentDecimalHour >= effectiveEndHour;
+          const endedSuffix = isEnded
+            ? ` · ${escapeHtml(t.dishTimeEnded || (state.lang === 'de' ? 'Beendet' : 'Ended'))}`
+            : '';
+          hoursBadgeHTML = `
+            <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+              ${getIconHTML('schedule', 'text-[13px] opacity-75')}
+              <span>${escapeHtml(hoursText)}${endedSuffix}</span>
+            </span>
+          `;
+        }
+      } else {
+        hoursBadgeHTML = `
+          <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-white/80 text-slate-600 border border-slate-200/80 dark:bg-[#122338] dark:text-slate-300 dark:border-white/10 shadow-xs">
+            ${getIconHTML('schedule', 'text-[13px] text-primary-container dark:text-price-badge')}
+            <span>${escapeHtml(hoursText)}</span>
+          </span>
+        `;
+      }
+    }
+
+    const distKm = state.canteenDistancesKm?.[canteenKey];
+    const distStr = distKm != null ? formatDistance(distKm, state.lang) : '';
+    const routeUrl = getCanteenRouteUrl(canteen);
+
+    let routeBadgeHTML = '';
+    if (routeUrl) {
+      if (distStr) {
+        routeBadgeHTML = `
+          <a
+            href="${escapeHtml(routeUrl)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="${escapeHtml(t.routeWalkingLabel || 'Route zu Fuß')}"
+            class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 dark:bg-blue-950/50 dark:hover:bg-blue-900/60 dark:text-blue-300 dark:border-blue-800/60 shadow-xs transition-colors"
+          >
+            <span class="text-[13px] flex items-center">${getIconHTML('location_on')}</span>
+            <span>${escapeHtml(distStr)} · Route ↗</span>
+          </a>
+        `;
+      } else {
+        routeBadgeHTML = `
+          <a
+            href="${escapeHtml(routeUrl)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="${escapeHtml(t.routeWalkingLabel || 'Route zu Fuß')}"
+            class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 shadow-xs transition-colors"
+          >
+            <span class="text-[13px] flex items-center">${getIconHTML('location_on')}</span>
+            <span>Route ↗</span>
+          </a>
+        `;
+      }
+    }
+
+    let sectionBodyHTML = '';
+    let sharePlanBtnHTML = '';
+
     if (cDishes.length > 0) {
       totalVisibleDishes += cDishes.length;
 
@@ -647,119 +731,61 @@ export function renderCanteenMenu(dayData, state) {
       canteenGridHTML += renderExpandableCompactSection('side', sections.side);
       canteenGridHTML += renderExpandableCompactSection('dessert', sections.dessert);
 
-      let hoursBadgeHTML = '';
-      const displayHours = dayHours || serviceWindow;
-      if (displayHours && displayHours.isOpenToday !== false) {
-        const hoursText = displayHours.formatted || `${displayHours.label || ''}${t.hoursSuffix}`;
-        if (isViewingToday) {
-          const status = getCanteenOpenStatus(displayHours, currentDecimalHour);
-          const effectiveEndHour = Math.max(
-            displayHours.endHour || 0,
-            serviceWindow ? serviceWindow.endHour : 0
-          );
-          if (status === 'open') {
-            hoursBadgeHTML = `
-              <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60 shadow-xs">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>${escapeHtml(t.statusOpen)} · ${escapeHtml(hoursText)}</span>
-              </span>
-            `;
-          } else if (status === 'closing-soon') {
-            hoursBadgeHTML = `
-              <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60 shadow-xs">
-                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                <span>${escapeHtml(t.statusClosingSoon)} · ${escapeHtml(hoursText)}</span>
-              </span>
-            `;
-          } else {
-            const isEnded = currentDecimalHour >= effectiveEndHour;
-            const endedSuffix = isEnded
-              ? ` · ${escapeHtml(t.dishTimeEnded || (state.lang === 'de' ? 'Beendet' : 'Ended'))}`
-              : '';
-            hoursBadgeHTML = `
-              <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                ${getIconHTML('schedule', 'text-[13px] opacity-75')}
-                <span>${escapeHtml(hoursText)}${endedSuffix}</span>
-              </span>
-            `;
-          }
-        } else {
-          hoursBadgeHTML = `
-            <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-white/80 text-slate-600 border border-slate-200/80 dark:bg-[#122338] dark:text-slate-300 dark:border-white/10 shadow-xs">
-              ${getIconHTML('schedule', 'text-[13px] text-primary-container dark:text-price-badge')}
-              <span>${escapeHtml(hoursText)}</span>
-            </span>
-          `;
-        }
-      }
+      sharePlanBtnHTML = `
+        <button
+          type="button"
+          data-action="share-day-plan"
+          data-canteen-key="${escapeHtml(canteenKey)}"
+          aria-label="${escapeHtml(t.shareDayPlanBtn)} (${escapeHtml(canteen.name)})"
+          title="${escapeHtml(t.shareDayPlanBtn)}"
+          class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 min-h-[28px] rounded-full bg-white/85 hover:bg-white text-primary border border-slate-200/80 dark:bg-[#122338] dark:hover:bg-[#182c44] dark:text-price-badge dark:border-white/10 shadow-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge"
+        >
+          <span class="text-[13px] flex items-center">${getIconHTML('share')}</span>
+          <span class="hidden sm:inline">${escapeHtml(t.shareDayPlanBtn)}</span>
+        </button>
+      `;
 
-      const distKm = state.canteenDistancesKm?.[canteenKey];
-      const distStr = distKm != null ? formatDistance(distKm, state.lang) : '';
-      const routeUrl = getCanteenRouteUrl(canteen);
+      sectionBodyHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+          ${canteenGridHTML}
+        </div>
+      `;
+    } else {
+      const isFilteredOut = allCanteenDishes.length > 0;
+      const emptyIcon = isFilteredOut ? 'filter_alt_off' : 'info';
+      const emptyMessage = isFilteredOut
+        ? t.canteenNoFilterMatches.replace('{count}', String(allCanteenDishes.length))
+        : canteen.type === 'bistro'
+          ? t.canteenNoDishesBistro
+          : t.canteenNoDishesMensa;
 
-      let routeBadgeHTML = '';
-      if (routeUrl) {
-        if (distStr) {
-          routeBadgeHTML = `
-            <a
-              href="${escapeHtml(routeUrl)}"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="${escapeHtml(t.routeWalkingLabel || 'Route zu Fuß')}"
-              class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 dark:bg-blue-950/50 dark:hover:bg-blue-900/60 dark:text-blue-300 dark:border-blue-800/60 shadow-xs transition-colors"
-            >
-              <span class="text-[13px] flex items-center">${getIconHTML('location_on')}</span>
-              <span>${escapeHtml(distStr)} · Route ↗</span>
-            </a>
-          `;
-        } else {
-          routeBadgeHTML = `
-            <a
-              href="${escapeHtml(routeUrl)}"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="${escapeHtml(t.routeWalkingLabel || 'Route zu Fuß')}"
-              class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 shadow-xs transition-colors"
-            >
-              <span class="text-[13px] flex items-center">${getIconHTML('location_on')}</span>
-              <span>Route ↗</span>
-            </a>
-          `;
-        }
-      }
-
-      htmlContent += `
-        <section class="mb-8">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              ${orderedCanteens.length > 1 ? `<span class="w-5 h-5 rounded-md bg-primary/10 dark:bg-price-badge/15 text-primary dark:text-price-badge font-bold text-[11px] flex items-center justify-center flex-shrink-0">#${canteenRank}</span>` : ''}
-              <h2 class="font-headline text-lg font-bold text-text-heading dark:text-white tracking-tight">${escapeHtml(canteen.name)}</h2>
-              ${routeBadgeHTML}
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              ${hoursBadgeHTML}
-              <button
-                type="button"
-                data-action="share-day-plan"
-                data-canteen-key="${escapeHtml(canteenKey)}"
-                aria-label="${escapeHtml(t.shareDayPlanBtn)} (${escapeHtml(canteen.name)})"
-                title="${escapeHtml(t.shareDayPlanBtn)}"
-                class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 min-h-[28px] rounded-full bg-white/85 hover:bg-white text-primary border border-slate-200/80 dark:bg-[#122338] dark:hover:bg-[#182c44] dark:text-price-badge dark:border-white/10 shadow-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-price-badge"
-              >
-                <span class="text-[13px] flex items-center">${getIconHTML('share')}</span>
-                <span class="hidden sm:inline">${escapeHtml(t.shareDayPlanBtn)}</span>
-              </button>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-            ${canteenGridHTML}
-          </div>
-        </section>
+      sectionBodyHTML = `
+        <div class="bg-slate-50/90 dark:bg-[#122338]/75 rounded-2xl px-4 py-3.5 border border-black/[0.04] dark:border-white/[0.06] flex items-center gap-2.5 text-xs text-on-surface-variant dark:text-slate-400">
+          <span class="text-base flex items-center text-slate-400 dark:text-slate-500 flex-shrink-0">${getIconHTML(emptyIcon)}</span>
+          <span>${escapeHtml(emptyMessage)}</span>
+        </div>
       `;
     }
+
+    htmlContent += `
+      <section class="mb-8" data-canteen-section="${escapeHtml(canteenKey)}">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            ${orderedCanteens.length > 1 ? `<span class="w-5 h-5 rounded-md bg-primary/10 dark:bg-price-badge/15 text-primary dark:text-price-badge font-bold text-[11px] flex items-center justify-center flex-shrink-0">#${canteenRank}</span>` : ''}
+            <h2 class="font-headline text-lg font-bold text-text-heading dark:text-white tracking-tight">${escapeHtml(canteen.name)}</h2>
+            ${routeBadgeHTML}
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            ${hoursBadgeHTML}
+            ${sharePlanBtnHTML}
+          </div>
+        </div>
+        ${sectionBodyHTML}
+      </section>
+    `;
   });
 
-  if (totalVisibleDishes === 0) {
+  if (totalVisibleDishes === 0 && orderedCanteens.length === 0) {
     const emptyDesc = isViewingToday ? t.allCanteensClosedToday : t.noMatchesDesc;
     const emptyIcon = isViewingToday ? 'schedule' : 'filter_alt_off';
     feed.innerHTML = `

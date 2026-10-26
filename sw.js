@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kstw-mensa-v73';
+const CACHE_NAME = 'kstw-mensa-v74';
 const STATIC_ASSETS = [
   './',
   './index.html',

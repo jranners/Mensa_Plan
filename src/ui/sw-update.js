@@ -6,6 +6,7 @@ import { showToast } from './toast.js';
 import { syncAppInertState } from './modals.js';
 
 let isRefreshingSW = false;
+let updateTriggeredByUser = false;
 
 /**
  * Registers `sw.js`, manages update checks, and binds `controllerchange`.
@@ -16,7 +17,9 @@ let isRefreshingSW = false;
 export function registerSW(state, modalState) {
   if (!('serviceWorker' in navigator)) return;
 
-  window.addEventListener('load', () => {
+  const wasControlled = Boolean(navigator.serviceWorker.controller);
+
+  const startRegistration = () => {
     navigator.serviceWorker
       .register('sw.js', { updateViaCache: 'none' })
       .then((reg) => {
@@ -32,7 +35,7 @@ export function registerSW(state, modalState) {
           }
         });
 
-        if (reg.waiting) {
+        if (reg.waiting && navigator.serviceWorker.controller) {
           showUpdateDialog(reg, state, modalState);
         }
 
@@ -49,13 +52,19 @@ export function registerSW(state, modalState) {
       .catch((err) => logger.warn('SW Error:', err));
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!isRefreshingSW) {
+      if (wasControlled && updateTriggeredByUser && !isRefreshingSW) {
         isRefreshingSW = true;
         sessionStorage.setItem('kstw_just_updated', '1');
         reloadWithCacheBust();
       }
     });
-  });
+  };
+
+  if (typeof document !== 'undefined' && document.readyState === 'complete') {
+    startRegistration();
+  } else {
+    window.addEventListener('load', startRegistration);
+  }
 }
 
 /**
@@ -119,6 +128,7 @@ export function showUpdateDialog(registration, state, modalState) {
   });
 
   document.getElementById('update-now-btn')?.addEventListener('click', () => {
+    updateTriggeredByUser = true;
     const btn = document.getElementById('update-now-btn');
     if (btn) {
       btn.textContent = t.updatingBtn;

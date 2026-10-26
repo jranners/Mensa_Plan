@@ -614,7 +614,35 @@ export function computeLiveMenuStats(menuData, options = {}) {
       // Category filter (default: 'main' includes mains & meisterwerk action meals)
       const cls = classifyDish(dish);
       if (category === 'main') {
-        if (cls !== 'main' && cls !== 'meisterwerk') return;
+        if (cls !== 'main' && cls !== 'meisterwerk') {
+          // Warm Bistro dishes (sold per 100g, so classified as 'buffet') should still
+          // populate `canteenStatsMap` for selected Bistros so they appear in `canteenComparison`.
+          if (cls === 'buffet' && effectiveCanteensMap && !/buffet|salat/i.test(dish.name_de || '')) {
+            const cKeysToTrack = effectiveCanteens || Object.keys(effectiveCanteensMap);
+            const diet = getDishDietType(dish);
+            const price = getDishPrice(dish, tariff);
+            const cName = cleanDishNameForFavorite(dish);
+            for (const cKey of cKeysToTrack) {
+              const cObj = effectiveCanteensMap[cKey];
+              if (cObj?.type === 'bistro' && getCanteenKeyFromDish(dish, cKey, cObj)) {
+                const cs = canteenStatsMap[cKey];
+                if (cs) {
+                  cs.totalDishes++;
+                  if (diet === 'vegan') cs.veganCount++;
+                  else if (diet === 'vegetarian') cs.vegetarianCount++;
+                  if (price != null && price > 0) {
+                    cs.priceSum += price;
+                    cs.priceCount++;
+                  }
+                  if (cName) {
+                    cs.dishCounts[cName] = (cs.dishCounts[cName] || 0) + 1;
+                  }
+                }
+              }
+            }
+          }
+          return;
+        }
       } else if (category === 'side') {
         if (cls !== 'side') return;
       } else if (category === 'dessert') {

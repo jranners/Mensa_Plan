@@ -99,9 +99,9 @@ export const CANTEENS = {
     "phone": "+49 221 9469 384",
     "infokurz": "Mo - Do 11.30 - 18.00 Uhr\nFr 11.30 - 16.00 Uhr",
     "ort_id": "242",
-    "keywords": ["Himmelsblick", "Claudiusstraße"],
+    "keywords": ["Himmelsblick", "Claudiusstraße", "Mensa Claudiusstraße", "Mensa Claudiusstrasse"],
     "screen_locations": [
-      "Mensa Claudiusstrasse", "Mensa Claudiusstraße - Café Himmelsblick"
+      "Mensa Claudiusstrasse", "Mensa Claudiusstraße - Café Himmelsblick", "NEU - Mensa Claudiusstraße - Café Himmelsblick"
     ]
   },
   "gummersbach": {

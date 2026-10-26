@@ -436,6 +436,22 @@ describe('ES Module & UI Component Smoke Test', () => {
       expect(html2).toContain('350 m · Route ↗');
       expect(html2).toContain('1,2 km · Route ↗');
       expect(html2).toContain('Nächste Mensa');
+
+      // 3. Keeps all selected Bistros visible in the feed even when filtered out or when no dishes are registered
+      const stateWithAllBistros = {
+        ...mockState,
+        diet: 'vegan', // Filters out non-vegan Bistro Sandwich in eraum
+        selectedCanteens: ['unimensa', 'eraum', 'philcafe'],
+        canteenDistancesKm: {},
+        nearestMensaKey: null
+      };
+      renderCanteenMenu(dayData, stateWithAllBistros);
+      const html3 = elementsMap['main-feed'].innerHTML;
+      expect(html3).toContain('Mensa Zülpicher Straße');
+      expect(html3).toContain('Bistro Uni E-Raum');
+      expect(html3).toContain('Bistro PhilCafé');
+      expect(html3).toContain('Keine passenden Gerichte für deine aktiven Filter (1 ausgeblendet).');
+      expect(html3).toContain('Für dieses Bistro sind an diesem Tag (noch) keine Gerichte im Speiseplan eingetragen.');
     });
   });
 });

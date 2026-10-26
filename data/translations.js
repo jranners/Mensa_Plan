@@ -330,7 +330,10 @@ export const TRANSLATIONS = {
     changelogFeat4Title: "🔍 Schnellfilter, Suche & Vortags-Rückblick",
     changelogFeat4Desc: "Live-Suche nach Gerichten, Schnellfilter (★ Favoriten, 💸 < 2,50 €, 🚫🐖 Kein Schwein), Tierarten-Badges (🐓🐄🐟🐖) und 1 Öffnungstag zurückblättern.",
     changelogStatsBtn: "📊 Statistiken ansehen",
-    changelogCloseBtn: "Los geht’s! 🚀"
+    changelogCloseBtn: "Los geht’s! 🚀",
+    canteenNoFilterMatches: "Keine passenden Gerichte für deine aktiven Filter ({count} ausgeblendet).",
+    canteenNoDishesBistro: "Für dieses Bistro sind an diesem Tag (noch) keine Gerichte im Speiseplan eingetragen.",
+    canteenNoDishesMensa: "Für diese Mensa sind an diesem Tag keine Gerichte im Speiseplan eingetragen."
   },
   en: {
     title: "Mensaplan",
@@ -663,6 +666,9 @@ export const TRANSLATIONS = {
     changelogFeat4Title: "🔍 Quick Filters, Search & Previous Day",
     changelogFeat4Desc: "Live dish search, quick filters (★ Favorites, 💸 < €2.50, 🚫🐖 No Pork), species badges (🐓🐄🐟🐖), and 1-day lookback.",
     changelogStatsBtn: "📊 Explore Stats",
-    changelogCloseBtn: "Let’s go! 🚀"
+    changelogCloseBtn: "Let’s go! 🚀",
+    canteenNoFilterMatches: "No dishes match your active filters ({count} hidden).",
+    canteenNoDishesBistro: "No dishes are registered in the menu for this bistro on this day (yet).",
+    canteenNoDishesMensa: "No dishes are registered in the menu for this canteen on this day."
   }
 };

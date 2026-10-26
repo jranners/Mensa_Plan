@@ -1129,6 +1129,7 @@ function setupEventListeners() {
 
     if (e.key === 'Escape') {
       if (modalState.cleanupChangelogModal) {
+        localStorage.setItem('kstw_changelog_seen', CHANGELOG_VERSION);
         modalState.cleanupChangelogModal();
         return;
       }
