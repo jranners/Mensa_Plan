@@ -12,9 +12,9 @@ export const CANTEENS = {
     "ort_id": "201",
     "keywords": ["Zülpicher", "MZS", "Uni-Mensa", "Mensa Zülpicher Straße"],
     "screen_locations": [
-      "MZS - EG Nord 1", "MZS - EG Nord 2", "MZS - EG Süd 1", "MZS - EG Süd 2",
+      "MZS - EG Nord 1", "MZS - EG Nord 2", "MZS - EG Nord 3", "MZS - EG Süd 1", "MZS - EG Süd 2",
       "MZS - Foyer EG 1", "MZS - Foyer EG 2", "MZS - MG Nord (Ausgabe 1)",
-      "MZS - MG Nord (Ausgabe 2)", "MZS - MG Nord 1, Foyer", "MZS - MG Nord 2, Foyer",
+      "MZS - MG Nord (Ausgabe 2)", "MZS - MG Nord (Ausgabe 3)", "MZS - MG Nord 1, Foyer", "MZS - MG Nord 2, Foyer",
       "MZS - MG Süd 1, Foyer", "MZS - MG Süd 2, Foyer", "MZS - Restaurant 3",
       "Mensa Zülpicher Straße"
     ]
@@ -180,7 +180,7 @@ export const CANTEENS = {
     "phone": "+49 221 941 57 09",
     "infokurz": "Mo - Fr 11.00 - 15.00 Uhr",
     "ort_id": "231",
-    "keywords": ["Robert-Koch-Straße", "Robert Koch"],
+    "keywords": ["Robert-Koch-Straße", "Robert Koch", "Mensa Lindenthal"],
     "screen_locations": [
       "Mensa Lindenthal", "Mensa Lindenthal - Ausgabe 1 (Suppe/Fleisch, links)",
       "Mensa Lindenthal - Ausgabe 3 (Beilagenbuffet, Mitte-links)",

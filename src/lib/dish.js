@@ -125,10 +125,14 @@ export function classifyDish(dish) {
   const dpName = (customFields['CUSTOM_DPNAME'] || '').toLowerCase();
   const price = getDishPrice(dish, 'student') ?? 0;
 
-  // Buffet / Selbstbedienung (pay by weight / buffet counter)
+  const hinweise = (customFields['hinweise'] || '').toLowerCase();
+
+  // Buffet / Selbstbedienung (pay by weight / buffet counter / Pastatheke / Nudelbuffet)
   const isBuffet = !!customFields['preis_gramm'] ||
                    name.includes('salatbuffet') || dpName.includes('salatbuffet') ||
                    name.includes('beilagenbuffet') || dpName.includes('beilagenbuffet') ||
+                   name.includes('nudelbuffet') || dpName.includes('nudelbuffet') || hinweise.includes('nudelbuffet') ||
+                   name.includes('pasta theke') || name.includes('pastatheke') ||
                    name.includes('selbstbedienung') || dpName.includes('selbstbedienung');
 
   if (isBuffet) {
@@ -651,7 +655,14 @@ export function isBuffetDish(dish) {
   if (cf['preis_gramm'] && String(cf['preis_gramm']) === '100') return true;
   const cat = (dish.category && dish.category.name_de) ? dish.category.name_de.toLowerCase() : '';
   const name = (dish.name_de || '').toLowerCase();
-  return cat.includes('buffet') || name.includes('buffet');
+  const dpName = (cf['CUSTOM_DPNAME'] || '').toLowerCase();
+  const hinweise = (cf['hinweise'] || '').toLowerCase();
+  return cat.includes('buffet') ||
+         name.includes('buffet') ||
+         dpName.includes('buffet') ||
+         hinweise.includes('buffet') ||
+         name.includes('pasta theke') ||
+         name.includes('pastatheke');
 }
 
 /**

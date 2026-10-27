@@ -101,6 +101,22 @@ describe('Canteen Match Module', () => {
     expect(getCanteenKeyFromDish(dishBistroLindenthal, 'robertkoch', CANTEENS['robertkoch'])).toBe(false);
     expect(getCanteenKeyFromDish(dishBistroLindenthal, 'unimensa', CANTEENS['unimensa'])).toBe(false);
     expect(isSharedLindenthalDish(dishBistroLindenthal)).toBe(false);
+
+    // Multi-canteen shared dish with ort_id=261 (MuHo) and Mensa Lindenthal screens matches both muho and robertkoch
+    const dishSharedScreens = {
+      name_de: 'Hähnchengeschnetzeltes Süß-Sauer',
+      custom_fields: [
+        { field_id: 'ort_id', value: '261' },
+        { field_id: 'location', value: 'Mensa Musikhochschule' }
+      ],
+      screens: [
+        { location: 'Mensa Lindenthal - Ausgabe 1 (Suppe/Fleisch, links)', screen_group_name: 'Mensa Lindenthal' },
+        { location: 'Mensa MuHo - Theke 1 (links)', screen_group_name: 'Mensa Musikhochschule' }
+      ]
+    };
+    expect(getCanteenKeyFromDish(dishSharedScreens, 'robertkoch', CANTEENS['robertkoch'])).toBe(true);
+    expect(getCanteenKeyFromDish(dishSharedScreens, 'muho', CANTEENS['muho'])).toBe(true);
+    expect(getCanteenKeyFromDish(dishSharedScreens, 'lindenthal', CANTEENS['lindenthal'])).toBe(false);
   });
 
   it('safely handles missing, null or empty arguments', () => {

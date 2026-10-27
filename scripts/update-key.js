@@ -85,16 +85,6 @@ if (typeof window !== 'undefined') {
           fs.writeFileSync(configPath, newConfigContent);
           console.log("data/config.js successfully written.");
 
-          // Bump Service Worker CACHE_NAME if sw.js exists
-          if (fs.existsSync(swPath)) {
-            let swContent = fs.readFileSync(swPath, 'utf8');
-            swContent = swContent.replace(/const CACHE_NAME = 'kstw-mensa-v(\d+)';/, (m, v) => {
-              return `const CACHE_NAME = 'kstw-mensa-v${parseInt(v, 10) + 1}';`;
-            });
-            fs.writeFileSync(swPath, swContent);
-            console.log("sw.js cache version synchronized.");
-          }
-
           return;
         }
       } catch (err) {

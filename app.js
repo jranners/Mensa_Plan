@@ -239,7 +239,8 @@ async function fetchWeekMenuData(startDateIso, endDateIso) {
       body: JSON.stringify({
         p_organization_id: config.orgId,
         p_start_date: startDateIso,
-        p_end_date: endDateIso
+        p_end_date: endDateIso,
+        p_dedup_fields: ['name_de', 'location', 'ort_id']
       })
     });
   };
@@ -255,12 +256,15 @@ async function fetchWeekMenuData(startDateIso, endDateIso) {
   return response.json();
 }
 
+const MENU_CACHE_SCHEMA = 'v2';
+
 function saveMenuCache(data) {
   try {
     const now = Date.now();
     const compacted = compactMenuPayload(data);
     localStorage.setItem('kstw_menu_cache', JSON.stringify(compacted));
     localStorage.setItem('kstw_menu_cache_time', now.toString());
+    localStorage.setItem('kstw_menu_cache_schema', MENU_CACHE_SCHEMA);
     state.cacheTimestamp = now;
   } catch (e) {
     logger.warn('Could not save menu cache to localStorage:', e);
@@ -271,7 +275,12 @@ function loadMenuCache() {
   try {
     const raw = localStorage.getItem('kstw_menu_cache');
     const time = localStorage.getItem('kstw_menu_cache_time');
-    if (!raw) return null;
+    const schema = localStorage.getItem('kstw_menu_cache_schema');
+    if (!raw || schema !== MENU_CACHE_SCHEMA) {
+      localStorage.removeItem('kstw_menu_cache');
+      localStorage.removeItem('kstw_menu_cache_time');
+      return null;
+    }
     const parsed = JSON.parse(raw);
     const validation = validateWeekMenu(parsed);
     if (!validation.valid) {

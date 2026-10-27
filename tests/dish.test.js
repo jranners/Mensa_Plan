@@ -176,6 +176,18 @@ describe('Dish Module', () => {
       custom_fields: []
     };
     expect(classifyDish(cheapSoup)).toBe('main');
+
+    // Mensa Lindenthal Pasta Theke / Nudelbuffet (0,77 € per 100g) is buffet, not side
+    const pastaTheke = {
+      name_de: 'Pasta Theke',
+      price: 0.77,
+      custom_fields: [
+        { field_id: 'CUSTOM_DPNAME', value: 'Nudelbuffet' },
+        { field_id: 'hinweise', value: 'Nudelbuffet' },
+        { field_id: 'menu_type', value: 'vegan/vegetarisch' }
+      ]
+    };
+    expect(classifyDish(pastaTheke)).toBe('buffet');
   });
 
   it('builds localized dish display name and component list', () => {

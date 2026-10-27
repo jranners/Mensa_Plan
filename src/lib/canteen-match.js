@@ -30,38 +30,17 @@ export function getCanteenKeyFromDish(dish, canteenKey, canteen) {
   const dishOrtId = (customFields['ort_id'] || '').trim();
   const canteenOrtId = (canteen.ort_id || '').trim();
 
-  // 1. Authoritative check on ort_id when dish provides a non-9999 ort_id
+  // 1. Direct match on ort_id when dish provides a non-9999 ort_id
   if (dishOrtId && dishOrtId !== '9999') {
     if (canteenOrtId && dishOrtId === canteenOrtId) return true;
-    if (canteenOrtId && dishOrtId !== canteenOrtId) return false;
-    if (!canteenOrtId && canteen.type === 'bistro') return false;
   }
 
   const dishLocation = (customFields['location'] || '').trim().toLowerCase();
   const canteenName = (canteen.name || '').trim().toLowerCase();
 
-  // 2. Exact match on normalized location name
-  if (dishLocation) {
-    if (canteenName && dishLocation === canteenName) {
-      return true;
-    }
-
-    // Check canteen keywords with exact comparison
-    if (Array.isArray(canteen.keywords)) {
-      for (const kw of canteen.keywords) {
-        const kwLower = kw.toLowerCase();
-        if (canteen.type === 'bistro') {
-          if (dishLocation === kwLower || dishLocation === `bistro ${kwLower}`) {
-            return true;
-          }
-        } else if (dishLocation === kwLower || dishLocation === `mensa ${kwLower}` || dishLocation === `bistro ${kwLower}`) {
-          return true;
-        }
-      }
-    }
-  }
-
-  // 3. Match via dish screens and menu_group_name
+  // 2. Match via dish screens and menu_group_name
+  // When KStW groups/shares dishes across multiple canteens, all participating
+  // canteens are listed in `dish.screens` even if `ort_id` only names one of them.
   const dishScreens = (dish.screens || []).map(s => (s.location || '').toLowerCase()).filter(Boolean);
   const dishScreenGroups = [
     ...(dish.screens || []).map(s => (s.screen_group_name || '').toLowerCase().trim()),
@@ -85,7 +64,7 @@ export function getCanteenKeyFromDish(dish, canteenKey, canteen) {
     }
   }
 
-  // Check screen group name (e.g. 'Mensa Zollstock', 'Bistro E-Raum')
+  // Check screen group name (e.g. 'Mensa Zollstock', 'Bistro E-Raum', 'Mensa Lindenthal')
   if (dishScreenGroups.length > 0) {
     for (const group of dishScreenGroups) {
       if (canteenScreenGroups.includes(group)) return true;
@@ -105,7 +84,34 @@ export function getCanteenKeyFromDish(dish, canteenKey, canteen) {
     }
   }
 
-  // 4. Mensa Lindenthal (Robert-Koch-Straße / ort_id 231)
+  // 3. Authoritative rejection on mismatched ort_id when not matched via screens
+  if (dishOrtId && dishOrtId !== '9999') {
+    if (canteenOrtId && dishOrtId !== canteenOrtId) return false;
+    if (!canteenOrtId && canteen.type === 'bistro') return false;
+  }
+
+  // 4. Exact match on normalized location name
+  if (dishLocation) {
+    if (canteenName && dishLocation === canteenName) {
+      return true;
+    }
+
+    // Check canteen keywords with exact comparison
+    if (Array.isArray(canteen.keywords)) {
+      for (const kw of canteen.keywords) {
+        const kwLower = kw.toLowerCase();
+        if (canteen.type === 'bistro') {
+          if (dishLocation === kwLower || dishLocation === `bistro ${kwLower}`) {
+            return true;
+          }
+        } else if (dishLocation === kwLower || dishLocation === `mensa ${kwLower}` || dishLocation === `bistro ${kwLower}`) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // 5. Mensa Lindenthal (Robert-Koch-Straße / ort_id 231)
   if (canteenKey === 'robertkoch' && (dishOrtId === '231' || dishLocation === 'mensa lindenthal')) {
     return true;
   }

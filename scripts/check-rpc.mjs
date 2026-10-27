@@ -38,7 +38,8 @@ async function main() {
     body: JSON.stringify({
       p_organization_id: orgId,
       p_start_date: startDate,
-      p_end_date: endDate
+      p_end_date: endDate,
+      p_dedup_fields: ['name_de', 'location', 'ort_id']
     })
   });
 

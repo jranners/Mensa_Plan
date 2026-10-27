@@ -47,7 +47,8 @@ async function fetchInterval(start, end) {
     body: JSON.stringify({
       p_organization_id: cfg.orgId,
       p_start_date: start,
-      p_end_date: end
+      p_end_date: end,
+      p_dedup_fields: ['name_de', 'location', 'ort_id']
     })
   });
   if (!res.ok) {

@@ -524,11 +524,25 @@ export function renderCanteenMenu(dayData, state) {
       })
     );
 
-    const seenNames = new Set();
+    // Prefer dish entries with explicit screen/counter info when duplicates exist
+    cDishes.sort((a, b) => {
+      const aHasScreens = Array.isArray(a.screens) && a.screens.length > 0 ? 1 : 0;
+      const bHasScreens = Array.isArray(b.screens) && b.screens.length > 0 ? 1 : 0;
+      return bHasScreens - aHasScreens;
+    });
+
+    const seenKeys = new Set();
     cDishes = cDishes.filter((dish) => {
       const cleanName = cleanDishNameForFavorite(dish);
-      if (seenNames.has(cleanName)) return false;
-      seenNames.add(cleanName);
+      const cls = classifyDish(dish);
+      let dedupKey = `${cls}::${cleanName}`;
+      if (cls === 'main' || cls === 'meisterwerk') {
+        const cf = dish.custom_fields || [];
+        const ger2 = (cf.find((f) => f.field_id === 'dish_ger_2')?.value || '').trim().toLowerCase();
+        if (ger2) dedupKey += `::${ger2}`;
+      }
+      if (seenKeys.has(dedupKey)) return false;
+      seenKeys.add(dedupKey);
       return true;
     });
 
