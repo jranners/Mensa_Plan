@@ -549,25 +549,34 @@ export function renderCanteenMenu(dayData, state) {
     let hoursBadgeHTML = '';
     const displayHours = dayHours || serviceWindow;
     if (displayHours && displayHours.isOpenToday !== false) {
-      const hoursText = displayHours.formatted || `${displayHours.label || ''}${t.hoursSuffix}`;
+      const baseHoursText = displayHours.formatted || `${displayHours.label || ''}${t.hoursSuffix}`;
+      const hoursText = displayHours.note ? `${baseHoursText} (${displayHours.note})` : baseHoursText;
+      const servingLabel = t.servingHoursLabel || (state.lang === 'de' ? 'Essensausgabe' : 'Food service');
+      const titleAttr = displayHours.openHours
+        ? ` title="${escapeHtml(`${t.buildingHoursLabel || (state.lang === 'de' ? 'Öffnungszeiten vor Ort' : 'Building hours')}: ${displayHours.openHours}`)}"`
+        : '';
       if (isViewingToday) {
         const status = getCanteenOpenStatus(displayHours, currentDecimalHour);
         const effectiveEndHour = Math.max(
-          displayHours.endHour || 0,
+          displayHours.extendedEndHour || displayHours.endHour || 0,
           serviceWindow ? serviceWindow.endHour : 0
         );
-        if (status === 'open') {
+        const isClosingSoon =
+          status.isOpen &&
+          status.minutesUntilClose !== null &&
+          status.minutesUntilClose <= 30;
+        if (isClosingSoon) {
           hoursBadgeHTML = `
-            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60 shadow-xs">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>${escapeHtml(t.statusOpen)} · ${escapeHtml(hoursText)}</span>
+            <span${titleAttr} class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60 shadow-xs">
+              <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              <span>${escapeHtml(servingLabel)} · ${escapeHtml(t.statusClosingSoon)} · ${escapeHtml(hoursText)}</span>
             </span>
           `;
-        } else if (status === 'closing-soon') {
+        } else if (status.isOpen) {
           hoursBadgeHTML = `
-            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60 shadow-xs">
-              <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-              <span>${escapeHtml(t.statusClosingSoon)} · ${escapeHtml(hoursText)}</span>
+            <span${titleAttr} class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60 shadow-xs">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>${escapeHtml(servingLabel)} · ${escapeHtml(t.statusOpen)} · ${escapeHtml(hoursText)}</span>
             </span>
           `;
         } else {
@@ -576,17 +585,17 @@ export function renderCanteenMenu(dayData, state) {
             ? ` · ${escapeHtml(t.dishTimeEnded || (state.lang === 'de' ? 'Beendet' : 'Ended'))}`
             : '';
           hoursBadgeHTML = `
-            <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+            <span${titleAttr} class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
               ${getIconHTML('schedule', 'text-[13px] opacity-75')}
-              <span>${escapeHtml(hoursText)}${endedSuffix}</span>
+              <span>${escapeHtml(servingLabel)} · ${escapeHtml(hoursText)}${endedSuffix}</span>
             </span>
           `;
         }
       } else {
         hoursBadgeHTML = `
-          <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-white/80 text-slate-600 border border-slate-200/80 dark:bg-[#122338] dark:text-slate-300 dark:border-white/10 shadow-xs">
+          <span${titleAttr} class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-white/80 text-slate-600 border border-slate-200/80 dark:bg-[#122338] dark:text-slate-300 dark:border-white/10 shadow-xs">
             ${getIconHTML('schedule', 'text-[13px] text-primary-container dark:text-price-badge')}
-            <span>${escapeHtml(hoursText)}</span>
+            <span>${escapeHtml(servingLabel)} · ${escapeHtml(hoursText)}</span>
           </span>
         `;
       }

@@ -8,7 +8,7 @@ export const CANTEENS = {
     "latitude": 50.927269,
     "longitude": 6.933479,
     "phone": "+49 221 944 053 426",
-    "infokurz": "Mo - Fr 11.30 - 21.00 Uhr\nSa 11.30 - 15.00 Uhr",
+    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr (MG Nord bis 18.15 Uhr)",
     "ort_id": "201",
     "keywords": ["Zülpicher", "MZS", "Uni-Mensa", "Mensa Zülpicher Straße"],
     "screen_locations": [
@@ -28,7 +28,7 @@ export const CANTEENS = {
     "latitude": 50.934014,
     "longitude": 6.988374,
     "phone": "+49 221 829 584 11",
-    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
+    "infokurz": "Mo - Fr 11.00 - 14.15 Uhr",
     "ort_id": "281",
     "keywords": ["Deutz"],
     "screen_locations": [
@@ -62,7 +62,7 @@ export const CANTEENS = {
     "latitude": 50.935958,
     "longitude": 6.870339,
     "phone": "+49 221 9472 335",
-    "infokurz": "Mo - Do 11.15 - 14.30 Uhr\nFr 11.15 - 14.15 Uhr",
+    "infokurz": "Mo - Fr 11.15 - 14.30 Uhr",
     "ort_id": "271",
     "keywords": ["Sportpark", "SpoHo", "Müngersdorf"],
     "screen_locations": [
@@ -81,7 +81,7 @@ export const CANTEENS = {
     "latitude": 50.927952,
     "longitude": 6.927956,
     "phone": "+49 221 9415 573",
-    "infokurz": "Mo - Do 07.30 - 18.00 Uhr\nFr 07.30 - 15.00 Uhr",
+    "infokurz": "Mo - Do 11.00 - 17.00 Uhr\nFr 11.00 - 15.00 Uhr",
     "ort_id": null,
     "keywords": ["E-Raum", "Uni E-Raum"],
     "screen_locations": [
@@ -97,7 +97,7 @@ export const CANTEENS = {
     "latitude": 50.92297,
     "longitude": 6.967381,
     "phone": "+49 221 9469 384",
-    "infokurz": "Mo - Do 11.30 - 18.00 Uhr\nFr 11.30 - 16.00 Uhr",
+    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
     "ort_id": "242",
     "keywords": ["Himmelsblick", "Claudiusstraße", "Mensa Claudiusstraße", "Mensa Claudiusstrasse"],
     "screen_locations": [
@@ -113,7 +113,7 @@ export const CANTEENS = {
     "latitude": 51.028892,
     "longitude": 7.562499,
     "phone": "+49 2261 919 266",
-    "infokurz": "Mo - Do 11.30 - 15.00 Uhr\nFr 11.30 - 14.00 Uhr",
+    "infokurz": "Mo - Fr 11.15 - 14.30 Uhr",
     "ort_id": "291",
     "keywords": ["Gummersbach"],
     "screen_locations": [
@@ -130,7 +130,7 @@ export const CANTEENS = {
     "latitude": 50.933591,
     "longitude": 6.959581,
     "phone": "+49 221 201 893 81",
-    "infokurz": "Mo - Fr 10.00 - 17.00 Uhr",
+    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
     "ort_id": null,
     "keywords": ["Kunsthochschule", "Medien", "KHM"],
     "screen_locations": [
@@ -146,7 +146,7 @@ export const CANTEENS = {
     "latitude": 50.9341609,
     "longitude": 6.9195527,
     "phone": "+49 221 9129 486",
-    "infokurz": "Mo - Do 07.30 - 18.00 Uhr\nFr 07.30 - 16.00 Uhr",
+    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
     "ort_id": null,
     "keywords": ["Lindenthal"],
     "screen_locations": [
@@ -162,7 +162,7 @@ export const CANTEENS = {
     "latitude": 50.948299,
     "longitude": 6.960454,
     "phone": "+49 221 9129 486",
-    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
+    "infokurz": "Mo - Fr 11.30 - 14.15 Uhr",
     "ort_id": "261",
     "keywords": ["Musikhochschule", "MuHo"],
     "screen_locations": [
@@ -178,7 +178,7 @@ export const CANTEENS = {
     "latitude": 50.929517,
     "longitude": 6.923275,
     "phone": "+49 221 941 57 09",
-    "infokurz": "Mo - Fr 11.00 - 15.00 Uhr",
+    "infokurz": "Mo - Fr 11.00 - 14.15 Uhr",
     "ort_id": "231",
     "keywords": ["Robert-Koch-Straße", "Robert Koch", "Mensa Lindenthal"],
     "screen_locations": [
@@ -197,7 +197,7 @@ export const CANTEENS = {
     "latitude": 51.06218,
     "longitude": 7.01291,
     "phone": "+49 217 136 634 82",
-    "infokurz": "Mo - Fr 11.30 - 14.00 Uhr",
+    "infokurz": "Mo - Fr 11.00 - 13.30 Uhr",
     "ort_id": "235",
     "keywords": ["Leverkusen"],
     "screen_locations": [
@@ -229,7 +229,7 @@ export const CANTEENS = {
     "latitude": 50.92811,
     "longitude": 6.92776,
     "phone": "+49 221 9415 570",
-    "infokurz": "Mo - Do 08.00 - 17.00 Uhr\nFr 08.00 - 15.00 Uhr",
+    "infokurz": "Mo - Fr 11.30 - 14.30 Uhr",
     "ort_id": null,
     "keywords": ["PhilCafé", "Phil Cafe"],
     "screen_locations": [

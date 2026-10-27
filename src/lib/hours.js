@@ -1,85 +1,222 @@
 /**
- * Structured opening hours and status calculation for canteens
+ * Structured food serving hours (Essensausgabezeiten) and status calculation for canteens.
+ * Source: https://www.kstw.de/gastronomie/mensen-bistros-und-kaffeebars/
  */
 
 /**
- * Structured opening hours mapped by canteen key.
+ * Structured food serving hours (Essensausgabezeiten) mapped by canteen key.
+ * Primary `start`/`end` (`startHour`/`endHour`) reflect when warm meals are served.
+ * Optional `noteDe`/`noteEn` and `openHoursDe`/`openHoursEn` provide secondary context
+ * (e.g., Abendmensa in MG Nord or extended building/bistro/coffee bar hours).
  * Times are stored in decimal hours (e.g. 11.5 = 11:30, 14.25 = 14:15).
  */
 export const CANTEEN_HOURS = {
   'unimensa': {
-    weekdays: { start: '11:30', end: '21:00', startHour: 11.5, endHour: 21.0 },
-    saturday: { start: '11:30', end: '15:00', startHour: 11.5, endHour: 15.0 },
+    weekdays: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      extendedEndHour: 18.25,
+      noteDe: 'MG Nord bis 18:15',
+      noteEn: 'MG Nord until 18:15',
+      openHoursDe: 'Mo - Fr 11:30 - 15:00 Uhr (MG Nord bis 18:45, Kaffeebar 09:00 - 16:00)',
+      openHoursEn: 'Mon - Fri 11:30 - 15:00 (MG Nord until 18:45, Coffee bar 09:00 - 16:00)'
+    },
+    saturday: null,
     sunday: null
   },
   'iwz-deutz': {
-    weekdays: { start: '11:30', end: '14:30', startHour: 11.5, endHour: 14.5 },
+    weekdays: {
+      start: '11:00',
+      end: '14:15',
+      startHour: 11.0,
+      endHour: 14.25,
+      openHoursDe: 'Mensa 11:00 - 14:15 Uhr · Bistro Mo - Do 07:30 - 15:30, Fr 07:30 - 14:15 Uhr',
+      openHoursEn: 'Canteen 11:00 - 14:15 · Bistro Mon - Thu 07:30 - 15:30, Fri 07:30 - 14:15'
+    },
     saturday: null,
     sunday: null
   },
   'suedstadt': {
-    weekdays: { start: '11:30', end: '14:30', startHour: 11.5, endHour: 14.5 },
+    weekdays: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      openHoursDe: 'Mensa 07:30 - 15:00 Uhr · Kaffeebar Mo - Do 07:30 - 16:00, Fr bis 14:45 Uhr',
+      openHoursEn: 'Canteen 07:30 - 15:00 · Coffee bar Mon - Thu 07:30 - 16:00, Fri until 14:45'
+    },
     saturday: null,
     sunday: null
   },
   'spoho': {
-    monday_thursday: { start: '11:15', end: '14:30', startHour: 11.25, endHour: 14.5 },
-    friday: { start: '11:15', end: '14:15', startHour: 11.25, endHour: 14.25 },
+    weekdays: {
+      start: '11:15',
+      end: '14:30',
+      startHour: 11.25,
+      endHour: 14.5,
+      openHoursDe: 'Mensa 11:15 - 14:30 Uhr · Bistro Auszeit Mo - Do 08:00 - 18:00, Fr 08:00 - 14:30 Uhr',
+      openHoursEn: 'Canteen 11:15 - 14:30 · Bistro Auszeit Mon - Thu 08:00 - 18:00, Fri 08:00 - 14:30'
+    },
     saturday: null,
     sunday: null
   },
   'eraum': {
-    monday_thursday: { start: '07:30', end: '18:00', startHour: 7.5, endHour: 18.0 },
-    friday: { start: '07:30', end: '15:00', startHour: 7.5, endHour: 15.0 },
+    monday_thursday: {
+      start: '11:00',
+      end: '17:00',
+      startHour: 11.0,
+      endHour: 17.0,
+      noteDe: 'Bistro ab 07:30',
+      noteEn: 'Bistro from 07:30',
+      openHoursDe: 'Bistro Mo - Do 07:30 - 17:00 Uhr (Warme Speisen ab 11:00 Uhr)',
+      openHoursEn: 'Bistro Mon - Thu 07:30 - 17:00 (Warm dishes from 11:00)'
+    },
+    friday: {
+      start: '11:00',
+      end: '15:00',
+      startHour: 11.0,
+      endHour: 15.0,
+      noteDe: 'Bistro ab 07:30',
+      noteEn: 'Bistro from 07:30',
+      openHoursDe: 'Bistro Fr 07:30 - 15:00 Uhr (Warme Speisen ab 11:00 Uhr)',
+      openHoursEn: 'Bistro Fri 07:30 - 15:00 (Warm dishes from 11:00)'
+    },
     saturday: null,
     sunday: null
   },
   'cafe-himmelsblick': {
-    monday_thursday: { start: '11:30', end: '18:00', startHour: 11.5, endHour: 18.0 },
-    friday: { start: '11:30', end: '16:00', startHour: 11.5, endHour: 16.0 },
+    monday_thursday: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      noteDe: 'Kaffeebar bis 16:00',
+      noteEn: 'Coffee bar until 16:00',
+      openHoursDe: 'Mensa 11:30 - 14:30 Uhr · Kaffeebar Mo - Do 07:30 - 16:00 Uhr',
+      openHoursEn: 'Canteen 11:30 - 14:30 · Coffee bar Mon - Thu 07:30 - 16:00'
+    },
+    friday: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      noteDe: 'Kaffeebar bis 15:00',
+      noteEn: 'Coffee bar until 15:00',
+      openHoursDe: 'Mensa 11:30 - 14:30 Uhr · Kaffeebar Fr 07:30 - 15:00 Uhr',
+      openHoursEn: 'Canteen 11:30 - 14:30 · Coffee bar Fri 07:30 - 15:00'
+    },
     saturday: null,
     sunday: null
   },
   'gummersbach': {
-    monday_thursday: { start: '11:30', end: '15:00', startHour: 11.5, endHour: 15.0 },
-    friday: { start: '11:30', end: '14:00', startHour: 11.5, endHour: 14.0 },
+    weekdays: {
+      start: '11:15',
+      end: '14:30',
+      startHour: 11.25,
+      endHour: 14.5,
+      openHoursDe: 'Mensa 08:00 - 15:00 Uhr · Kaffeebar 08:30 - 14:00 Uhr',
+      openHoursEn: 'Canteen 08:00 - 15:00 · Coffee bar 08:30 - 14:00'
+    },
     saturday: null,
     sunday: null
   },
   'kunsthochschule-medien': {
-    weekdays: { start: '10:00', end: '17:00', startHour: 10.0, endHour: 17.0 },
+    weekdays: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      openHoursDe: 'Öffnungszeit Mo - Fr 09:30 - 14:45 Uhr',
+      openHoursEn: 'Opening hours Mon - Fri 09:30 - 14:45'
+    },
     saturday: null,
     sunday: null
   },
   'lindenthal': {
-    monday_thursday: { start: '07:30', end: '18:00', startHour: 7.5, endHour: 18.0 },
-    friday: { start: '07:30', end: '16:00', startHour: 7.5, endHour: 16.0 },
+    monday_thursday: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      noteDe: 'Bistro 07:30 - 16:00',
+      noteEn: 'Bistro 07:30 - 16:00',
+      openHoursDe: 'Bistro Mo - Do 07:30 - 16:00 Uhr · Kaffeebar 09:00 - 14:00 Uhr',
+      openHoursEn: 'Bistro Mon - Thu 07:30 - 16:00 · Coffee bar 09:00 - 14:00'
+    },
+    friday: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      noteDe: 'Bistro 07:30 - 14:30',
+      noteEn: 'Bistro 07:30 - 14:30',
+      openHoursDe: 'Bistro Fr 07:30 - 14:30 Uhr · Kaffeebar 09:00 - 14:00 Uhr',
+      openHoursEn: 'Bistro Fri 07:30 - 14:30 · Coffee bar 09:00 - 14:00'
+    },
     saturday: null,
     sunday: null
   },
   'muho': {
-    weekdays: { start: '11:30', end: '14:30', startHour: 11.5, endHour: 14.5 },
+    weekdays: {
+      start: '11:30',
+      end: '14:15',
+      startHour: 11.5,
+      endHour: 14.25,
+      openHoursDe: 'Mensa 11:30 - 14:15 Uhr · Kaffeebar 08:30 - 16:00 Uhr',
+      openHoursEn: 'Canteen 11:30 - 14:15 · Coffee bar 08:30 - 16:00'
+    },
     saturday: null,
     sunday: null
   },
   'robertkoch': {
-    weekdays: { start: '11:00', end: '15:00', startHour: 11.0, endHour: 15.0 },
+    weekdays: {
+      start: '11:00',
+      end: '14:15',
+      startHour: 11.0,
+      endHour: 14.25,
+      openHoursDe: 'Öffnungszeit Mo - Fr 11:00 - 15:00 Uhr (Essensausgabe bis 14:15 Uhr)',
+      openHoursEn: 'Opening hours Mon - Fri 11:00 - 15:00 (Food service until 14:15)'
+    },
     saturday: null,
     sunday: null
   },
   'leverkusen': {
-    weekdays: { start: '11:30', end: '14:00', startHour: 11.5, endHour: 14.0 },
+    weekdays: {
+      start: '11:00',
+      end: '13:30',
+      startHour: 11.0,
+      endHour: 13.5,
+      openHoursDe: 'Öffnungszeit Mo - Fr 08:45 - 13:30 Uhr',
+      openHoursEn: 'Opening hours Mon - Fri 08:45 - 13:30'
+    },
     saturday: null,
     sunday: null
   },
   'zollstock': {
-    weekdays: { start: '11:30', end: '14:30', startHour: 11.5, endHour: 14.5 },
+    weekdays: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      openHoursDe: 'Öffnungszeit Mo - Fr 09:00 - 15:00 Uhr',
+      openHoursEn: 'Opening hours Mon - Fri 09:00 - 15:00'
+    },
     saturday: null,
     sunday: null
   },
   'philcafe': {
-    monday_thursday: { start: '08:00', end: '17:00', startHour: 8.0, endHour: 17.0 },
-    friday: { start: '08:00', end: '15:00', startHour: 8.0, endHour: 15.0 },
+    weekdays: {
+      start: '11:30',
+      end: '14:30',
+      startHour: 11.5,
+      endHour: 14.5,
+      noteDe: 'Bistro 09:00 - 15:00',
+      noteEn: 'Bistro 09:00 - 15:00',
+      openHoursDe: 'Warme Gerichte 11:30 - 14:30 Uhr · Salatbuffet 10:00 - 14:30 Uhr · Bistro 09:00 - 15:00 Uhr · Kaffeebar 08:00 - 17:00 Uhr',
+      openHoursEn: 'Warm dishes 11:30 - 14:30 · Salad buffet 10:00 - 14:30 · Bistro 09:00 - 15:00 · Coffee bar 08:00 - 17:00'
+    },
     saturday: null,
     sunday: null
   }
@@ -156,15 +293,23 @@ export function getCanteenHoursForDay(canteenKey, dayOfWeek, canteen = null, lan
       isOpenToday: false,
       startHour: 0,
       endHour: 0,
+      extendedEndHour: null,
+      note: null,
+      openHours: null,
       formatted: lang === 'de' ? 'Geschlossen' : 'Closed'
     };
   }
 
   const suffix = lang === 'de' ? ' Uhr' : '';
+  const note = (lang === 'de' ? window.noteDe : window.noteEn) || null;
+  const openHours = (lang === 'de' ? window.openHoursDe : window.openHoursEn) || null;
   return {
     isOpenToday: true,
     startHour: window.startHour,
     endHour: window.endHour,
+    extendedEndHour: window.extendedEndHour || null,
+    note,
+    openHours,
     formatted: `${window.start} - ${window.end}${suffix}`
   };
 }

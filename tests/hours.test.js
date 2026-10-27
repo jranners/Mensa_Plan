@@ -14,32 +14,50 @@ describe('Hours Module', () => {
     expect(formatDecimalHour(21)).toBe('21:00');
   });
 
-  it('retrieves weekday opening hours', () => {
-    // Monday (1)
+  it('retrieves official KStW weekday food serving hours (Essensausgabezeiten)', () => {
+    // Monday (1) for Deutz (11:00 - 14:15)
     const deutzMon = getCanteenHoursForDay('iwz-deutz', 1, CANTEENS['iwz-deutz']);
     expect(deutzMon.isOpenToday).toBe(true);
-    expect(deutzMon.startHour).toBe(11.5);
-    expect(deutzMon.endHour).toBe(14.5);
-    expect(deutzMon.formatted).toBe('11:30 - 14:30 Uhr');
+    expect(deutzMon.startHour).toBe(11.0);
+    expect(deutzMon.endHour).toBe(14.25);
+    expect(deutzMon.formatted).toBe('11:00 - 14:15 Uhr');
 
-    // Friday (5) specific for SpoHo (closes 14:15 instead of 14:30)
+    // Monday (1) & Friday (5) for SpoHo (11:15 - 14:30)
     const spohoFri = getCanteenHoursForDay('spoho', 5, CANTEENS['spoho']);
     expect(spohoFri.isOpenToday).toBe(true);
-    expect(spohoFri.endHour).toBe(14.25);
-    expect(spohoFri.formatted).toBe('11:15 - 14:15 Uhr');
+    expect(spohoFri.endHour).toBe(14.5);
+    expect(spohoFri.formatted).toBe('11:15 - 14:30 Uhr');
 
-    // Monday (1) for SpoHo (11:15 - 14:30)
     const spohoMon = getCanteenHoursForDay('spoho', 1, CANTEENS['spoho']);
     expect(spohoMon.endHour).toBe(14.5);
     expect(spohoMon.formatted).toBe('11:15 - 14:30 Uhr');
+
+    // Mensa Lindenthal Robert-Koch-Straße (11:00 - 14:15, building open until 15:00)
+    const robertkochMon = getCanteenHoursForDay('robertkoch', 1, CANTEENS['robertkoch']);
+    expect(robertkochMon.startHour).toBe(11.0);
+    expect(robertkochMon.endHour).toBe(14.25);
+    expect(robertkochMon.formatted).toBe('11:00 - 14:15 Uhr');
+    expect(robertkochMon.openHours).toContain('11:00 - 15:00');
+
+    // Mensa Leverkusen (11:00 - 13:30)
+    const levMon = getCanteenHoursForDay('leverkusen', 1, CANTEENS['leverkusen']);
+    expect(levMon.startHour).toBe(11.0);
+    expect(levMon.endHour).toBe(13.5);
+    expect(levMon.formatted).toBe('11:00 - 13:30 Uhr');
+
+    // Mensa Zülpicher Straße (11:30 - 14:30, MG Nord until 18:15)
+    const uniMon = getCanteenHoursForDay('unimensa', 1, CANTEENS['unimensa']);
+    expect(uniMon.startHour).toBe(11.5);
+    expect(uniMon.endHour).toBe(14.5);
+    expect(uniMon.extendedEndHour).toBe(18.25);
+    expect(uniMon.note).toBe('MG Nord bis 18:15');
   });
 
   it('handles weekend opening hours correctly', () => {
-    // Saturday (6) for Uni-Mensa (open 11:30 - 15:00)
+    // Saturday (6) for Uni-Mensa (closed)
     const uniSat = getCanteenHoursForDay('unimensa', 6, CANTEENS['unimensa']);
-    expect(uniSat.isOpenToday).toBe(true);
-    expect(uniSat.startHour).toBe(11.5);
-    expect(uniSat.endHour).toBe(15.0);
+    expect(uniSat.isOpenToday).toBe(false);
+    expect(uniSat.formatted).toBe('Geschlossen');
 
     // Saturday (6) for Deutz (closed)
     const deutzSat = getCanteenHoursForDay('iwz-deutz', 6, CANTEENS['iwz-deutz']);

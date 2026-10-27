@@ -333,7 +333,9 @@ export const TRANSLATIONS = {
     changelogCloseBtn: "Los geht’s! 🚀",
     canteenNoFilterMatches: "Keine passenden Gerichte für deine aktiven Filter ({count} ausgeblendet).",
     canteenNoDishesBistro: "Für dieses Bistro sind an diesem Tag (noch) keine Gerichte im Speiseplan eingetragen.",
-    canteenNoDishesMensa: "Für diese Mensa sind an diesem Tag keine Gerichte im Speiseplan eingetragen."
+    canteenNoDishesMensa: "Für diese Mensa sind an diesem Tag keine Gerichte im Speiseplan eingetragen.",
+    servingHoursLabel: "Essensausgabe",
+    buildingHoursLabel: "Öffnungszeiten vor Ort"
   },
   en: {
     title: "Mensaplan",
@@ -669,6 +671,8 @@ export const TRANSLATIONS = {
     changelogCloseBtn: "Let’s go! 🚀",
     canteenNoFilterMatches: "No dishes match your active filters ({count} hidden).",
     canteenNoDishesBistro: "No dishes are registered in the menu for this bistro on this day (yet).",
-    canteenNoDishesMensa: "No dishes are registered in the menu for this canteen on this day."
+    canteenNoDishesMensa: "No dishes are registered in the menu for this canteen on this day.",
+    servingHoursLabel: "Food service",
+    buildingHoursLabel: "Building hours"
   }
 };
